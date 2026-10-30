@@ -9,6 +9,7 @@ type Props = {
   onCamera: () => void;
   onGallery: () => void;
   onSample: () => void;
+  sampleLabel?: string;
 };
 
 const STEPS = [
@@ -25,7 +26,7 @@ const PREVIEW = [
   { color: '#D9C2A0', design: 'cromado' },
 ] as const;
 
-export function TryOnIntro({ onCamera, onGallery, onSample }: Props) {
+export function TryOnIntro({ onCamera, onGallery, onSample, sampleLabel = 'Experimentar com mão de exemplo' }: Props) {
   return (
     <View>
       <LinearGradient colors={[colors.wine, colors.plum]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
@@ -69,7 +70,7 @@ export function TryOnIntro({ onCamera, onGallery, onSample }: Props) {
         <Text style={styles.secondaryText}>Escolher da galeria</Text>
       </Pressable>
       <Pressable onPress={onSample} hitSlop={8} style={styles.link}>
-        <Text style={styles.linkText}>Experimentar com mão de exemplo</Text>
+        <Text style={styles.linkText}>{sampleLabel}</Text>
       </Pressable>
     </View>
   );

@@ -1,4 +1,4 @@
-import type { DesignId } from '@/data/catalog';
+import type { DesignId, ShapeId } from '@/data/catalog';
 
 // Posição de uma unha sobre a foto. x/y são o centro, em fração da largura/altura do provador;
 // w/h são em fração da largura (assim a unha mantém a proporção em qualquer tamanho de tela).
@@ -14,6 +14,7 @@ export type NailSpot = {
 export type Look = {
   polishId: string;
   designId: DesignId;
+  shapeId: ShapeId;
   // Decoração diferente aplicada em uma unha (geralmente o anelar).
   accentDesign: DesignId | null;
 };

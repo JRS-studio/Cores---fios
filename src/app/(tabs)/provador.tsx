@@ -6,7 +6,8 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Nail } from '@/components/Nail';
-import { ACCENT_PRICE, designById, designs, polishById, polishes, type DesignId } from '@/data/catalog';
+import { ACCENT_PRICE, designById, designs, polishById, polishes, shapeById, shapes, type DesignId } from '@/data/catalog';
+import { getDemoPhoto } from '@/features/tryon/demoPhoto';
 import { SAMPLE_NAILS } from '@/features/tryon/SampleHand';
 import { TryOnCanvas } from '@/features/tryon/TryOnCanvas';
 import { TryOnIntro } from '@/features/tryon/TryOnIntro';
@@ -15,12 +16,18 @@ import { colors, fonts, radius, shadow } from '@/theme';
 
 const MAX_NAILS = 5;
 const ACCENT_OPTIONS: (DesignId | null)[] = [null, 'glitter', 'poa', 'cromado', 'francesinha'];
-const INITIAL_LOOK: Look = { polishId: 'rubi', designId: 'gel', accentDesign: null };
+const INITIAL_LOOK: Look = { polishId: 'rubi', designId: 'gel', shapeId: 'natural', accentDesign: null };
 
 const brl = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 });
 
-const lookPrice = (look: Look) => designById(look.designId).price + (look.accentDesign ? ACCENT_PRICE : 0);
+const lookPrice = (look: Look) =>
+  designById(look.designId).price + shapeById(look.shapeId).price + (look.accentDesign ? ACCENT_PRICE : 0);
+
+const lookName = (look: Look) => {
+  const shape = look.shapeId === 'natural' ? '' : ` ${shapeById(look.shapeId).name.toLowerCase()}`;
+  return `${designById(look.designId).name}${shape} · ${polishById(look.polishId).name}`;
+};
 
 export default function ProvadorScreen() {
   const insets = useSafeAreaInsets();
@@ -60,8 +67,9 @@ export default function ProvadorScreen() {
   }
 
   function startSample() {
-    setSource('sample');
-    setNails(SAMPLE_NAILS);
+    const demo = getDemoPhoto();
+    setSource(demo ? { uri: demo.uri } : 'sample');
+    setNails(demo ? demo.nails : SAMPLE_NAILS);
     setSelectedId(null);
     setAccentNailId('anelar');
     setEditing(false);
@@ -99,7 +107,11 @@ export default function ProvadorScreen() {
 
   function saveLook() {
     const exists = saved.some(
-      (s) => s.polishId === look.polishId && s.designId === look.designId && s.accentDesign === look.accentDesign,
+      (s) =>
+        s.polishId === look.polishId &&
+        s.designId === look.designId &&
+        s.shapeId === look.shapeId &&
+        s.accentDesign === look.accentDesign,
     );
     if (exists) return;
     setSaved((prev) => [{ ...look, id: `${Date.now()}` }, ...prev].slice(0, 6));
@@ -109,7 +121,7 @@ export default function ProvadorScreen() {
     const accent = look.accentDesign ? ` + destaque ${designById(look.accentDesign).name}` : '';
     router.navigate({
       pathname: '/agenda',
-      params: { servico: `${design.name} ${polish.name}${accent}`, valor: String(total) },
+      params: { servico: `${lookName(look)}${accent}`, valor: String(total) },
     });
   }
 
@@ -135,7 +147,7 @@ export default function ProvadorScreen() {
       </View>
 
       {!source ? (
-        <TryOnIntro onCamera={() => pickImage(true)} onGallery={() => pickImage(false)} onSample={startSample} />
+        <TryOnIntro onCamera={() => pickImage(true)} onGallery={() => pickImage(false)} onSample={startSample} sampleLabel={getDemoPhoto() ? 'Experimentar com foto de exemplo' : undefined} />
       ) : (
         <>
           {editing && (
@@ -244,9 +256,24 @@ export default function ProvadorScreen() {
                   const active = d.id === look.designId;
                   return (
                     <Pressable key={d.id} style={[styles.designCard, active && styles.designCardActive]} onPress={() => setLook({ ...look, designId: d.id })}>
-                      <Nail color={polish.color} design={d.id} width={30} height={42} />
+                      <Nail color={polish.color} design={d.id} shape={look.shapeId} width={30} height={46} />
                       <Text style={[styles.designName, active && styles.designNameActive]}>{d.name}</Text>
                       <Text style={[styles.designPrice, active && styles.designPriceActive]}>{brl(d.price)}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+
+              <Text style={styles.sectionTitle}>Formato</Text>
+              <Text style={styles.sectionHint}>Natural usa a unha da cliente; os demais incluem alongamento.</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bleed} contentContainerStyle={styles.hList}>
+                {shapes.map((sh) => {
+                  const active = sh.id === look.shapeId;
+                  return (
+                    <Pressable key={sh.id} style={[styles.designCard, active && styles.designCardActive]} onPress={() => setLook({ ...look, shapeId: sh.id })}>
+                      <Nail color={polish.color} design={look.designId} shape={sh.id} width={30} height={46} />
+                      <Text style={[styles.designName, active && styles.designNameActive]}>{sh.name}</Text>
+                      <Text style={[styles.designPrice, active && styles.designPriceActive]}>{sh.price ? `+${brl(sh.price)}` : 'Incluso'}</Text>
                     </Pressable>
                   );
                 })}
@@ -269,11 +296,10 @@ export default function ProvadorScreen() {
                 <Text style={styles.summaryLabel}>Seu serviço</Text>
                 <View style={styles.summaryRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.summaryTitle}>
-                      {design.name} · {polish.name}
-                    </Text>
+                    <Text style={styles.summaryTitle}>{lookName(look)}</Text>
                     <Text style={styles.summaryDetail}>
                       {design.description}
+                      {look.shapeId !== 'natural' ? ` + alongamento ${shapeById(look.shapeId).name.toLowerCase()}` : ''}
                       {look.accentDesign ? ` + destaque ${designById(look.accentDesign).name.toLowerCase()}` : ''}
                     </Text>
                   </View>
@@ -304,13 +330,14 @@ export default function ProvadorScreen() {
                               key={i}
                               color={polishById(s.polishId).color}
                               design={i === 2 && s.accentDesign ? s.accentDesign : s.designId}
+                              shape={s.shapeId}
                               width={20}
-                              height={28}
+                              height={32}
                             />
                           ))}
                         </View>
                         <Text style={styles.savedName} numberOfLines={1}>
-                          {designById(s.designId).name} · {polishById(s.polishId).name}
+                          {lookName(s)}
                         </Text>
                         <Text style={styles.designPrice}>{brl(lookPrice(s))}</Text>
                         <Pressable

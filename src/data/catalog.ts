@@ -15,11 +15,12 @@ export const polishes: Polish[] = [
   { id: 'lilas', name: 'Lilás', color: '#B59BD6' },
   { id: 'menta', name: 'Menta', color: '#A8D8C2' },
   { id: 'branco', name: 'Branco', color: '#F7F4F2' },
+  { id: 'prata', name: 'Prata', color: '#A3A5AB' },
   { id: 'terracota', name: 'Terracota', color: '#B5543A' },
   { id: 'verde-oliva', name: 'Oliva', color: '#6E7445' },
 ];
 
-export type DesignId = 'cremoso' | 'gel' | 'francesinha' | 'baby-boomer' | 'glitter' | 'cromado' | 'poa';
+export type DesignId = 'cremoso' | 'gel' | 'matte' | 'francesinha' | 'baby-boomer' | 'glitter' | 'cromado' | 'poa';
 
 export type Design = {
   id: DesignId;
@@ -31,6 +32,7 @@ export type Design = {
 export const designs: Design[] = [
   { id: 'cremoso', name: 'Tradicional', description: 'Esmalte cremoso', price: 35 },
   { id: 'gel', name: 'Gel', description: 'Brilho intenso, dura até 3 semanas', price: 70 },
+  { id: 'matte', name: 'Matte', description: 'Acabamento aveludado, sem brilho', price: 55 },
   { id: 'francesinha', name: 'Francesinha', description: 'Ponta colorida, base nude', price: 45 },
   { id: 'baby-boomer', name: 'Baby Boomer', description: 'Degradê suave para o nude', price: 80 },
   { id: 'glitter', name: 'Glitter', description: 'Cor com brilho cintilante', price: 60 },

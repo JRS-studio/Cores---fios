@@ -13,13 +13,12 @@ import { TryOnCanvas } from '@/features/tryon/TryOnCanvas';
 import { TryOnIntro } from '@/features/tryon/TryOnIntro';
 import type { Look, NailSpot, SavedLook } from '@/features/tryon/types';
 import { colors, fonts, radius, shadow } from '@/theme';
+import { brl } from '@/utils/format';
 
 const MAX_NAILS = 5;
 const ACCENT_OPTIONS: (DesignId | null)[] = [null, 'glitter', 'poa', 'cromado', 'francesinha'];
 const INITIAL_LOOK: Look = { polishId: 'rubi', designId: 'gel', shapeId: 'natural', accentDesign: null };
 
-const brl = (value: number) =>
-  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 });
 
 const lookPrice = (look: Look) =>
   designById(look.designId).price + shapeById(look.shapeId).price + (look.accentDesign ? ACCENT_PRICE : 0);

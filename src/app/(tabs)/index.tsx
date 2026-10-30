@@ -1,16 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, type Href } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Nail } from '@/components/Nail';
 import { SectionHeader } from '@/components/SectionHeader';
+import { Stars } from '@/components/ui';
 import { professional, todayAppointments, todaySummary, trendingPolishes } from '@/data/mock';
+import { useFeedback } from '@/features/feedback/FeedbackContext';
 import { colors, fonts, radius, shadow } from '@/theme';
+import { brl } from '@/utils/format';
 
-const brl = (value: number) =>
-  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 });
 
 function greeting() {
   const hour = new Date().getHours();
@@ -32,6 +33,8 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const goalProgress = Math.min(todaySummary.revenue / todaySummary.goal, 1);
   const nextAppointment = todayAppointments[0];
+  const { feedbacks, average } = useFeedback();
+  const latest = feedbacks[0];
 
   return (
     <ScrollView
@@ -172,6 +175,39 @@ export default function HomeScreen() {
               <Text style={styles.price}>{brl(item.price)}</Text>
             </View>
           ))}
+        </View>
+      </View>
+
+      {/* Avaliações */}
+      <View style={[styles.section, styles.gutter]}>
+        <SectionHeader title="Avaliações" action="Ver todas" onAction={() => router.push('/avaliacoes')} />
+        <View style={styles.reviewCard}>
+          <View style={styles.reviewSummary}>
+            <Text style={styles.reviewAverage}>{feedbacks.length ? average.toFixed(1).replace('.', ',') : '–'}</Text>
+            <View>
+              <Stars value={average} size={16} />
+              <Text style={styles.reviewCount}>
+                {feedbacks.length
+                  ? `${feedbacks.length} ${feedbacks.length === 1 ? 'avaliação' : 'avaliações'}`
+                  : 'Nenhuma avaliação ainda'}
+              </Text>
+            </View>
+          </View>
+          {latest && (
+            <View style={styles.reviewLatest}>
+              {latest.photoUri && <Image source={{ uri: latest.photoUri }} style={styles.reviewPhoto} />}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.reviewName}>{latest.displayName ?? 'Cliente anônima'}</Text>
+                <Text style={styles.reviewComment} numberOfLines={2}>
+                  {latest.comment || `${latest.rating} ${latest.rating === 1 ? 'estrela' : 'estrelas'}`}
+                </Text>
+              </View>
+            </View>
+          )}
+          <Pressable style={styles.reviewButton} onPress={() => router.push('/avaliacoes/nova')}>
+            <Ionicons name="star-outline" size={16} color={colors.white} />
+            <Text style={styles.reviewButtonText}>Avaliar meu atendimento</Text>
+          </Pressable>
         </View>
       </View>
 
@@ -505,6 +541,69 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     fontSize: 14,
     color: colors.wine,
+  },
+
+  reviewCard: {
+    backgroundColor: colors.white,
+    borderRadius: radius.md,
+    padding: 16,
+    gap: 14,
+    ...shadow,
+  },
+  reviewSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  reviewAverage: {
+    fontFamily: fonts.display,
+    fontSize: 36,
+    color: colors.ink,
+  },
+  reviewCount: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: 2,
+  },
+  reviewLatest: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  reviewPhoto: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: colors.blush,
+  },
+  reviewName: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.ink,
+  },
+  reviewComment: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.muted,
+  },
+  reviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.plum,
+    borderRadius: radius.pill,
+    paddingVertical: 12,
+  },
+  reviewButtonText: {
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    color: colors.white,
   },
 
   polishList: {

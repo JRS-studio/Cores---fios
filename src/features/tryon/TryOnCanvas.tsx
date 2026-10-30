@@ -1,5 +1,5 @@
 import { useRef, useState, type ComponentRef } from 'react';
-import { Image, PanResponder, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { Image, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import Svg, {
   Defs,
   FeColorMatrix,
@@ -170,37 +170,29 @@ type HandleProps = {
 
 // Área de toque invisível sobre cada unha: seleciona e, no modo de ajuste, arrasta.
 function NailHandle({ nail, size, editing, selected, onSelect, onMove, onDragStateChange }: HandleProps) {
-  // PanResponder é criado uma vez; o ref mantém sempre as props mais recentes.
-  const latest = useRef({ nail, size, editing, onSelect, onMove, onDragStateChange });
-  latest.current = { nail, size, editing, onSelect, onMove, onDragStateChange };
-  const start = useRef({ x: 0, y: 0 });
-
-  const responder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: () => {
-        const { nail: n, editing: canDrag } = latest.current;
-        start.current = { x: n.x, y: n.y };
-        latest.current.onSelect(n.id);
-        if (canDrag) latest.current.onDragStateChange(true);
-      },
-      onPanResponderMove: (_, g) => {
-        const { nail: n, size: s, editing: canDrag } = latest.current;
-        if (!canDrag) return;
-        latest.current.onMove(n.id, clamp(start.current.x + g.dx / s.width), clamp(start.current.y + g.dy / s.height));
-      },
-      onPanResponderRelease: () => latest.current.onDragStateChange(false),
-      onPanResponderTerminate: () => latest.current.onDragStateChange(false),
-    }),
-  ).current;
+  // Posição da unha e do dedo no início do arraste; lida só dentro dos eventos de toque.
+  const start = useRef({ x: 0, y: 0, pageX: 0, pageY: 0 });
 
   const w = nail.w * size.width;
   const h = nail.h * size.width;
 
   return (
     <View
-      {...responder.panHandlers}
+      onStartShouldSetResponder={() => true}
+      onResponderTerminationRequest={() => false}
+      onResponderGrant={(e) => {
+        start.current = { x: nail.x, y: nail.y, pageX: e.nativeEvent.pageX, pageY: e.nativeEvent.pageY };
+        onSelect(nail.id);
+        if (editing) onDragStateChange(true);
+      }}
+      onResponderMove={(e) => {
+        if (!editing) return;
+        const dx = e.nativeEvent.pageX - start.current.pageX;
+        const dy = e.nativeEvent.pageY - start.current.pageY;
+        onMove(nail.id, clamp(start.current.x + dx / size.width), clamp(start.current.y + dy / size.height));
+      }}
+      onResponderRelease={() => onDragStateChange(false)}
+      onResponderTerminate={() => onDragStateChange(false)}
       style={[
         styles.handle,
         {

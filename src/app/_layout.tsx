@@ -13,6 +13,8 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ClientsProvider } from '@/features/clients/ClientsContext';
+import { FeedbackProvider } from '@/features/feedback/FeedbackContext';
 import { colors } from '@/theme';
 
 export default function RootLayout() {
@@ -34,8 +36,12 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }} />
+      <ClientsProvider>
+        <FeedbackProvider>
+          <StatusBar style="dark" />
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }} />
+        </FeedbackProvider>
+      </ClientsProvider>
     </SafeAreaProvider>
   );
 }

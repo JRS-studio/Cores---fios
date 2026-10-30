@@ -1,3 +1,5 @@
+import { polishes } from './catalog';
+
 // Dados de exemplo para a página inicial, até a integração com agenda e financeiro reais.
 
 export type Appointment = {
@@ -28,14 +30,4 @@ export const todaySummary = {
   tryOns: 7,
 };
 
-export type Polish = { id: string; name: string; color: string };
-
-export const trendingPolishes: Polish[] = [
-  { id: 'p1', name: 'Rubi', color: '#B3123C' },
-  { id: 'p2', name: 'Nude Rosé', color: '#E7BFB0' },
-  { id: 'p3', name: 'Ameixa', color: '#6B2D5C' },
-  { id: 'p4', name: 'Chiclete', color: '#E8A0B4' },
-  { id: 'p5', name: 'Champagne', color: '#D9C2A0' },
-  { id: 'p6', name: 'Noir', color: '#1E1A1D' },
-  { id: 'p7', name: 'Azul Céu', color: '#8DB4D9' },
-];
+export const trendingPolishes = polishes.slice(0, 7);

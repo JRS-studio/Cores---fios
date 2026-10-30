@@ -8,10 +8,11 @@ type Props = {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   description: string;
+  children?: React.ReactNode;
 };
 
 // Placeholder das abas que serão construídas nas próximas etapas.
-export function ComingSoon({ icon, title, description }: Props) {
+export function ComingSoon({ icon, title, description, children }: Props) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.card}>
@@ -24,6 +25,7 @@ export function ComingSoon({ icon, title, description }: Props) {
           <Text style={styles.badgeText}>Em breve</Text>
         </View>
       </View>
+      {children}
     </SafeAreaView>
   );
 }

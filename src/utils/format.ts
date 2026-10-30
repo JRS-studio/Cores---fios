@@ -1,7 +1,13 @@
 export const onlyDigits = (value: string) => value.replace(/\D/g, '');
 
+// Valores redondos sem centavos (R$ 70); quebrados sempre com duas casas (R$ 145,90).
 export const brl = (value: number) =>
-  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 });
+  value.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
 
 // (11) 98765-4321 enquanto a pessoa digita.
 export function formatPhone(value: string) {

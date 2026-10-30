@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { deletePhoto } from '@/data/photoStorage';
-import { loadJson, saveJson } from '@/data/storage';
+import { loadJson, saveJson, STORAGE_KEYS } from '@/data/storage';
 
-const KEY = 'cores:feedbacks:v1';
+const KEY = STORAGE_KEYS.feedbacks;
 
 export type Feedback = {
   id: string;

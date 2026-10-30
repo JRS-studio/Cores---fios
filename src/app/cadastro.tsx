@@ -20,6 +20,7 @@ import {
   type Plan,
 } from '@/features/clients/types';
 import { colors, fonts, radius, shadow } from '@/theme';
+import { newId } from '@/utils/id';
 import {
   formatCpf,
   formatDate,
@@ -124,7 +125,7 @@ export default function CadastroScreen() {
     const prevLoyalty = existing?.loyalty ?? { stamps: 0, totalVisits: 0, rewardsRedeemed: 0 };
     const base: Client = {
       ...(existing ?? {}),
-      id: existing?.id ?? `${Date.now()}`,
+      id: existing?.id ?? newId(),
       createdAt: existing?.createdAt ?? new Date().toISOString(),
       plan,
       name: form.name.trim(),

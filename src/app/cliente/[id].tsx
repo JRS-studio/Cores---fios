@@ -2,16 +2,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, ScreenHeader } from '@/components/ui';
 import { polishById, shapeById } from '@/data/catalog';
 import { LEVELS, LOYALTY, levelFor, nextLevel } from '@/data/loyalty';
+import { useAppointments } from '@/features/agenda/AppointmentsContext';
+import { StatusChip } from '@/features/agenda/components';
 import { useClients } from '@/features/clients/ClientsContext';
 import { CONTACT_CHANNELS, LENGTHS, type Client } from '@/features/clients/types';
 import { colors, fonts, radius, shadow } from '@/theme';
-import { formatCpf, formatPhone, formatShortDate, initials, parseDate } from '@/utils/format';
+import { formatDayMonth } from '@/utils/date';
+import { brl, formatCpf, formatPhone, formatShortDate, initials, parseDate } from '@/utils/format';
 
 const WELCOME: Record<string, string> = {
   rapido: 'Cadastro concluído! Seus dados já ficam prontos para o próximo agendamento.',
@@ -23,6 +26,7 @@ export default function ClienteScreen() {
   const insets = useSafeAreaInsets();
   const { id, novo } = useLocalSearchParams<{ id: string; novo?: string }>();
   const { ready, getClient, registerVisit, addReferralBonus, redeemReward, removeClient } = useClients();
+  const { appointments } = useAppointments();
   const [confirmDelete, setConfirmDelete] = useState(false);
   // Aviso da última ação nesta tela; ao voltar de uma edição (novo parâmetro), vale o aviso da edição.
   const [action, setAction] = useState<{ message: string; novo?: string } | null>(null);
@@ -39,6 +43,9 @@ export default function ClienteScreen() {
   }
 
   const premium = client.plan === 'premium';
+  const history = appointments
+    .filter((a) => a.clientId === client.id)
+    .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
   const loyalty = client.loyalty ?? { stamps: 0, totalVisits: 0, rewardsRedeemed: 0 };
   const birthday = client.birthDate ? parseDate(client.birthDate) : null;
   const birthdayMonth = !!birthday && birthday.getMonth() === new Date().getMonth();
@@ -75,6 +82,13 @@ export default function ClienteScreen() {
           <Text style={[styles.badgeText, premium && styles.badgeTextPremium]}>{premium ? 'Premium' : 'Rápido'}</Text>
         </View>
       </View>
+
+      <Button
+        label="Agendar horário"
+        icon="calendar-outline"
+        onPress={() => router.push({ pathname: '/agendamento/novo', params: { cliente: client.id } })}
+        style={{ marginTop: 14 }}
+      />
 
       {premium ? (
         <LoyaltyCard client={client} />
@@ -124,6 +138,28 @@ export default function ClienteScreen() {
           </View>
         </Section>
       )}
+
+      <Section title="Histórico">
+        {history.length === 0 ? (
+          <Text style={styles.muted}>Nenhum atendimento ainda.</Text>
+        ) : (
+          history.slice(0, 8).map((a) => (
+            <Pressable
+              key={a.id}
+              style={styles.row}
+              onPress={() => router.push({ pathname: '/agendamento/[id]', params: { id: a.id } })}
+            >
+              <View style={{ flexShrink: 1 }}>
+                <Text style={styles.rowValue}>{a.serviceName}</Text>
+                <Text style={styles.rowLabel}>
+                  {formatDayMonth(a.date)} às {a.time} · {brl(a.paidAmount ?? a.price)}
+                </Text>
+              </View>
+              <StatusChip status={a.status} />
+            </Pressable>
+          ))
+        )}
+      </Section>
 
       <Section title="Contato">
         <Row label="WhatsApp" value={formatPhone(client.phone)} />

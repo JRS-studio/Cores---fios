@@ -8,9 +8,10 @@ App para manicures (Android e iOS) feito com **Expo / React Native** e **Expo Ro
 
 | Módulo | Status |
 | --- | --- |
-| Página inicial (resumo do dia, acesso rápido, próximos horários, cores em alta) | ✅ Pronto |
-| Agenda de clientes | 🔜 Próxima etapa |
-| Financeiro | 🔜 Próxima etapa |
+| Página inicial (faturamento, meta do mês, próximos horários, avaliações) | ✅ Pronto |
+| Agenda de clientes | ✅ Pronto |
+| Financeiro | ✅ Pronto |
+| Ajustes do studio | ✅ Pronto |
 | Provador Virtual (foto da mão + teste de esmaltes e designs) | ✅ Pronto |
 | Clientes: cadastro rápido e Premium com programa fidelidade | ✅ Pronto |
 | Avaliações com foto, estrelas e opção anônima | ✅ Pronto |
@@ -27,6 +28,24 @@ Preços, cores e formatos ficam em `src/data/catalog.ts`.
 ### Realismo
 
 O esmalte é desenhado em SVG (`src/features/nails/`) no contorno do formato escolhido e recebe a luz da foto: um filtro passa-alta compara cada ponto da unha real com a vizinhança e transfere reflexos e sombras para o esmalte, sem mudar o tom do vidro. Somam-se curvatura lateral, sombra na cutícula, borda e o brilho do top coat. Os acabamentos foram calibrados comparando com fotos reais de unhas feitas (Open Images, CC BY 2.0, usadas só como referência visual): reflexo em faixa ao longo da unha e curvo na ponta no gel, glitter fino e iridescente com poucas lascas maiores, cromado com faixas no sentido do comprimento e matte sem reflexo. Sobre o alongamento (fora da unha real) a luz da foto some em degradê.
+
+## Agenda
+
+- Faixa de dias com marcação de quantos horários há em cada um; dias fechados aparecem apagados.
+- **Novo agendamento**: cliente cadastrada (com alerta de alergia e preferências) ou avulsa (pode virar cadastro rápido), serviço com duração e preço (`src/data/services.ts`), desconto de aniversário para Premium e **só os horários livres**, calculados pela duração do serviço, pelo horário de funcionamento e pelos horários já ocupados.
+- No horário: confirmar presença, pedir confirmação ou lembrete no **WhatsApp**, remarcar, cancelar ou marcar falta.
+- **Concluir atendimento** registra o pagamento (Pix, dinheiro, débito ou crédito), lança a entrada no financeiro e, se a cliente for Premium, dá o selo do cartão fidelidade.
+- O look montado no Provador vai direto para o agendamento com o valor calculado.
+
+## Financeiro
+
+- Lucro do mês, entradas, saídas e progresso da meta mensal; atendimentos concluídos, ticket médio e faltas.
+- Gráficos: entradas por dia, entradas por forma de pagamento e saídas por categoria (cores validadas para daltonismo e contraste), e ranking dos serviços que mais faturaram.
+- Lançamentos manuais de despesas e outras entradas, com filtro e exclusão.
+
+## Ajustes
+
+Nome da profissional e do studio, meta do mês, horário de funcionamento, dias de atendimento, intervalo entre horários e a opção de apagar todos os dados do aparelho.
 
 ## Avaliações
 
@@ -66,14 +85,21 @@ src/
     (tabs)/            # abas: início, agenda, provador, financeiro, clientes
     avaliacoes/        # lista e nova avaliação
     cadastro.tsx       # cadastro rápido e Premium (4 passos)
-    cliente/[id].tsx   # perfil com cartão fidelidade
-  components/          # TabBar, Nail (miniatura de unha), SectionHeader, ComingSoon
+    cliente/[id].tsx   # perfil com cartão fidelidade e histórico
+    agendamento/       # novo agendamento e detalhe do horário
+    financeiro/novo.tsx # novo lançamento
+    ajustes.tsx        # ajustes do studio
+  components/          # TabBar, Nail (miniatura de unha), SectionHeader, ui (campos, botões, estrelas)
   features/nails/      # desenho do esmalte em SVG: formatos, designs e acabamento
   features/tryon/      # Provador Virtual: área da foto, mão de exemplo, introdução
   data/catalog.ts      # esmaltes, designs e preços
   data/loyalty.ts      # regras do programa fidelidade
+  data/services.ts     # serviços da agenda (preço e duração)
+  features/agenda/     # agendamentos, horários livres e componentes da agenda
+  features/finance/    # lançamentos e gráficos do financeiro
+  features/settings/   # ajustes do studio
   features/clients/    # cadastro de clientes (tipos e armazenamento)
   features/feedback/   # avaliações (armazenamento)
-  data/mock.ts         # dados de exemplo da página inicial
+  data/mock.ts         # cores em destaque na página inicial
   theme/               # cores, fontes, raios e sombras
 ```

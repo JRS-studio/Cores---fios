@@ -13,6 +13,7 @@ import { TryOnCanvas } from '@/features/tryon/TryOnCanvas';
 import { TryOnIntro } from '@/features/tryon/TryOnIntro';
 import type { Look, NailSpot, SavedLook } from '@/features/tryon/types';
 import { colors, fonts, radius, shadow } from '@/theme';
+import { newId } from '@/utils/id';
 import { brl } from '@/utils/format';
 
 const MAX_NAILS = 5;
@@ -113,13 +114,13 @@ export default function ProvadorScreen() {
         s.accentDesign === look.accentDesign,
     );
     if (exists) return;
-    setSaved((prev) => [{ ...look, id: `${Date.now()}` }, ...prev].slice(0, 6));
+    setSaved((prev) => [{ ...look, id: newId() }, ...prev].slice(0, 6));
   }
 
   function schedule() {
     const accent = look.accentDesign ? ` + destaque ${designById(look.accentDesign).name}` : '';
-    router.navigate({
-      pathname: '/agenda',
+    router.push({
+      pathname: '/agendamento/novo',
       params: { servico: `${lookName(look)}${accent}`, valor: String(total) },
     });
   }

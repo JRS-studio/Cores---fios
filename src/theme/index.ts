@@ -11,6 +11,10 @@ export const colors = {
   muted: '#8C7A80',
   border: '#EADCD6',
   success: '#3E8E6B',
+  // Gráficos do financeiro (validados para daltonismo e contraste sobre branco)
+  chartIncome: '#A33D63',
+  chartExpense: '#C27A3A',
+  danger: '#C2410C',
 };
 
 export const fonts = {

@@ -1,10 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { LOYALTY, levelFor } from '@/data/loyalty';
-import { loadJson, saveJson } from '@/data/storage';
+import { loadJson, saveJson, STORAGE_KEYS } from '@/data/storage';
 import type { Client } from './types';
 
-const KEY = 'cores:clients:v1';
+const KEY = STORAGE_KEYS.clients;
 
 type ClientsApi = {
   ready: boolean;

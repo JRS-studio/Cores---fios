@@ -9,6 +9,7 @@ import { designs } from '@/data/catalog';
 import { persistPhoto } from '@/data/photoStorage';
 import { useFeedback } from '@/features/feedback/FeedbackContext';
 import { colors, fonts, radius } from '@/theme';
+import { newId } from '@/utils/id';
 import { pickImage } from '@/utils/pickImage';
 
 const MAX_COMMENT = 500;
@@ -43,7 +44,7 @@ export default function NovaAvaliacaoScreen() {
     if (!valid || saving) return;
     setSaving(true);
     addFeedback({
-      id: `${Date.now()}`,
+      id: newId(),
       createdAt: new Date().toISOString(),
       rating,
       comment: comment.trim(),

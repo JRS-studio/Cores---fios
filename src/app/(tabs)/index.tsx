@@ -7,11 +7,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Nail } from '@/components/Nail';
 import { SectionHeader } from '@/components/SectionHeader';
 import { Stars } from '@/components/ui';
-import { professional, todayAppointments, todaySummary, trendingPolishes } from '@/data/mock';
+import { trendingPolishes } from '@/data/mock';
+import { isActive, useAppointments } from '@/features/agenda/AppointmentsContext';
 import { useFeedback } from '@/features/feedback/FeedbackContext';
+import { useFinance } from '@/features/finance/FinanceContext';
+import { useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
+import { addDays, formatDayMonth, monthKey, today, toMinutes } from '@/utils/date';
 import { brl } from '@/utils/format';
-
 
 function greeting() {
   const hour = new Date().getHours();
@@ -21,20 +24,42 @@ function greeting() {
 }
 
 const QUICK_ACTIONS: { icon: keyof typeof Ionicons.glyphMap; label: string; href: Href }[] = [
-  { icon: 'add-circle-outline', label: 'Novo\nagendamento', href: '/agenda' },
-  { icon: 'cash-outline', label: 'Lançar\npagamento', href: '/financeiro' },
-  { icon: 'person-add-outline', label: 'Nova\ncliente', href: '/clientes' },
-  { icon: 'brush-outline', label: 'Catálogo\nde designs', href: '/provador' },
+  { icon: 'add-circle-outline', label: 'Novo\nagendamento', href: '/agendamento/novo' },
+  { icon: 'cash-outline', label: 'Lançar\ndespesa', href: '/financeiro/novo' },
+  { icon: 'person-add-outline', label: 'Nova\ncliente', href: { pathname: '/cadastro', params: { tipo: 'rapido' } } },
+  { icon: 'settings-outline', label: 'Ajustes\ndo studio', href: '/ajustes' },
 ];
 
 const HERO_NAILS = ['#B3123C', '#E7BFB0', '#6B2D5C', '#E8A0B4'];
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const goalProgress = Math.min(todaySummary.revenue / todaySummary.goal, 1);
-  const nextAppointment = todayAppointments[0];
   const { feedbacks, average } = useFeedback();
   const latest = feedbacks[0];
+  const { settings } = useSettings();
+  const { appointments } = useAppointments();
+  const { transactions } = useFinance();
+
+  const todayIso = today();
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const income = transactions.filter((t) => t.type === 'entrada');
+  const todayIncome = income.filter((t) => t.date === todayIso).reduce((sum, t) => sum + t.amount, 0);
+  const monthIncome = income.filter((t) => t.date.startsWith(monthKey(todayIso))).reduce((sum, t) => sum + t.amount, 0);
+  const goalProgress = settings.monthlyGoal > 0 ? Math.min(monthIncome / settings.monthlyGoal, 1) : 0;
+  const todayCount = appointments.filter((a) => a.date === todayIso && isActive(a)).length;
+  // Próximos: ainda não concluídos e que não terminaram.
+  const upcoming = appointments
+    .filter(
+      (a) =>
+        (a.status === 'agendado' || a.status === 'confirmado') &&
+        (a.date > todayIso || (a.date === todayIso && toMinutes(a.time) + a.duration > nowMinutes)),
+    )
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const nextToday = upcoming.find((a) => a.date === todayIso);
+  const toConfirm = appointments.filter(
+    (a) => a.status === 'agendado' && (a.date === todayIso || a.date === addDays(todayIso, 1)),
+  ).length;
 
   return (
     <ScrollView
@@ -46,16 +71,22 @@ export default function HomeScreen() {
       <View style={[styles.header, styles.gutter]}>
         <View style={{ flex: 1 }}>
           <Text style={styles.greeting}>{greeting()},</Text>
-          <Text style={styles.name}>{professional.name}</Text>
-          <Text style={styles.studio}>{professional.studio}</Text>
+          <Text style={styles.name}>{settings.professionalName}</Text>
+          <Text style={styles.studio}>{settings.studioName}</Text>
         </View>
-        <Pressable style={styles.iconButton} accessibilityLabel="Notificações">
+        <Pressable
+          style={styles.iconButton}
+          onPress={() => router.navigate('/agenda')}
+          accessibilityLabel={toConfirm ? `${toConfirm} horários para confirmar` : 'Agenda'}
+        >
           <Ionicons name="notifications-outline" size={22} color={colors.plum} />
-          <View style={styles.badge} />
+          {toConfirm > 0 && <View style={styles.badge} />}
         </Pressable>
-        <LinearGradient colors={[colors.roseGoldLight, colors.roseGold]} style={styles.avatar}>
-          <Text style={styles.avatarText}>{professional.name[0]}</Text>
-        </LinearGradient>
+        <Pressable onPress={() => router.push('/ajustes')} accessibilityLabel="Ajustes">
+          <LinearGradient colors={[colors.roseGoldLight, colors.roseGold]} style={styles.avatar}>
+            <Text style={styles.avatarText}>{settings.professionalName[0]?.toUpperCase()}</Text>
+          </LinearGradient>
+        </Pressable>
       </View>
 
       {/* Destaque: Provador Virtual */}
@@ -101,13 +132,13 @@ export default function HomeScreen() {
         <View style={styles.revenueCard}>
           <View style={styles.revenueTop}>
             <View>
-              <Text style={styles.cardLabel}>Faturamento do dia</Text>
-              <Text style={styles.revenueValue}>{brl(todaySummary.revenue)}</Text>
+              <Text style={styles.cardLabel}>Faturamento de hoje</Text>
+              <Text style={styles.revenueValue}>{brl(todayIncome)}</Text>
             </View>
-            <View style={styles.trend}>
-              <Ionicons name="trending-up" size={14} color={colors.success} />
-              <Text style={styles.trendText}>+12%</Text>
-            </View>
+            <Pressable style={styles.trend} onPress={() => router.navigate('/financeiro')}>
+              <Text style={styles.trendText}>Mês: {brl(monthIncome)}</Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.success} />
+            </Pressable>
           </View>
           <View style={styles.progressTrack}>
             <LinearGradient
@@ -118,24 +149,24 @@ export default function HomeScreen() {
             />
           </View>
           <Text style={styles.progressText}>
-            {Math.round(goalProgress * 100)}% da meta diária de {brl(todaySummary.goal)}
+            {Math.round(goalProgress * 100)}% da meta do mês de {brl(settings.monthlyGoal)}
           </Text>
         </View>
 
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Ionicons name="calendar-outline" size={20} color={colors.wine} />
-            <Text style={styles.statValue}>{todaySummary.appointments}</Text>
-            <Text style={styles.cardLabel} numberOfLines={1}>Agendados</Text>
+            <Text style={styles.statValue}>{todayCount}</Text>
+            <Text style={styles.cardLabel} numberOfLines={1}>Hoje</Text>
           </View>
           <View style={styles.statCard}>
-            <Ionicons name="color-palette-outline" size={20} color={colors.wine} />
-            <Text style={styles.statValue}>{todaySummary.tryOns}</Text>
-            <Text style={styles.cardLabel} numberOfLines={1}>Provas</Text>
+            <Ionicons name="star-outline" size={20} color={colors.wine} />
+            <Text style={styles.statValue}>{feedbacks.length ? average.toFixed(1).replace('.', ',') : '–'}</Text>
+            <Text style={styles.cardLabel} numberOfLines={1}>Avaliação</Text>
           </View>
           <View style={styles.statCard}>
             <Ionicons name="time-outline" size={20} color={colors.wine} />
-            <Text style={styles.statValue}>{nextAppointment.time}</Text>
+            <Text style={styles.statValue}>{nextToday?.time ?? '–'}</Text>
             <Text style={styles.cardLabel} numberOfLines={1}>Próxima</Text>
           </View>
         </View>
@@ -160,21 +191,34 @@ export default function HomeScreen() {
       <View style={[styles.section, styles.gutter]}>
         <SectionHeader title="Próximos horários" action="Ver agenda" onAction={() => router.navigate('/agenda')} />
         <View style={styles.listCard}>
-          {todayAppointments.map((item, i) => (
-            <View key={item.id} style={[styles.appointment, i > 0 && styles.appointmentDivider]}>
+          {upcoming.slice(0, 4).map((item, i) => (
+            <Pressable
+              key={item.id}
+              style={[styles.appointment, i > 0 && styles.appointmentDivider]}
+              onPress={() => router.push({ pathname: '/agendamento/[id]', params: { id: item.id } })}
+            >
               <View style={styles.timeBox}>
                 <Text style={styles.timeText}>{item.time}</Text>
+                {item.date !== todayIso && <Text style={styles.timeDate}>{formatDayMonth(item.date)}</Text>}
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.clientName}>{item.client}</Text>
+                <Text style={styles.clientName}>{item.clientName}</Text>
                 <View style={styles.serviceRow}>
-                  <View style={[styles.polishDot, { backgroundColor: item.polish }]} />
-                  <Text style={styles.serviceText}>{item.service}</Text>
+                  {item.status === 'confirmado' && <Ionicons name="checkmark-circle" size={13} color={colors.success} />}
+                  <Text style={styles.serviceText} numberOfLines={1}>
+                    {item.serviceName}
+                  </Text>
                 </View>
               </View>
               <Text style={styles.price}>{brl(item.price)}</Text>
-            </View>
+            </Pressable>
           ))}
+          {upcoming.length === 0 && (
+            <Pressable style={styles.emptyAgenda} onPress={() => router.push('/agendamento/novo')}>
+              <Text style={styles.serviceText}>Nenhum horário marcado.</Text>
+              <Text style={styles.emptyAgendaCta}>Agendar ›</Text>
+            </Pressable>
+          )}
         </View>
       </View>
 
@@ -525,12 +569,21 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 2,
   },
-  polishDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
+  timeDate: {
+    fontFamily: fonts.regular,
+    fontSize: 10,
+    color: colors.roseGold,
+    textAlign: 'center',
+  },
+  emptyAgenda: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+  },
+  emptyAgendaCta: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.wine,
   },
   serviceText: {
     fontFamily: fonts.regular,

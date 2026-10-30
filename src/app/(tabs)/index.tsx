@@ -1,0 +1,529 @@
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router, type Href } from 'expo-router';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { Nail } from '@/components/Nail';
+import { SectionHeader } from '@/components/SectionHeader';
+import { professional, todayAppointments, todaySummary, trendingPolishes } from '@/data/mock';
+import { colors, fonts, radius, shadow } from '@/theme';
+
+const brl = (value: number) =>
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 });
+
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Bom dia';
+  if (hour < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+
+const QUICK_ACTIONS: { icon: keyof typeof Ionicons.glyphMap; label: string; href: Href }[] = [
+  { icon: 'add-circle-outline', label: 'Novo\nagendamento', href: '/agenda' },
+  { icon: 'cash-outline', label: 'Lançar\npagamento', href: '/financeiro' },
+  { icon: 'person-add-outline', label: 'Nova\ncliente', href: '/clientes' },
+  { icon: 'brush-outline', label: 'Catálogo\nde designs', href: '/provador' },
+];
+
+const HERO_NAILS = ['#B3123C', '#E7BFB0', '#6B2D5C', '#E8A0B4'];
+
+export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
+  const goalProgress = Math.min(todaySummary.revenue / todaySummary.goal, 1);
+  const nextAppointment = todayAppointments[0];
+
+  return (
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 120 }}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Cabeçalho */}
+      <View style={[styles.header, styles.gutter]}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.greeting}>{greeting()},</Text>
+          <Text style={styles.name}>{professional.name}</Text>
+          <Text style={styles.studio}>{professional.studio}</Text>
+        </View>
+        <Pressable style={styles.iconButton} accessibilityLabel="Notificações">
+          <Ionicons name="notifications-outline" size={22} color={colors.plum} />
+          <View style={styles.badge} />
+        </Pressable>
+        <LinearGradient colors={[colors.roseGoldLight, colors.roseGold]} style={styles.avatar}>
+          <Text style={styles.avatarText}>{professional.name[0]}</Text>
+        </LinearGradient>
+      </View>
+
+      {/* Destaque: Provador Virtual */}
+      <View style={styles.gutter}>
+        <Pressable onPress={() => router.navigate('/provador')} style={({ pressed }) => pressed && { opacity: 0.92 }}>
+          <LinearGradient
+            colors={[colors.wine, colors.plum]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.hero}
+          >
+            <View style={styles.heroGlow} />
+            <View style={styles.heroContent}>
+              <View style={styles.heroTag}>
+                <Ionicons name="sparkles" size={12} color={colors.plum} />
+                <Text style={styles.heroTagText}>Exclusivo</Text>
+              </View>
+              <Text style={styles.heroTitle}>
+                Provador <Text style={styles.heroTitleItalic}>Virtual</Text>
+              </Text>
+              <Text style={styles.heroText}>
+                Sua cliente fotografa a mão e testa esmaltes e designs antes de escolher.
+              </Text>
+              <View style={styles.heroButton}>
+                <Ionicons name="camera-outline" size={16} color={colors.plum} />
+                <Text style={styles.heroButtonText}>Testar agora</Text>
+              </View>
+            </View>
+            <View style={styles.heroNails}>
+              {HERO_NAILS.map((color, i) => (
+                <View key={color} style={[styles.finger, { height: 92 + (i === 1 || i === 2 ? 18 : 0) }]}>
+                  <Nail color={color} width={22} height={32} />
+                </View>
+              ))}
+            </View>
+          </LinearGradient>
+        </Pressable>
+      </View>
+
+      {/* Resumo do dia */}
+      <View style={[styles.section, styles.gutter]}>
+        <SectionHeader title="Resumo de hoje" />
+        <View style={styles.revenueCard}>
+          <View style={styles.revenueTop}>
+            <View>
+              <Text style={styles.cardLabel}>Faturamento do dia</Text>
+              <Text style={styles.revenueValue}>{brl(todaySummary.revenue)}</Text>
+            </View>
+            <View style={styles.trend}>
+              <Ionicons name="trending-up" size={14} color={colors.success} />
+              <Text style={styles.trendText}>+12%</Text>
+            </View>
+          </View>
+          <View style={styles.progressTrack}>
+            <LinearGradient
+              colors={[colors.roseGold, colors.wine]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.progressFill, { width: `${goalProgress * 100}%` }]}
+            />
+          </View>
+          <Text style={styles.progressText}>
+            {Math.round(goalProgress * 100)}% da meta diária de {brl(todaySummary.goal)}
+          </Text>
+        </View>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Ionicons name="calendar-outline" size={20} color={colors.wine} />
+            <Text style={styles.statValue}>{todaySummary.appointments}</Text>
+            <Text style={styles.cardLabel} numberOfLines={1}>Agendados</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Ionicons name="color-palette-outline" size={20} color={colors.wine} />
+            <Text style={styles.statValue}>{todaySummary.tryOns}</Text>
+            <Text style={styles.cardLabel} numberOfLines={1}>Provas</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Ionicons name="time-outline" size={20} color={colors.wine} />
+            <Text style={styles.statValue}>{nextAppointment.time}</Text>
+            <Text style={styles.cardLabel} numberOfLines={1}>Próxima</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Acesso rápido */}
+      <View style={[styles.section, styles.gutter]}>
+        <SectionHeader title="Acesso rápido" />
+        <View style={styles.quickRow}>
+          {QUICK_ACTIONS.map((action) => (
+            <Pressable key={action.label} style={styles.quickItem} onPress={() => router.navigate(action.href)}>
+              <View style={styles.quickIcon}>
+                <Ionicons name={action.icon} size={24} color={colors.plum} />
+              </View>
+              <Text style={styles.quickLabel}>{action.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      {/* Próximos horários */}
+      <View style={[styles.section, styles.gutter]}>
+        <SectionHeader title="Próximos horários" action="Ver agenda" onAction={() => router.navigate('/agenda')} />
+        <View style={styles.listCard}>
+          {todayAppointments.map((item, i) => (
+            <View key={item.id} style={[styles.appointment, i > 0 && styles.appointmentDivider]}>
+              <View style={styles.timeBox}>
+                <Text style={styles.timeText}>{item.time}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.clientName}>{item.client}</Text>
+                <View style={styles.serviceRow}>
+                  <View style={[styles.polishDot, { backgroundColor: item.polish }]} />
+                  <Text style={styles.serviceText}>{item.service}</Text>
+                </View>
+              </View>
+              <Text style={styles.price}>{brl(item.price)}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Cores em alta */}
+      <View style={styles.section}>
+        <View style={styles.gutter}>
+          <SectionHeader title="Cores em alta" action="Testar" onAction={() => router.navigate('/provador')} />
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.polishList}>
+          {trendingPolishes.map((polish) => (
+            <Pressable key={polish.id} style={styles.polishCard} onPress={() => router.navigate('/provador')}>
+              <Nail color={polish.color} width={36} height={50} />
+              <Text style={styles.polishName}>{polish.name}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.cream,
+  },
+  gutter: {
+    paddingHorizontal: 20,
+  },
+  section: {
+    marginTop: 28,
+  },
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 22,
+  },
+  greeting: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: colors.muted,
+  },
+  name: {
+    fontFamily: fonts.display,
+    fontSize: 30,
+    color: colors.ink,
+    lineHeight: 38,
+  },
+  studio: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.roseGold,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  iconButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadow,
+  },
+  badge: {
+    position: 'absolute',
+    top: 12,
+    right: 13,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.wine,
+    borderWidth: 1.5,
+    borderColor: colors.white,
+  },
+  avatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontFamily: fonts.display,
+    fontSize: 20,
+    color: colors.plum,
+  },
+
+  hero: {
+    borderRadius: radius.lg,
+    padding: 22,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    minHeight: 200,
+    ...shadow,
+    shadowOpacity: 0.25,
+  },
+  heroGlow: {
+    position: 'absolute',
+    right: -60,
+    top: -60,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(201,162,126,0.18)',
+  },
+  heroContent: {
+    flex: 1,
+    paddingRight: 8,
+    zIndex: 1,
+  },
+  heroTag: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.roseGoldLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    marginBottom: 12,
+  },
+  heroTagText: {
+    fontFamily: fonts.semibold,
+    fontSize: 11,
+    color: colors.plum,
+    letterSpacing: 0.4,
+  },
+  heroTitle: {
+    fontFamily: fonts.display,
+    fontSize: 26,
+    color: colors.white,
+    lineHeight: 32,
+  },
+  heroTitleItalic: {
+    fontFamily: fonts.displayItalic,
+    color: colors.roseGoldLight,
+  },
+  heroText: {
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    lineHeight: 19,
+    color: 'rgba(255,255,255,0.78)',
+    marginTop: 6,
+    marginBottom: 16,
+  },
+  heroButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.white,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: radius.pill,
+  },
+  heroButtonText: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.plum,
+  },
+  heroNails: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 5,
+    marginBottom: -22,
+    alignSelf: 'flex-end',
+  },
+  finger: {
+    width: 30,
+    backgroundColor: '#E9C3AE',
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+    alignItems: 'center',
+    paddingTop: 5,
+  },
+
+  revenueCard: {
+    backgroundColor: colors.white,
+    borderRadius: radius.md,
+    padding: 18,
+    ...shadow,
+  },
+  revenueTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  cardLabel: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: colors.muted,
+  },
+  revenueValue: {
+    fontFamily: fonts.display,
+    fontSize: 32,
+    color: colors.ink,
+    marginTop: 2,
+  },
+  trend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E6F3EC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+  },
+  trendText: {
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+    color: colors.success,
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.blush,
+    marginTop: 14,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  progressText: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: 8,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.white,
+    borderRadius: radius.md,
+    padding: 14,
+    gap: 2,
+    ...shadow,
+  },
+  statValue: {
+    fontFamily: fonts.semibold,
+    fontSize: 20,
+    color: colors.ink,
+    marginTop: 6,
+  },
+
+  quickRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  quickItem: {
+    alignItems: 'center',
+    width: '23%',
+  },
+  quickIcon: {
+    width: 62,
+    height: 62,
+    borderRadius: 20,
+    backgroundColor: colors.blush,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  quickLabel: {
+    fontFamily: fonts.medium,
+    fontSize: 11,
+    lineHeight: 15,
+    color: colors.ink,
+    textAlign: 'center',
+  },
+
+  listCard: {
+    backgroundColor: colors.white,
+    borderRadius: radius.md,
+    paddingHorizontal: 16,
+    ...shadow,
+  },
+  appointment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 12,
+  },
+  appointmentDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  timeBox: {
+    backgroundColor: colors.plum,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  timeText: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.roseGoldLight,
+  },
+  clientName: {
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  serviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  polishDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+  },
+  serviceText: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: colors.muted,
+  },
+  price: {
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    color: colors.wine,
+  },
+
+  polishList: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    gap: 12,
+  },
+  polishCard: {
+    width: 82,
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderRadius: radius.md,
+    paddingVertical: 14,
+    gap: 10,
+    ...shadow,
+  },
+  polishName: {
+    fontFamily: fonts.medium,
+    fontSize: 11,
+    color: colors.ink,
+  },
+});

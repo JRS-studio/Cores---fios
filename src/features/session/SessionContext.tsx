@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { fromAuthPhone, isRemote, supabase } from '@/data/supabase';
+import { forgetReminders } from '@/features/reminders/push';
 
 // local: sem servidor, o app é da profissional e funciona só no aparelho (como antes).
 // profissional / cliente / visitante: com servidor, cada uma vê o que as regras do banco permitem.
@@ -92,7 +93,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       },
       signOut: async () => {
         // A cliente solta o número ao sair, para poder entrar de novo em qualquer aparelho.
-        if (role === 'cliente') await supabase?.rpc('release_my_phone');
+        if (role === 'cliente') {
+          await forgetReminders();
+          await supabase?.rpc('release_my_phone');
+        }
         await supabase?.auth.signOut();
       },
       refresh,

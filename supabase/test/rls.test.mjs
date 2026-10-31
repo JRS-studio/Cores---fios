@@ -13,7 +13,7 @@ const DEVICE_B = '00000000-0000-0000-0000-0000000000d2';
 
 // O que o Supabase já traz pronto: esquema auth, storage, papéis e publicação do realtime.
 await db.exec(`
-  create role anon nologin; create role authenticated nologin;
+  create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
   create schema auth;
   create table auth.users (id uuid primary key);
   create function auth.jwt() returns jsonb language sql stable as
@@ -32,7 +32,8 @@ await db.exec(schema);
 // Rodar de novo não pode dar erro (a pessoa pode clicar em Run mais de uma vez).
 await db.exec(schema);
 await db.exec(`
-  grant select, insert, update, delete on all tables in schema public to anon, authenticated;
+  grant select, insert, update, delete on all tables in schema public to anon, authenticated, service_role;
+  grant usage on schema public to service_role;
   grant select, insert, delete on storage.objects to anon, authenticated;
   grant usage on all sequences in schema storage to anon, authenticated;
   insert into auth.users values ('${OWNER}'), ('${CLIENT}'), ('${OTHER}'), ('${DEVICE_A}'), ('${DEVICE_B}');
@@ -41,8 +42,8 @@ await db.exec(`
 
 // Executa SQL como uma pessoa: profissional, cliente (telefone) ou visitante (anon).
 async function as(who, sql, params = []) {
-  const claims = who === 'anon' ? {} : who;
-  const role = who === 'anon' ? 'anon' : 'authenticated';
+  const claims = who === 'anon' || who === 'service' ? {} : who;
+  const role = who === 'anon' ? 'anon' : who === 'service' ? 'service_role' : 'authenticated';
   return db.transaction(async (tx) => {
     await tx.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify(claims)]);
     await tx.exec(`set local role ${role}`);
@@ -250,6 +251,40 @@ await test('curtidas: só a dona descurte', async () => {
   assert.equal((await rows('anon', `select * from likes where id = 'p1:${CLIENT}'`)).length, 1);
   await as(ana, `delete from likes where id = 'p1:${CLIENT}'`);
   assert.equal((await rows('anon', `select * from likes where item_id = 'p1'`)).length, 1);
+});
+
+const sub = (endpoint) => [`insert into push_subscriptions (endpoint, p256dh, auth) values ($1, 'k', 'a')`, [endpoint]];
+await test('lembretes: cliente ativa no próprio número; outra não vê; visitante não ativa', async () => {
+  await as(ana, ...sub('https://push.example/ana'));
+  const mine = await rows(ana, 'select phone from push_subscriptions');
+  assert.equal(mine.length, 1);
+  assert.equal(mine[0].phone, '5511987654321');
+  assert.equal((await rows(bia, 'select * from push_subscriptions')).length, 0);
+  assert.ok(await fails('anon', ...sub('https://push.example/anon')));
+  // Login anônimo sem número preso ao aparelho não ativa lembrete.
+  assert.ok(await fails({ sub: OWNER }, `insert into push_subscriptions (endpoint, p256dh, auth, phone) values ('x', 'k', 'a', '5511987654321')`));
+  await as(bia, `delete from push_subscriptions where endpoint = 'https://push.example/ana'`);
+  assert.equal((await rows(ana, 'select * from push_subscriptions')).length, 1);
+});
+await test('lembretes: só o servidor lista os horários da próxima hora e marca como enviados', async () => {
+  assert.ok(await fails(ana, `select * from due_reminders()`));
+  assert.ok(await fails(ana, `select mark_reminded(array['x'])`));
+  await as(owner, `insert into appointments (id, client_phone, status, starts_at, ends_at, data) values
+    ('lemb1', '5511987654321', 'confirmado', (now() at time zone 'America/Sao_Paulo') + interval '40 minutes', (now() at time zone 'America/Sao_Paulo') + interval '100 minutes', '{"serviceName":"Gel"}'),
+    ('lemb2', '5511987654321', 'confirmado', (now() at time zone 'America/Sao_Paulo') + interval '3 hours', (now() at time zone 'America/Sao_Paulo') + interval '4 hours', '{}')`);
+  const due = await rows('service', 'select appointment_id, endpoint from due_reminders()');
+  assert.deepEqual(due.map((d) => d.appointment_id), ['lemb1']);
+  assert.equal(due[0].endpoint, 'https://push.example/ana');
+  await as('service', `select mark_reminded(array['lemb1'])`);
+  assert.equal((await rows('service', 'select * from due_reminders()')).length, 0);
+  // Remarcar para daqui a 30 minutos libera um novo lembrete.
+  await as(owner, `update appointments set starts_at = starts_at - interval '10 minutes' where id = 'lemb1'`);
+  assert.equal((await rows('service', 'select * from due_reminders()')).length, 1);
+  // A atualização normal do app (sem mudar o horário) mantém o lembrete como enviado.
+  await as('service', `select mark_reminded(array['lemb1'])`);
+  await as(owner, `update appointments set data = '{"x":1}' where id = 'lemb1'`);
+  assert.equal((await rows('service', 'select * from due_reminders()')).length, 0);
+  assert.equal(await rows('anon', 'select vapid_public_key() as k').then((r) => r[0].k), null);
 });
 
 console.log(`\n${passed} testes passaram.`);

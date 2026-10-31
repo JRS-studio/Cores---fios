@@ -77,3 +77,14 @@ EXPO_PUBLIC_SUPABASE_URL=http://localhost:54329 EXPO_PUBLIC_SUPABASE_ANON_KEY=te
   python3 tools/pagina-de-teste/build.py --saida dist-teste/remoto.html
 node supabase/test/app-remote.test.js
 ```
+
+## Lembrete 1 hora antes (notificação no celular da cliente)
+
+A cliente ativa em **Conta › Lembrete 1 hora antes** (ou no horário marcado). Uma função do Supabase roda a cada 5 minutos e manda a notificação para quem tem horário na próxima hora, mesmo com o site fechado. No **iPhone**, só funciona pelo app adicionado à Tela de Início (Compartilhar › Adicionar à Tela de Início, iOS 16.4 ou mais novo); no Android, funciona direto no navegador.
+
+1. **SQL Editor**: cole [`atualizacao-lembretes.sql`](atualizacao-lembretes.sql) e clique em **Run**.
+2. **Edge Functions › Deploy a new function › Via Editor**: dê o nome `lembretes`, apague o código de exemplo, cole todo o [`functions/lembretes/index.ts`](functions/lembretes/index.ts) e clique em **Deploy function**.
+3. Na função `lembretes`, abra **Details** (ou Settings) e **desligue** "Verify JWT" / "Enforce JWT verification" (quem chama é o agendador do próprio banco) e salve.
+4. **SQL Editor**: cole [`lembretes.sql`](lembretes.sql) e clique em **Run**. Isso agenda a função a cada 5 minutos. Na primeira execução ela cria as chaves de envio; a partir daí as clientes já conseguem ativar.
+
+Teste da função: `node supabase/test/lembretes.test.js <caminho-do-deno>`.

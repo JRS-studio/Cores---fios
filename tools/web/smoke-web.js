@@ -74,6 +74,9 @@ const api = http.createServer((req, res) => {
     assert.equal(manifest.lang, 'pt-BR');
     assert.equal(manifest.display, 'standalone');
     for (const icon of manifest.icons) assert.equal((await fetch(base + icon.src)).status, 200, icon.src);
+    const sw = await fetch(`${base}/sw.js`);
+    assert.equal(sw.status, 200);
+    assert.match(await sw.text(), /addEventListener\('push'/);
     const html = await (await fetch(base)).text();
     assert.match(html, /<html lang="pt-BR">/);
     assert.match(html, /<title>Cores &(amp;)? Fios<\/title>/);

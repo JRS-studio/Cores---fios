@@ -45,6 +45,8 @@ const server = http.createServer((req, res) => {
     const manifest = await (await fetch(`${site}/manifest.json`)).json();
     assert.equal(manifest.start_url, `${BASE}/`);
     for (const icon of manifest.icons) assert.equal((await fetch(`http://localhost:${server.address().port}${icon.src}`)).status, 200);
+    // Service worker dos lembretes ao lado do manifesto (escopo /Cores---fios/).
+    assert.match(await (await fetch(`${site}/sw.js`)).text(), /addEventListener\('push'/);
   });
   await step('link direto abre o agendamento', async () => {
     await page.goto(`${site}/agendamento/novo`, { waitUntil: 'networkidle' });

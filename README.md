@@ -34,6 +34,7 @@ A tela inicial funciona como o perfil de uma rede social:
 - **Confirmação:** o horário que a cliente marca fica **"A confirmar"** até a profissional tocar em **Confirmar horário** (depois ela avisa a cliente pelo WhatsApp com a mensagem pronta). A Agenda mostra os pedidos aguardando confirmação. O que a própria profissional marca já nasce confirmado.
 - **Dia completo**: a profissional vê todos os horários do dia (livres, ocupados, pausas e bloqueios), agenda ou bloqueia um horário livre com um toque e desbloqueia quando quiser.
 - **Bloquear horário** (`src/app/bloqueio.tsx`): um período ou o dia inteiro (folga, feriado), com motivo opcional.
+- **Lembrete 1 hora antes**: a cliente ativa no app e recebe uma notificação no celular 1 hora antes do horário (Web Push, enviado pela função `supabase/functions/lembretes`; configuração em `supabase/README.md`).
 - **Pausas fixas** (Ajustes › Horários liberados e pausas): ex.: almoço das 12h às 13h nos dias escolhidos.
 - No horário: confirmar presença, pedir confirmação ou lembrete no **WhatsApp**, remarcar, cancelar ou marcar falta.
 - **Concluir atendimento** registra o pagamento (Pix, dinheiro, débito ou crédito), lança a entrada no financeiro e, se a cliente for Premium, dá o selo do cartão fidelidade.

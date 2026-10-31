@@ -9,6 +9,7 @@ import { useClients } from '@/features/clients/ClientsContext';
 import { useLoyalty } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { formatPhone } from '@/utils/format';
+import { RemindersCard } from '@/features/reminders/RemindersCard';
 import { useSession } from './SessionContext';
 
 // Aba "Conta" da cliente: o próprio cadastro, o cartão fidelidade e o login.
@@ -29,6 +30,10 @@ export function MyAccount() {
       <Text style={styles.subtitle}>
         {role === 'cliente' ? `Entrou com o WhatsApp ${formatPhone(phone ?? '')}` : 'Entre com seu WhatsApp, sem senha'}
       </Text>
+
+      <View style={{ marginBottom: 16 }}>
+        <RemindersCard />
+      </View>
 
       {me ? (
         <LinearGradient colors={[colors.wine, colors.plum]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>

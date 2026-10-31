@@ -17,6 +17,7 @@ import { colors, fonts, radius, shadow } from '@/theme';
 import { formatDayMonth, today, toMinutes } from '@/utils/date';
 import { brl, formatPhone } from '@/utils/format';
 import { openExternal } from '@/utils/openExternal';
+import { RemindersCard } from '@/features/reminders/RemindersCard';
 
 type Shortcut = { icon: keyof typeof Ionicons.glyphMap; label: string; a11y?: string; href: Href };
 
@@ -76,6 +77,11 @@ export default function HomeScreen() {
       <Profile postsCount={posts.length} reviewsCount={feedbacks.length} average={average} />
       <Shortcuts />
       {canManage ? <TodayCard /> : phone ? <NextAppointment /> : null}
+      {!canManage && (
+        <View style={styles.reminders}>
+          <RemindersCard compact />
+        </View>
+      )}
       <Composer />
       <View style={styles.filters}>
         {FILTERS.map(([id, label]) => (
@@ -473,6 +479,7 @@ const styles = StyleSheet.create({
   nextTitle: { fontFamily: fonts.semibold, fontSize: 13, color: colors.ink },
   nextText: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
 
+  reminders: { marginHorizontal: 12, marginTop: 12 },
   composer: {
     flexDirection: 'row',
     alignItems: 'center',

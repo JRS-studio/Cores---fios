@@ -17,6 +17,7 @@ import { newId } from '@/utils/id';
 import { formatLongDate } from '@/utils/date';
 import { brl, formatPhone } from '@/utils/format';
 import { openExternal } from '@/utils/openExternal';
+import { RemindersCard } from '@/features/reminders/RemindersCard';
 
 const NOTICES: Record<string, string> = {
   criado: 'Horário agendado!',
@@ -218,6 +219,7 @@ export default function AgendamentoScreen() {
                   />
                 </>
               )}
+              {!canManage && <RemindersCard compact />}
               {!canManage && a.status === 'agendado' && (
                 <View style={styles.pending}>
                   <Ionicons name="hourglass-outline" size={18} color="#B45309" />

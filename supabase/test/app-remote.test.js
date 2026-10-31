@@ -11,7 +11,11 @@ const assert = require('assert/strict');
 const { chromium } = require('playwright');
 
 const API_PORT = 54329;
-const db = { clients: [], appointments: [], transactions: [], feedbacks: [], settings: [], posts: [], likes: [] };
+const db = { clients: [], appointments: [], transactions: [], feedbacks: [], settings: [], posts: [], likes: [], push_subscriptions: [] };
+// Chave pública de envio (VAPID) válida, para o navegador aceitar a inscrição.
+const VAPID = require('crypto').createECDH('prime256v1');
+VAPID.generateKeys();
+const VAPID_PUBLIC = VAPID.getPublicKey().toString('base64url');
 // Sessão do navegador que está fazendo a chamada (pelo token) e números presos a aparelhos.
 const sessions = new Map(); // token -> { user, phone?, owner? }
 const claims = new Map(); // phone -> userId
@@ -62,6 +66,7 @@ const api = http.createServer((req, res) => {
     }
     if (p === '/auth/v1/user') return send(200, session?.user ?? {});
     if (p === '/rest/v1/rpc/is_owner') return send(200, !!session?.owner);
+    if (p === '/rest/v1/rpc/vapid_public_key') return send(200, VAPID_PUBLIC);
     if (p === '/rest/v1/rpc/claim_phone') {
       const owner = claims.get(body.p_phone);
       if (owner && owner !== session.user.id) return send(400, { code: 'P0001', message: 'phone_taken' });
@@ -111,16 +116,23 @@ const api = http.createServer((req, res) => {
 });
 
 const PAGE = fs.readFileSync(path.resolve(__dirname, '../../dist-teste/remoto.html'));
-const site = http.createServer((_, res) => res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(PAGE));
+const SW = fs.readFileSync(path.resolve(__dirname, '../../public/sw.js'));
+const site = http.createServer((req, res) =>
+  req.url.endsWith('/sw.js')
+    ? res.writeHead(200, { 'Content-Type': 'text/javascript' }).end(SW)
+    : res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(PAGE),
+);
 
 (async () => {
   await new Promise((r) => api.listen(API_PORT, r));
   await new Promise((r) => site.listen(0, r));
   const browser = await chromium.launch();
   const p = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  // Como se a cliente aceitasse as notificações quando o navegador pergunta.
+  await p.context().grantPermissions(['notifications']);
   const errors = [];
   p.on('pageerror', (e) => errors.push(e.message));
-  p.on('console', (m) => m.type() === 'error' && !/realtime|websocket|ERR_CONNECTION|status of 40[034]/i.test(m.text()) && errors.push(m.text()));
+  p.on('console', (m) => m.type() === 'error' && !/realtime|websocket|ERR_CONNECTION|status of 40[034]|Push API in incognito/i.test(m.text()) && errors.push(m.text()));
   const R = p.locator('#root');
   const shots = path.resolve(__dirname, '../../dist-teste/prints-remoto');
   fs.mkdirSync(shots, { recursive: true });
@@ -201,6 +213,17 @@ const site = http.createServer((_, res) => res.writeHead(200, { 'Content-Type': 
     assert.match(appt.starts_at, / 10:00$/);
     assert.match(appt.ends_at, / 11:00$/);
     await shot('03-agendado');
+  });
+
+  await test('cliente vê o lembrete 1 hora antes no horário marcado e consegue ativar', async () => {
+    await R.getByText('Lembrete 1 hora antes').filter({ visible: true }).first().waitFor();
+    await R.getByRole('button', { name: 'Ativar lembretes' }).filter({ visible: true }).first().click();
+    // Sem acesso ao serviço de push do Google neste ambiente, a inscrição pode falhar: o app avisa sem travar.
+    await R.getByText(/Lembretes ativados|Não foi possível ativar agora/).filter({ visible: true }).first().waitFor({ timeout: 15000 });
+    const scope = await p.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.scope);
+    assert.match(scope ?? '', /^http:\/\/localhost:\d+\/$/, 'service worker registrado no endereço do site');
+    if (await R.getByText('Lembretes ativados').count()) assert.equal(db.push_subscriptions.length, 1);
+    await shot('02c-lembretes');
   });
 
   await test('horário marcado aparece como ocupado para outra pessoa', async () => {

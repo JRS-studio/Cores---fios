@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '@/components/ui';
 import { useSession } from '@/features/session/SessionContext';
 import { useSettings } from '@/features/settings/SettingsContext';
+import { CODE_BY_WHATSAPP } from '@/features/verification/whatsappCode';
 import { colors, fonts, radius } from '@/theme';
 
 const UPDATED_AT = '31 de outubro de 2026';
@@ -49,7 +50,11 @@ export default function PrivacidadeScreen() {
       title: 'Onde ficam e com quem compartilhamos',
       body: [
         remote
-          ? 'Os dados ficam no servidor do app (Supabase), protegidos por regras de acesso: cada cliente vê só os próprios dados e só a profissional vê os de todas. O código de acesso é enviado pelo WhatsApp por um provedor de mensagens (Twilio). Não vendemos nem repassamos seus dados a terceiros.'
+          ? `Os dados ficam no servidor do app (Supabase), protegidos por regras de acesso: cada cliente vê só os próprios dados e só a profissional vê os de todas. ${
+              CODE_BY_WHATSAPP
+                ? 'O código de acesso é enviado pelo WhatsApp por um provedor de mensagens (Twilio).'
+                : 'Você entra com o número do WhatsApp, que fica ligado ao seu celular; não enviamos mensagens automáticas.'
+            } Não vendemos nem repassamos seus dados a terceiros.`
           : 'Os dados ficam guardados no aparelho em que foram registrados. Não vendemos nem repassamos seus dados a terceiros. As mensagens de WhatsApp são abertas no seu próprio aplicativo de WhatsApp.',
       ],
     },

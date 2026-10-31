@@ -5,14 +5,15 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui';
-import { LOYALTY } from '@/data/loyalty';
 import { useClients } from '@/features/clients/ClientsContext';
+import { useLoyalty } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { formatPhone } from '@/utils/format';
 import { useSession } from './SessionContext';
 
 // Aba "Conta" da cliente: o próprio cadastro, o cartão fidelidade e o login.
 export function MyAccount() {
+  const LOYALTY = useLoyalty();
   const insets = useSafeAreaInsets();
   const { role, phone, signOut } = useSession();
   const { findByPhone } = useClients();

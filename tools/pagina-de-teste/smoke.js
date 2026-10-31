@@ -49,7 +49,9 @@ const page = fs.readFileSync(path.join(DIST, 'cores-e-fios-teste.html'));
     await R.getByText('Esmaltação em gel', { exact: true }).last().click();
     await R.getByText('Horário', { exact: true }).waitFor(); await shot('04-novo-agendamento'); await back();
   });
-  await step('Financeiro', async () => { await tab('Financeiro'); await R.getByText('Lucro do mês').waitFor(); await shot('05-financeiro'); });
+  await step('Financeiro', async () => { await tab('Financeiro'); await R.getByText('Previsto a receber').waitFor(); await R.getByText('A receber dos horários marcados').waitFor(); await shot('05-financeiro');
+    await R.getByText('Semana', { exact: true }).click(); await p.waitForTimeout(300); await shot('05b-financeiro-semana');
+    await R.getByText('Mês', { exact: true }).click(); });
   await step('Cadastro rápido com código do WhatsApp', async () => {
     await tab('Clientes');
     await R.getByText('Cadastro rápido', { exact: true }).click(); await p.waitForTimeout(500);
@@ -69,6 +71,22 @@ const page = fs.readFileSync(path.join(DIST, 'cores-e-fios-teste.html'));
     await R.getByLabel('Ajustes').first().click(); await p.waitForTimeout(500);
     await R.getByText('Política de privacidade').click(); await p.waitForTimeout(500);
     await R.getByText('Quem cuida dos seus dados').waitFor(); await shot('07-privacidade'); await back(); await back();
+  });
+  await step('Ajustes: serviços, horários liberados e Premium', async () => {
+    await tab('Início');
+    await R.getByLabel('Ajustes').first().click(); await p.waitForTimeout(500);
+    await R.getByText('Serviços, preços e tempo').click(); await p.waitForTimeout(500);
+    await R.getByText('Adicionar serviço').click();
+    await R.getByLabel('Serviço', { exact: true }).last().fill('Blindagem');
+    await R.getByLabel('Preço (R$)').last().fill('80');
+    await R.getByText('Salvar serviços').click(); await R.getByText('Serviços salvos').waitFor(); await shot('10-servicos'); await back();
+    await R.getByText('Horários liberados para as clientes').click(); await p.waitForTimeout(500);
+    await R.getByLabel('12:00 liberado').click(); await R.getByLabel('12:00 bloqueado').waitFor();
+    await R.getByText('Salvar horários').click(); await R.getByText('Horários salvos').waitFor(); await shot('11-horarios'); await back();
+    await R.getByText('Benefícios do Premium').click(); await p.waitForTimeout(500);
+    await R.getByLabel('Desconto no aniversário (%)').fill('20');
+    await R.getByText('20% de desconto no mês do aniversário').waitFor();
+    await R.getByText('Salvar benefícios').click(); await R.getByText('Benefícios salvos').waitFor(); await shot('12-premium'); await back(); await back();
   });
   await step('Avaliação aparece no feed', async () => {
     await R.getByLabel('Avaliações', { exact: true }).click(); await p.waitForTimeout(500);

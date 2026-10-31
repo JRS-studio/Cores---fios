@@ -4,6 +4,9 @@ import { STORAGE_KEYS } from '@/data/storage';
 import { supabase } from '@/data/supabase';
 import { reportSyncError } from '@/data/syncStatus';
 import { usePersisted } from '@/data/usePersisted';
+import { DEFAULT_EXTRA_BENEFITS, DEFAULT_LOYALTY, premiumBenefits, type LoyaltyRules } from '@/data/loyalty';
+import { DEFAULT_SERVICES, type Service } from '@/data/services';
+import { weekdayOf } from '@/utils/date';
 
 export type Settings = {
   professionalName: string;
@@ -13,6 +16,13 @@ export type Settings = {
   closeTime: string; // HH:MM
   workDays: number[]; // 0 = domingo
   slotStep: number; // minutos entre horários oferecidos
+  services: Service[];
+  // Horários que a cliente pode escolher, por dia da semana ('0' = domingo). Dia sem lista: todos os livres.
+  clientSlots: Record<string, string[]>;
+  // WhatsApp da profissional (só dígitos, com DDD): recebe o aviso de cada novo agendamento.
+  whatsapp: string;
+  loyalty: LoyaltyRules;
+  extraBenefits: string[];
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -23,6 +33,11 @@ export const DEFAULT_SETTINGS: Settings = {
   closeTime: '19:00',
   workDays: [1, 2, 3, 4, 5, 6],
   slotStep: 30,
+  services: DEFAULT_SERVICES,
+  clientSlots: {},
+  whatsapp: '',
+  loyalty: DEFAULT_LOYALTY,
+  extraBenefits: DEFAULT_EXTRA_BENEFITS,
 };
 
 type SettingsApi = { settings: Settings; ready: boolean; saveSettings: (s: Settings) => void };
@@ -59,7 +74,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [commit],
   );
 
-  const api = useMemo(() => ({ settings: { ...DEFAULT_SETTINGS, ...stored }, ready, saveSettings }), [stored, ready, saveSettings]);
+  // Ajustes salvos antes de um campo existir ganham o valor padrão dele.
+  const api = useMemo(
+    () => ({ settings: { ...DEFAULT_SETTINGS, ...stored, loyalty: { ...DEFAULT_LOYALTY, ...stored.loyalty } }, ready, saveSettings }),
+    [stored, ready, saveSettings],
+  );
   return <SettingsContext.Provider value={api}>{children}</SettingsContext.Provider>;
 }
 
@@ -67,4 +86,20 @@ export function useSettings() {
   const ctx = useContext(SettingsContext);
   if (!ctx) throw new Error('useSettings precisa estar dentro de SettingsProvider');
   return ctx;
+}
+
+export function useLoyalty() {
+  return useSettings().settings.loyalty;
+}
+
+export function usePremiumBenefits() {
+  const { settings } = useSettings();
+  return premiumBenefits(settings.loyalty, settings.extraBenefits);
+}
+
+export const serviceIn = (settings: Settings, id?: string) => settings.services.find((s) => s.id === id);
+
+// Horários liberados para a cliente naquele dia (null = todos os livres).
+export function releasedSlots(settings: Settings, date: string): string[] | null {
+  return settings.clientSlots[String(weekdayOf(date))] ?? null;
 }

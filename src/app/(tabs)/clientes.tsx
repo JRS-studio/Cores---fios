@@ -5,10 +5,10 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { LOYALTY } from '@/data/loyalty';
 import { useClients } from '@/features/clients/ClientsContext';
 import { MyAccount } from '@/features/session/MyAccount';
 import { useSession } from '@/features/session/SessionContext';
+import { useLoyalty } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { formatPhone, initials, onlyDigits } from '@/utils/format';
 
@@ -19,6 +19,7 @@ export default function ClientesScreen() {
 }
 
 function ClientList() {
+  const LOYALTY = useLoyalty();
   const insets = useSafeAreaInsets();
   const { clients, ready } = useClients();
   const [query, setQuery] = useState('');

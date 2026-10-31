@@ -5,10 +5,11 @@ import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleShee
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Chips, Field, ScreenHeader, SectionTitle, Stars, ratingLabel } from '@/components/ui';
-import { designs } from '@/data/catalog';
+import { isServiceActive } from '@/data/services';
 import { storePhoto } from '@/data/photoUpload';
 import { useFeedback } from '@/features/feedback/FeedbackContext';
 import { useSession } from '@/features/session/SessionContext';
+import { useSettings } from '@/features/settings/SettingsContext';
 import { PhoneVerification } from '@/features/verification/PhoneVerification';
 import { colors, fonts, radius } from '@/theme';
 import { newId } from '@/utils/id';
@@ -16,11 +17,12 @@ import { formatPhone, isValidPhone, onlyDigits } from '@/utils/format';
 import { pickImage } from '@/utils/pickImage';
 
 const MAX_COMMENT = 500;
-const SERVICES = [...designs.map((d) => ({ id: d.name, label: d.name })), { id: 'Alongamento', label: 'Alongamento' }];
 
 export default function NovaAvaliacaoScreen() {
   const insets = useSafeAreaInsets();
   const { addFeedback } = useFeedback();
+  const { settings } = useSettings();
+  const SERVICES = settings.services.filter(isServiceActive).map((sv) => ({ id: sv.name, label: sv.name }));
   const { remote, role } = useSession();
   // Com servidor, só publica quem confirmou o WhatsApp (evita avaliações falsas); o nome pode continuar anônimo.
   const needsLogin = remote && role === 'visitante';

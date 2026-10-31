@@ -36,13 +36,21 @@ A tela inicial funciona como o perfil de uma rede social:
 
 ## Financeiro
 
-- Lucro do mês, entradas, saídas e progresso da meta mensal; atendimentos concluídos, ticket médio e faltas.
+- Resumo rápido de **hoje, da semana e do mês**: quanto já entrou e quanto ainda está **previsto** pelos horários marcados.
+- Visão por **dia, semana, mês ou ano**: recebido, previsto a receber, total esperado, saídas e lucro; meta do mês com o que já entrou e o que está marcado.
+- Lista do que falta receber (horários marcados), com alerta dos que já passaram sem conclusão.
+- Atendimentos realizados e a realizar, ticket médio e faltas.
 - Gráficos: entradas por dia, entradas por forma de pagamento e saídas por categoria (cores validadas para daltonismo e contraste), e ranking dos serviços que mais faturaram.
 - Lançamentos manuais de despesas e outras entradas, com filtro e exclusão.
 
 ## Ajustes
 
-Nome da profissional e do studio, meta do mês, horário de funcionamento, dias de atendimento, intervalo entre horários e a opção de apagar todos os dados do aparelho.
+- Nome da profissional e do studio, **WhatsApp da profissional**, meta do mês, horário de funcionamento, dias de atendimento e intervalo entre horários.
+- **Serviços, preços e tempo**: criar, editar, pausar e remover serviços (`src/app/ajustes/servicos.tsx`).
+- **Horários liberados para as clientes**: por dia da semana, quais horários a cliente pode escolher; a profissional agenda em qualquer um.
+- **Benefícios do Premium**: atendimentos para o prêmio, prêmio, selos de boas-vindas e de indicação, desconto de aniversário e benefícios extras escritos à mão.
+- Com o WhatsApp preenchido, ao agendar a cliente abre o WhatsApp com a mensagem pronta para a profissional (sem uma API paga de WhatsApp, o envio automático não é possível; a cliente só toca em enviar).
+- Sem servidor, a opção de apagar todos os dados do aparelho.
 
 ## Avaliações
 

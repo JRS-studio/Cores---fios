@@ -181,7 +181,7 @@ function Profile({ postsCount, reviewsCount, average }: { postsCount: number; re
         {canManage ? (
           <>
             <ProfileButton icon="add-circle-outline" label="Publicar" primary onPress={() => router.push('/publicacao/nova')} />
-            <ProfileButton icon="calendar-outline" label="Agenda" onPress={() => router.navigate('/agenda')} />
+            <ProfileButton icon="create-outline" label="Editar perfil" onPress={() => router.push('/ajustes')} />
           </>
         ) : (
           <>

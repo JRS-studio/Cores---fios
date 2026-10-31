@@ -11,7 +11,8 @@ import { useSession } from '@/features/session/SessionContext';
 import { useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
 import { WEEKDAYS_SHORT } from '@/utils/date';
-import { formatPhone } from '@/utils/format';
+import { formatPhone, isValidPhone, onlyDigits } from '@/utils/format';
+import { Ionicons } from '@expo/vector-icons';
 
 const isTime = (t: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
 const formatTime = (t: string) => {
@@ -23,7 +24,7 @@ export default function AjustesScreen() {
   const insets = useSafeAreaInsets();
   const { settings, saveSettings } = useSettings();
   const { remote, role, phone, canManage, signOut } = useSession();
-  const [form, setForm] = useState({ ...settings, monthlyGoal: String(settings.monthlyGoal) });
+  const [form, setForm] = useState({ ...settings, monthlyGoal: String(settings.monthlyGoal), whatsapp: formatPhone(settings.whatsapp) });
   const [tried, setTried] = useState(false);
   const [saved, setSaved] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -40,6 +41,7 @@ export default function AjustesScreen() {
     openTime: !isTime(form.openTime) ? 'Use HH:MM.' : null,
     closeTime: !isTime(form.closeTime) || form.closeTime <= form.openTime ? 'Precisa ser depois da abertura.' : null,
     workDays: form.workDays.length === 0 ? 'Escolha ao menos um dia.' : null,
+    whatsapp: form.whatsapp && !isValidPhone(form.whatsapp) ? 'Digite um WhatsApp válido com DDD.' : null,
   };
 
   function save() {
@@ -50,6 +52,7 @@ export default function AjustesScreen() {
       professionalName: form.professionalName.trim(),
       studioName: form.studioName.trim(),
       monthlyGoal: Number(form.monthlyGoal),
+      whatsapp: onlyDigits(form.whatsapp),
     });
     setSaved(true);
   }
@@ -92,7 +95,26 @@ export default function AjustesScreen() {
         )}
 
         {canManage && (
+          <View style={styles.menu}>
+            {(
+              [
+                ['cut-outline', 'Serviços, preços e tempo', '/ajustes/servicos'],
+                ['time-outline', 'Horários liberados para as clientes', '/ajustes/horarios'],
+                ['diamond-outline', 'Benefícios do Premium', '/ajustes/premium'],
+              ] as const
+            ).map(([icon, label, href], i) => (
+              <Pressable key={href} style={[styles.menuRow, i > 0 && styles.menuDivider]} onPress={() => router.push(href)} accessibilityRole="button">
+                <Ionicons name={icon} size={20} color={colors.wine} />
+                <Text style={styles.menuText}>{label}</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {canManage && (
           <>
+            <SectionTitle>Studio</SectionTitle>
             <Field
               label="Seu nome"
               value={form.professionalName}
@@ -106,6 +128,16 @@ export default function AjustesScreen() {
               onChangeText={(t) => set('studioName', t)}
               autoCapitalize="words"
               error={tried ? errors.studioName : null}
+            />
+            <Field
+              label="Seu WhatsApp (recebe os novos agendamentos)"
+              optional
+              value={form.whatsapp}
+              onChangeText={(t) => set('whatsapp', formatPhone(t))}
+              placeholder="(11) 98765-4321"
+              keyboardType="phone-pad"
+              helper="Quando uma cliente agenda, o WhatsApp dela abre com a mensagem pronta para você."
+              error={tried ? errors.whatsapp : null}
             />
             <Field
               label="Meta de faturamento do mês (R$)"
@@ -200,6 +232,10 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
   label: { fontFamily: fonts.medium, fontSize: 13, color: colors.ink, marginTop: 12, marginBottom: 8 },
   error: { fontFamily: fonts.medium, fontSize: 12, color: colors.danger, marginTop: 6 },
+  menu: { backgroundColor: colors.white, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, marginBottom: 8 },
+  menuRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 15 },
+  menuDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  menuText: { flex: 1, fontFamily: fonts.semibold, fontSize: 14, color: colors.ink },
   account: {
     gap: 12,
     padding: 16,

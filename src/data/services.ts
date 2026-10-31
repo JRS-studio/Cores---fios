@@ -1,7 +1,8 @@
 // Serviços oferecidos na agenda, com duração usada para calcular os horários livres.
-export type Service = { id: string; name: string; price: number; duration: number };
+// A profissional edita a lista em Ajustes › Serviços e preços (fica nos ajustes do studio).
+export type Service = { id: string; name: string; price: number; duration: number; active?: boolean };
 
-export const services: Service[] = [
+export const DEFAULT_SERVICES: Service[] = [
   { id: 'manicure', name: 'Manicure tradicional', price: 35, duration: 45 },
   { id: 'pedicure', name: 'Pedicure', price: 40, duration: 50 },
   { id: 'mao-pe', name: 'Mão e pé', price: 70, duration: 90 },
@@ -13,4 +14,4 @@ export const services: Service[] = [
   { id: 'spa-pes', name: 'Spa dos pés', price: 60, duration: 45 },
 ];
 
-export const serviceById = (id?: string) => services.find((s) => s.id === id);
+export const isServiceActive = (s: Service) => s.active !== false;

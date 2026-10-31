@@ -4,17 +4,21 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useAppointments, PAYMENT_LABEL, type PaymentMethod } from '@/features/agenda/AppointmentsContext';
+import { useAppointments, PAYMENT_LABEL, type Appointment, type PaymentMethod } from '@/features/agenda/AppointmentsContext';
 import { CategoryBars, DailyBars } from '@/features/finance/charts';
 import { useFinance, type Transaction } from '@/features/finance/FinanceContext';
+import { buckets, inRange, periodLabel, PERIODS, rangeFor, shiftAnchor, type Period, type Range } from '@/features/finance/period';
 import { useSettings } from '@/features/settings/SettingsContext';
 import { OwnerOnly } from '@/components/ui';
 import { useSession } from '@/features/session/SessionContext';
 import { colors, fonts, radius, shadow } from '@/theme';
-import { daysInMonth, formatDayMonth, monthKey, monthLabel, shiftMonth, today } from '@/utils/date';
+import { formatDayMonth, today } from '@/utils/date';
 import { brl } from '@/utils/format';
 
 type Filter = 'todos' | 'entrada' | 'saida';
+
+// Ainda vai acontecer (ou passou sem ser concluído): é dinheiro previsto, não recebido.
+const isPending = (a: Appointment) => a.status === 'agendado' || a.status === 'confirmado';
 
 export default function FinanceiroScreen() {
   const { canManage } = useSession();
@@ -24,31 +28,47 @@ export default function FinanceiroScreen() {
 function FinanceiroScreenContent() {
   const insets = useSafeAreaInsets();
   const { lancado } = useLocalSearchParams<{ lancado?: string }>();
-  const { forMonth, removeTransaction } = useFinance();
+  const { transactions, removeTransaction } = useFinance();
   const { appointments } = useAppointments();
   const { settings } = useSettings();
-  const [month, setMonth] = useState(monthKey(today()));
+  const [period, setPeriod] = useState<Period>('mes');
+  const [anchor, setAnchor] = useState(today());
   const [filter, setFilter] = useState<Filter>('todos');
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
-  const items = forMonth(month);
+  const range = rangeFor(period, anchor);
+  const totals = (r: Range) => {
+    const received = transactions.filter((t) => t.type === 'entrada' && inRange(t.date, r)).reduce((s, t) => s + t.amount, 0);
+    const expected = appointments.filter((a) => isPending(a) && inRange(a.date, r)).reduce((s, a) => s + a.price, 0);
+    return { received, expected };
+  };
+
+  const items = transactions
+    .filter((t) => inRange(t.date, range))
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
   const income = items.filter((t) => t.type === 'entrada');
   const expense = items.filter((t) => t.type === 'saida');
   const totalIn = income.reduce((s, t) => s + t.amount, 0);
   const totalOut = expense.reduce((s, t) => s + t.amount, 0);
   const profit = totalIn - totalOut;
-  const goalProgress = settings.monthlyGoal > 0 ? Math.min(totalIn / settings.monthlyGoal, 1) : 0;
 
-  const monthAppts = appointments.filter((a) => a.date.startsWith(month));
-  const done = monthAppts.filter((a) => a.status === 'concluido');
-  const missed = monthAppts.filter((a) => a.status === 'faltou').length;
+  const periodAppts = appointments.filter((a) => inRange(a.date, range));
+  const pending = periodAppts.filter(isPending).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const expected = pending.reduce((s, a) => s + a.price, 0);
+  const todayIso = today();
+  const nowTime = new Date().toTimeString().slice(0, 5);
+  const overdue = pending.filter((a) => a.date < todayIso || (a.date === todayIso && a.time < nowTime));
+  const done = periodAppts.filter((a) => a.status === 'concluido');
+  const missed = periodAppts.filter((a) => a.status === 'faltou').length;
   const ticket = done.length ? done.reduce((s, a) => s + (a.paidAmount ?? a.price), 0) / done.length : 0;
 
-  const days = daysInMonth(month);
-  const perDay = Array.from({ length: days }, (_, i) => {
-    const iso = `${month}-${String(i + 1).padStart(2, '0')}`;
-    return income.filter((t) => t.date === iso).reduce((s, t) => s + t.amount, 0);
-  });
+  // Meta mensal: no mês mostra quanto já entrou e quanto ainda está marcado.
+  const goal = period === 'mes' ? settings.monthlyGoal : 0;
+  const goalDone = goal > 0 ? Math.min(totalIn / goal, 1) : 0;
+  const goalExpected = goal > 0 ? Math.min((totalIn + expected) / goal, 1) - goalDone : 0;
+
+  const chart = buckets(period, range);
+  const perBucket = chart.map((b) => income.filter((t) => inRange(t.date, b.range)).reduce((s, t) => s + t.amount, 0));
   const byMethod = (Object.keys(PAYMENT_LABEL) as PaymentMethod[]).map((m) => ({
     label: PAYMENT_LABEL[m],
     value: income.filter((t) => t.method === m).reduce((s, t) => s + t.amount, 0),
@@ -66,6 +86,12 @@ function FinanceiroScreenContent() {
     .slice(0, 5);
 
   const visible = items.filter((t) => filter === 'todos' || t.type === filter);
+  const quick: [string, Period][] = [
+    ['Hoje', 'dia'],
+    ['Esta semana', 'semana'],
+    ['Este mês', 'mes'],
+  ];
+  const periodName = { dia: 'do dia', semana: 'da semana', mes: 'do mês', ano: 'do ano' }[period];
 
   return (
     <ScrollView
@@ -81,42 +107,101 @@ function FinanceiroScreenContent() {
         </Pressable>
       </View>
 
-      <View style={styles.monthNav}>
-        <Pressable onPress={() => setMonth(shiftMonth(month, -1))} hitSlop={10} accessibilityLabel="Mês anterior">
-          <Ionicons name="chevron-back" size={22} color={colors.plum} />
-        </Pressable>
-        <Text style={styles.monthLabel}>{monthLabel(month)}</Text>
-        <Pressable onPress={() => setMonth(shiftMonth(month, 1))} hitSlop={10} accessibilityLabel="Próximo mês">
-          <Ionicons name="chevron-forward" size={22} color={colors.plum} />
-        </Pressable>
-      </View>
-
       {lancado && (
-        <View style={styles.notice}>
+        <View style={[styles.notice, { marginTop: 12 }]}>
           <Ionicons name="checkmark-circle" size={20} color={colors.success} />
           <Text style={styles.noticeText}>Lançamento salvo.</Text>
         </View>
       )}
 
+      {/* Rendimentos de hoje, da semana e do mês, lado a lado. */}
+      <View style={styles.quickRow}>
+        {quick.map(([label, p]) => {
+          const t = totals(rangeFor(p, todayIso));
+          return (
+            <Pressable
+              key={p}
+              style={styles.quickCard}
+              onPress={() => {
+                setPeriod(p);
+                setAnchor(todayIso);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`${label}: recebido ${brl(t.received)}, previsto ${brl(t.expected)}`}
+            >
+              <Text style={styles.cardLabel}>{label}</Text>
+              <Text style={styles.quickValue} numberOfLines={1} adjustsFontSizeToFit>
+                {brl(t.received)}
+              </Text>
+              <Text style={styles.quickExpected} numberOfLines={1}>
+                + {brl(t.expected)} previsto
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={styles.segment}>
+        {PERIODS.map(([id, label]) => (
+          <Pressable
+            key={id}
+            style={[styles.segmentItem, period === id && styles.segmentActive]}
+            onPress={() => setPeriod(id)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: period === id }}
+          >
+            <Text style={[styles.segmentText, period === id && { color: colors.white }]}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <View style={styles.monthNav}>
+        <Pressable onPress={() => setAnchor(shiftAnchor(period, anchor, -1))} hitSlop={10} accessibilityLabel="Período anterior">
+          <Ionicons name="chevron-back" size={22} color={colors.plum} />
+        </Pressable>
+        <Pressable onPress={() => setAnchor(todayIso)} accessibilityLabel="Voltar para hoje">
+          <Text style={styles.monthLabel}>{periodLabel(period, anchor)}</Text>
+        </Pressable>
+        <Pressable onPress={() => setAnchor(shiftAnchor(period, anchor, 1))} hitSlop={10} accessibilityLabel="Próximo período">
+          <Ionicons name="chevron-forward" size={22} color={colors.plum} />
+        </Pressable>
+      </View>
+
       <View style={styles.profitCard}>
-        <Text style={styles.cardLabel}>Lucro do mês</Text>
-        <View style={styles.profitRow}>
-          <Text style={styles.profit}>{brl(profit)}</Text>
-          {items.length > 0 && (
-            <View style={[styles.profitTag, profit < 0 && styles.profitTagNeg]}>
-              <Ionicons name={profit >= 0 ? 'trending-up' : 'trending-down'} size={14} color={profit >= 0 ? colors.success : colors.danger} />
-              <Text style={[styles.profitTagText, profit < 0 && { color: colors.danger }]}>{profit >= 0 ? 'No azul' : 'No vermelho'}</Text>
-            </View>
-          )}
-        </View>
         <View style={styles.inOut}>
           <View style={styles.inOutItem}>
             <View style={[styles.marker, { backgroundColor: colors.chartIncome }]} />
             <View>
-              <Text style={styles.cardLabel}>Entradas</Text>
-              <Text style={styles.inOutValue}>+ {brl(totalIn)}</Text>
+              <Text style={styles.cardLabel}>Recebido</Text>
+              <Text style={styles.bigValue}>{brl(totalIn)}</Text>
             </View>
           </View>
+          <View style={styles.inOutItem}>
+            <View style={[styles.marker, { backgroundColor: colors.chartIncome, opacity: 0.35 }]} />
+            <View>
+              <Text style={styles.cardLabel}>Previsto a receber</Text>
+              <Text style={styles.bigValue}>{brl(expected)}</Text>
+            </View>
+          </View>
+        </View>
+        <Text style={styles.expectedNote}>
+          Total esperado {periodName}: <Text style={styles.expectedStrong}>{brl(totalIn + expected)}</Text>
+          {pending.length > 0 ? ` · ${pending.length} ${pending.length === 1 ? 'horário marcado' : 'horários marcados'}` : ''}
+        </Text>
+
+        {goal > 0 && (
+          <>
+            <View style={styles.goalTrack}>
+              <View style={[styles.goalFill, { width: `${goalDone * 100}%` }]} />
+              <View style={[styles.goalFill, styles.goalExpected, { width: `${goalExpected * 100}%` }]} />
+            </View>
+            <Text style={styles.goalText}>
+              {Math.round(goalDone * 100)}% da meta de {brl(goal)} recebido
+              {expected > 0 ? ` · ${Math.round((goalDone + goalExpected) * 100)}% com os horários marcados` : ''}
+            </Text>
+          </>
+        )}
+
+        <View style={[styles.inOut, styles.profitBottom]}>
           <View style={styles.inOutItem}>
             <View style={[styles.marker, { backgroundColor: colors.chartExpense }]} />
             <View>
@@ -124,50 +209,90 @@ function FinanceiroScreenContent() {
               <Text style={styles.inOutValue}>− {brl(totalOut)}</Text>
             </View>
           </View>
+          <View style={styles.inOutItem}>
+            <View style={[styles.marker, { backgroundColor: profit >= 0 ? colors.success : colors.danger }]} />
+            <View>
+              <Text style={styles.cardLabel}>Lucro</Text>
+              <Text style={[styles.inOutValue, profit < 0 && { color: colors.danger }]}>{brl(profit)}</Text>
+            </View>
+          </View>
         </View>
-        <View style={styles.goalTrack}>
-          <View style={[styles.goalFill, { width: `${goalProgress * 100}%` }]} />
-        </View>
-        <Text style={styles.goalText}>
-          {Math.round(goalProgress * 100)}% da meta de {brl(settings.monthlyGoal)} em entradas
-        </Text>
       </View>
 
       <View style={styles.stats}>
-        <Stat icon="checkmark-done" value={String(done.length)} label="Atendimentos" />
+        <Stat icon="checkmark-done" value={String(done.length)} label="Realizados" />
+        <Stat icon="calendar-outline" value={String(pending.length)} label="A realizar" />
         <Stat icon="pricetag-outline" value={brl(Math.round(ticket))} label="Ticket médio" />
         <Stat icon="alert-circle-outline" value={String(missed)} label="Faltas" />
       </View>
 
-      <Section title="Entradas por dia">
-        <DailyBars
-          values={perDay}
-          color={colors.chartIncome}
-          labelFor={(i) => formatDayMonth(`${month}-${String(i + 1).padStart(2, '0')}`)}
-          emptyText="Nenhuma entrada neste mês."
-        />
+      <Section title="A receber dos horários marcados">
+        {pending.length === 0 ? (
+          <Text style={styles.muted}>Nenhum horário marcado neste período.</Text>
+        ) : (
+          <>
+            {overdue.length > 0 && (
+              <View style={styles.warn}>
+                <Ionicons name="time-outline" size={16} color="#B45309" />
+                <Text style={styles.warnText}>
+                  {overdue.length} {overdue.length === 1 ? 'horário já passou' : 'horários já passaram'} sem conclusão. Conclua na agenda para
+                  registrar o pagamento.
+                </Text>
+              </View>
+            )}
+            {pending.slice(0, 30).map((a, i) => (
+              <Pressable
+                key={a.id}
+                style={[styles.rankRow, i > 0 && styles.divider]}
+                onPress={() => router.push({ pathname: '/agendamento/[id]', params: { id: a.id } })}
+              >
+                <View style={{ width: 62 }}>
+                  <Text style={styles.pendingDate}>{a.date === todayIso ? 'Hoje' : formatDayMonth(a.date)}</Text>
+                  <Text style={styles.muted}>{a.time}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rankName} numberOfLines={1}>
+                    {a.clientName}
+                  </Text>
+                  <Text style={styles.muted} numberOfLines={1}>
+                    {a.serviceName}
+                    {a.status === 'confirmado' ? ' · confirmado' : ''}
+                  </Text>
+                </View>
+                <Text style={styles.rankValue}>{brl(a.price)}</Text>
+              </Pressable>
+            ))}
+            {pending.length > 30 && <Text style={[styles.muted, { marginTop: 8 }]}>e mais {pending.length - 30} horários.</Text>}
+          </>
+        )}
       </Section>
 
-      <Section title="Entradas por forma de pagamento">
-        <CategoryBars data={byMethod} color={colors.chartIncome} emptyText="Nenhuma entrada neste mês." />
+      {chart.length > 0 && (
+        <Section title={period === 'ano' ? 'Recebido por mês' : 'Recebido por dia'}>
+          <DailyBars values={perBucket} color={colors.chartIncome} labelFor={(i) => chart[i].label} emptyText={`Nenhuma entrada neste período.`} />
+        </Section>
+      )}
+
+      <Section title="Recebido por forma de pagamento">
+        <CategoryBars data={byMethod} color={colors.chartIncome} emptyText="Nenhuma entrada neste período." />
       </Section>
 
       <Section title="Saídas por categoria">
-        <CategoryBars data={expenseByCategory} color={colors.chartExpense} emptyText="Nenhuma saída neste mês." />
+        <CategoryBars data={expenseByCategory} color={colors.chartExpense} emptyText="Nenhuma saída neste período." />
       </Section>
 
       <Section title="Serviços que mais faturaram">
         {topServices.length === 0 ? (
           <Text style={styles.muted}>Conclua atendimentos na agenda para ver o ranking.</Text>
         ) : (
-          topServices.map(([name, s], i) => (
+          topServices.map(([name, sv], i) => (
             <View key={name} style={[styles.rankRow, i > 0 && styles.divider]}>
               <Text style={styles.rank}>{i + 1}</Text>
               <Text style={styles.rankName} numberOfLines={1}>
                 {name}
               </Text>
-              <Text style={styles.muted}>{s.count}×</Text>
-              <Text style={styles.rankValue}>{brl(s.total)}</Text>
+              <Text style={styles.muted}>{sv.count}×</Text>
+              <Text style={styles.rankValue}>{brl(sv.total)}</Text>
             </View>
           ))
         )}
@@ -188,7 +313,7 @@ function FinanceiroScreenContent() {
         ))}
       </View>
       {visible.length === 0 ? (
-        <Text style={[styles.muted, { textAlign: 'center', paddingVertical: 16 }]}>Nenhum lançamento.</Text>
+        <Text style={[styles.muted, { textAlign: 'center', paddingVertical: 16 }]}>Nenhum lançamento neste período.</Text>
       ) : (
         <View style={styles.list}>
           {visible.map((t, i) => (
@@ -264,8 +389,12 @@ function Stat({ icon, value, label }: { icon: keyof typeof Ionicons.glyphMap; va
   return (
     <View style={styles.stat}>
       <Ionicons name={icon} size={18} color={colors.wine} />
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.cardLabel}>{label}</Text>
+      <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
+      <Text style={[styles.cardLabel, { fontSize: 11 }]} numberOfLines={1}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -325,11 +454,27 @@ const styles = StyleSheet.create({
   inOutItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   marker: { width: 4, alignSelf: 'stretch', borderRadius: 2 },
   inOutValue: { fontFamily: fonts.semibold, fontSize: 15, color: colors.ink },
-  goalTrack: { height: 8, borderRadius: 4, backgroundColor: colors.blush, marginTop: 16, overflow: 'hidden' },
+  bigValue: { fontFamily: fonts.display, fontSize: 24, color: colors.ink },
+  expectedNote: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted, marginTop: 12 },
+  expectedStrong: { fontFamily: fonts.semibold, color: colors.ink },
+  goalExpected: { backgroundColor: colors.chartIncome, opacity: 0.35, borderRadius: 0 },
+  profitBottom: { marginTop: 16, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  quickRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  quickCard: { flex: 1, backgroundColor: colors.white, borderRadius: radius.md, padding: 12, gap: 2, ...shadow },
+  quickValue: { fontFamily: fonts.semibold, fontSize: 16, color: colors.ink },
+  quickExpected: { fontFamily: fonts.regular, fontSize: 10, color: colors.wine },
+  segment: { flexDirection: 'row', backgroundColor: colors.white, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, padding: 4, marginTop: 16 },
+  segmentItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: radius.pill },
+  segmentActive: { backgroundColor: colors.plum },
+  segmentText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.plum },
+  warn: { flexDirection: 'row', gap: 8, backgroundColor: '#FEF3E2', borderRadius: radius.sm, padding: 10, marginBottom: 8 },
+  warnText: { flex: 1, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: '#92400E' },
+  pendingDate: { fontFamily: fonts.semibold, fontSize: 13, color: colors.ink },
+  goalTrack: { flexDirection: 'row', height: 8, borderRadius: 4, backgroundColor: colors.blush, marginTop: 16, overflow: 'hidden' },
   goalFill: { height: '100%', borderRadius: 4, backgroundColor: colors.chartIncome },
   goalText: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted, marginTop: 6 },
   stats: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  stat: { flex: 1, backgroundColor: colors.white, borderRadius: radius.md, padding: 12, gap: 2, ...shadow },
+  stat: { flex: 1, backgroundColor: colors.white, borderRadius: radius.md, paddingVertical: 12, paddingHorizontal: 10, gap: 2, ...shadow },
   statValue: { fontFamily: fonts.semibold, fontSize: 17, color: colors.ink, marginTop: 4 },
   section: { backgroundColor: colors.white, borderRadius: radius.md, padding: 16, marginTop: 14, ...shadow },
   sectionTitle: { fontFamily: fonts.display, fontSize: 17, color: colors.ink, marginBottom: 12 },

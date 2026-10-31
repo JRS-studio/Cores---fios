@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, CheckRow, Chips, Field, ScreenHeader, SectionTitle } from '@/components/ui';
 import { polishes, shapes, type ShapeId } from '@/data/catalog';
-import { LOYALTY, PREMIUM_BENEFITS } from '@/data/loyalty';
 import { useClients } from '@/features/clients/ClientsContext';
 import {
   ALLERGIES,
@@ -19,6 +18,7 @@ import {
   type Client,
   type Plan,
 } from '@/features/clients/types';
+import { useLoyalty, usePremiumBenefits } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { newId } from '@/utils/id';
 import { useSession } from '@/features/session/SessionContext';
@@ -30,6 +30,8 @@ const MAX_COLORS = 5;
 const toOptions = (list: string[]) => list.map((l) => ({ id: l, label: l }));
 
 export default function CadastroScreen() {
+  const LOYALTY = useLoyalty();
+  const PREMIUM_BENEFITS = usePremiumBenefits();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ tipo?: Plan; id?: string }>();
   const { getClient, findByPhone, saveClient } = useClients();

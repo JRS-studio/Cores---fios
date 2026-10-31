@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
-import { LOYALTY, levelFor } from '@/data/loyalty';
+import { levelFor } from '@/data/loyalty';
+import { useLoyalty } from '@/features/settings/SettingsContext';
 import { STORAGE_KEYS } from '@/data/storage';
 import { toAuthPhone } from '@/data/supabase';
 import { useCollection, type RemoteTable } from '@/data/useCollection';
@@ -38,6 +39,7 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
   const [stored, commit, ready] = useCollection<Client>(STORAGE_KEYS.clients, REMOTE);
   // Cadastros antigos com CPF são limpos ao ler; o próximo salvamento já grava sem ele.
   const clients = useMemo(() => stored.map(withoutDocuments), [stored]);
+  const LOYALTY = useLoyalty();
 
   const api = useMemo<ClientsApi>(() => {
     const update = (id: string, fn: (c: Client) => Client) => commit(clients.map((c) => (c.id === id ? fn(c) : c)));
@@ -79,7 +81,7 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
           };
         }),
     };
-  }, [clients, commit, ready]);
+  }, [clients, commit, ready, LOYALTY]);
 
   return <ClientsContext.Provider value={api}>{children}</ClientsContext.Provider>;
 }

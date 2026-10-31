@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -6,13 +7,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, CheckRow, Field, ScreenHeader, SectionTitle } from '@/components/ui';
 import { shapeById } from '@/data/catalog';
-import { LOYALTY } from '@/data/loyalty';
-import { serviceById, services } from '@/data/services';
+import { isServiceActive } from '@/data/services';
 import { useAppointments, type Appointment } from '@/features/agenda/AppointmentsContext';
 import { DateStrip, endTime } from '@/features/agenda/components';
+import { newBookingWhatsApp } from '@/features/agenda/whatsapp';
 import { useClients } from '@/features/clients/ClientsContext';
 import { useSession } from '@/features/session/SessionContext';
-import { useSettings } from '@/features/settings/SettingsContext';
+import { releasedSlots, serviceIn, useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
 import { newId } from '@/utils/id';
 import { formatLongDate, today } from '@/utils/date';
@@ -50,10 +51,14 @@ export default function NovoAgendamentoScreen() {
   const isWalkIn = !clientMode && walkIn;
   const selectedId = clientMode ? me?.id : clientId;
   const client = selectedId ? getClient(selectedId) : undefined;
-  const service = serviceById(serviceId);
+  const LOYALTY = settings.loyalty;
+  const services = settings.services.filter(isServiceActive);
+  const service = serviceIn(settings, serviceId);
   const serviceName = serviceId === CUSTOM ? (custom?.serviceName ?? '') : (service?.name ?? '');
   const duration = serviceId === CUSTOM ? (custom?.duration ?? 60) : (service?.duration ?? 60);
-  const slots = availableSlots(date, duration, settings, editing?.id);
+  // A cliente só vê os horários que a profissional liberou para aquele dia da semana.
+  const released = clientMode ? releasedSlots(settings, date) : null;
+  const slots = availableSlots(date, duration, settings, editing?.id).filter((t) => !released || released.includes(t));
 
   // Com servidor, os horários das outras clientes vêm só como "ocupado".
   useEffect(() => {
@@ -81,7 +86,7 @@ export default function NovoAgendamentoScreen() {
 
   function chooseService(id: string) {
     setServiceId(id);
-    const s = serviceById(id);
+    const s = serviceIn(settings, id);
     setPrice(id === CUSTOM ? String(custom?.price ?? price) : s ? String(s.price) : '');
     setTime(undefined);
   }
@@ -130,6 +135,8 @@ export default function NovoAgendamentoScreen() {
       notes: notes.trim() || undefined,
     };
     saveAppointment(appointment);
+    // A cliente avisa a profissional pelo WhatsApp dela (mensagem pronta; é só tocar em enviar).
+    if (clientMode && settings.whatsapp) Linking.openURL(newBookingWhatsApp(settings.whatsapp, appointment, !!editing));
     router.dismissTo({ pathname: '/agendamento/[id]', params: { id: appointment.id, novo: editing ? 'remarcado' : 'criado' } });
   }
 

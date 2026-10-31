@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, ScreenHeader } from '@/components/ui';
 import { polishById, shapeById } from '@/data/catalog';
-import { LEVELS, LOYALTY, levelFor, nextLevel } from '@/data/loyalty';
+import { LEVELS, levelFor, nextLevel } from '@/data/loyalty';
 import { useAppointments } from '@/features/agenda/AppointmentsContext';
 import { StatusChip } from '@/features/agenda/components';
 import { useClients } from '@/features/clients/ClientsContext';
@@ -16,17 +16,22 @@ import { reportSyncError } from '@/data/syncStatus';
 import { useSession } from '@/features/session/SessionContext';
 import { CODE_BY_WHATSAPP } from '@/features/verification/whatsappCode';
 import { CONTACT_CHANNELS, LENGTHS, type Client } from '@/features/clients/types';
+import { useLoyalty } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { formatDayMonth } from '@/utils/date';
 import { brl, formatPhone, formatShortDate, initials, parseDate } from '@/utils/format';
 
-const WELCOME: Record<string, string> = {
+const welcome = (welcomeStamps: number): Record<string, string> => ({
   rapido: 'Cadastro concluído! Seus dados já ficam prontos para o próximo agendamento.',
-  premium: `Bem-vinda ao Premium! Você já ganhou ${LOYALTY.welcomeStamps} selo de boas-vindas.`,
+  premium: welcomeStamps > 0
+    ? `Bem-vinda ao Premium! Você já ganhou ${welcomeStamps} ${welcomeStamps === 1 ? 'selo' : 'selos'} de boas-vindas.`
+    : 'Bem-vinda ao Premium!',
   editado: 'Cadastro atualizado.',
-};
+});
 
 export default function ClienteScreen() {
+  const LOYALTY = useLoyalty();
+  const WELCOME = welcome(LOYALTY.welcomeStamps);
   const insets = useSafeAreaInsets();
   const { id, novo } = useLocalSearchParams<{ id: string; novo?: string }>();
   const { ready, getClient, registerVisit, addReferralBonus, redeemReward, removeClient } = useClients();
@@ -266,6 +271,7 @@ export default function ClienteScreen() {
 }
 
 function LoyaltyCard({ client }: { client: Client }) {
+  const LOYALTY = useLoyalty();
   const loyalty = client.loyalty ?? { stamps: 0, totalVisits: 0, rewardsRedeemed: 0 };
   const level = levelFor(loyalty.totalVisits);
   const upcoming = nextLevel(loyalty.totalVisits);

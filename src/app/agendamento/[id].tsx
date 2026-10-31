@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Chips, Field, ScreenHeader } from '@/components/ui';
 import { useAppointments, PAYMENT_LABEL, type PaymentMethod } from '@/features/agenda/AppointmentsContext';
 import { endTime, StatusChip } from '@/features/agenda/components';
+import { newBookingWhatsApp } from '@/features/agenda/whatsapp';
 import { useClients } from '@/features/clients/ClientsContext';
 import { useFinance } from '@/features/finance/FinanceContext';
 import { useSession } from '@/features/session/SessionContext';
@@ -94,6 +95,15 @@ export default function AgendamentoScreen() {
           <Text style={styles.noticeText}>{notice}</Text>
         </View>
       )}
+      {!canManage && novo && settings.whatsapp ? (
+        <Button
+          label={`Avisar ${settings.professionalName} no WhatsApp`}
+          icon="logo-whatsapp"
+          variant="secondary"
+          onPress={() => Linking.openURL(newBookingWhatsApp(settings.whatsapp, a, novo === 'remarcado'))}
+          style={{ marginBottom: 14 }}
+        />
+      ) : null}
 
       <View style={styles.card}>
         <View style={styles.cardTop}>

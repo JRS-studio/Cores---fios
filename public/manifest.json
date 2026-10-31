@@ -3,6 +3,7 @@
   "short_name": "Cores & Fios",
   "description": "Agende seu horário, teste cores de esmalte e acompanhe seu cartão fidelidade.",
   "lang": "pt-BR",
+  "id": "/cores-e-fios-app",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

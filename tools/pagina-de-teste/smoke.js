@@ -129,6 +129,7 @@ const page = fs.readFileSync(path.join(DIST, 'cores-e-fios-teste.html'));
   await step('WhatsApp da profissional e atalho de temas no topo', async () => {
     await tab('Início');
     if (await R.getByLabel(/WhatsApp do studio/).count()) throw new Error('botão do WhatsApp aparece sem número cadastrado');
+    await R.getByLabel('Cadastrar seu WhatsApp para as clientes').waitFor();
     await R.getByLabel('Ajustes').first().click(); await p.waitForTimeout(400);
     await R.getByPlaceholder('(11) 98765-4321').fill('11987654321');
     await R.getByText('Salvar ajustes').click(); await back();

@@ -216,6 +216,19 @@ function Profile({ postsCount, reviewsCount, average }: { postsCount: number; re
           >
             <Ionicons name="logo-whatsapp" size={20} color={colors.plum} />
           </Pressable>
+        ) : canManage ? (
+          // Sem número cadastrado, as clientes não veem o botão; a profissional vê um atalho para cadastrar.
+          <Pressable
+            onPress={() => router.push('/ajustes')}
+            style={({ pressed }) => [styles.instagram, styles.whatsappMissing, pressed && { opacity: 0.85 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Cadastrar seu WhatsApp para as clientes"
+          >
+            <Ionicons name="logo-whatsapp" size={20} color={colors.muted} />
+            <View style={styles.whatsappBadge}>
+              <Ionicons name="add" size={11} color={colors.white} />
+            </View>
+          </Pressable>
         ) : null}
       </View>
     </View>
@@ -391,6 +404,18 @@ const styles = StyleSheet.create({
   profileName: { fontFamily: fonts.semibold, fontSize: 15, color: colors.ink, marginTop: 10 },
   profileBio: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.ink, marginTop: 2 },
   profileButtons: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  whatsappMissing: { borderWidth: 1, borderStyle: 'dashed', borderColor: colors.roseGold, backgroundColor: 'transparent' },
+  whatsappBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.wine,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   instagram: { width: 42, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm, backgroundColor: colors.blush },
   profileButton: {
     flex: 1,

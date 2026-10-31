@@ -20,11 +20,15 @@ const formatTime = (t: string) => {
   return d.length <= 2 ? d : `${d.slice(0, 2)}:${d.slice(2)}`;
 };
 
+// Aceita @perfil, perfil ou o link do Instagram (com ou sem ?parâmetros) e guarda só o nome do perfil.
+const cleanInstagram = (v: string) =>
+  v.trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/[/?#].*$/, '').replace(/^@/, '');
+
 export default function AjustesScreen() {
   const insets = useSafeAreaInsets();
   const { settings, saveSettings } = useSettings();
   const { remote, role, phone, canManage, signOut } = useSession();
-  const [form, setForm] = useState({ ...settings, monthlyGoal: String(settings.monthlyGoal), whatsapp: formatPhone(settings.whatsapp) });
+  const [form, setForm] = useState({ ...settings, monthlyGoal: String(settings.monthlyGoal), whatsapp: formatPhone(settings.whatsapp), instagram: settings.instagram });
   const [tried, setTried] = useState(false);
   const [saved, setSaved] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -53,6 +57,7 @@ export default function AjustesScreen() {
       studioName: form.studioName.trim(),
       monthlyGoal: Number(form.monthlyGoal),
       whatsapp: onlyDigits(form.whatsapp),
+      instagram: cleanInstagram(form.instagram),
     });
     setSaved(true);
   }
@@ -101,6 +106,7 @@ export default function AjustesScreen() {
                 ['cut-outline', 'Serviços, preços e tempo', '/ajustes/servicos'],
                 ['time-outline', 'Horários liberados e pausas', '/ajustes/horarios'],
                 ['diamond-outline', 'Benefícios do Premium', '/ajustes/premium'],
+                ['color-palette-outline', 'Tema do app', '/ajustes/tema'],
               ] as const
             ).map(([icon, label, href], i) => (
               <Pressable key={href} style={[styles.menuRow, i > 0 && styles.menuDivider]} onPress={() => router.push(href)} accessibilityRole="button">
@@ -138,6 +144,15 @@ export default function AjustesScreen() {
               keyboardType="phone-pad"
               helper="Quando uma cliente agenda, o WhatsApp dela abre com a mensagem pronta para você."
               error={tried ? errors.whatsapp : null}
+            />
+            <Field
+              label="Instagram do studio"
+              optional
+              value={form.instagram}
+              onChangeText={(t) => set('instagram', t)}
+              placeholder="@seu.studio"
+              autoCapitalize="none"
+              helper="Aparece como botão no perfil da página inicial. Pode colar o link do perfil."
             />
             <Field
               label="Meta de faturamento do mês (R$)"

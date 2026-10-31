@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import * as Linking from 'expo-linking';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui';
 import { colors, fonts, radius } from '@/theme';
+import { openExternal } from '@/utils/openExternal';
 
 // Endereço da versão web publicada (ver supabase/README.md › Versão web).
 export const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL?.replace(/\/$/, '') ?? '';
@@ -31,7 +31,7 @@ export function ClientLink({ studioName }: { studioName: string }) {
         <Button
           label="Enviar no WhatsApp"
           icon="logo-whatsapp"
-          onPress={() => Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`)}
+          onPress={() => openExternal(`https://wa.me/?text=${encodeURIComponent(message)}`)}
           style={{ flex: 1 }}
         />
         <Button

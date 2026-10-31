@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -17,6 +16,7 @@ import { colors, fonts, radius, shadow } from '@/theme';
 import { newId } from '@/utils/id';
 import { formatLongDate } from '@/utils/date';
 import { brl, formatPhone } from '@/utils/format';
+import { openExternal } from '@/utils/openExternal';
 
 const NOTICES: Record<string, string> = {
   criado: 'Horário agendado!',
@@ -63,7 +63,7 @@ export default function AgendamentoScreen() {
   const justConfirmed = !!action?.message.includes('confirmado');
 
   function whatsapp(text: string) {
-    Linking.openURL(`https://wa.me/55${a!.clientPhone}?text=${encodeURIComponent(text)}`);
+    openExternal(`https://wa.me/55${a!.clientPhone}?text=${encodeURIComponent(text)}`);
   }
 
   function complete() {
@@ -106,7 +106,7 @@ export default function AgendamentoScreen() {
           label={`Avisar ${settings.professionalName} no WhatsApp`}
           icon="logo-whatsapp"
           variant="secondary"
-          onPress={() => Linking.openURL(newBookingWhatsApp(settings.whatsapp, a, novo === 'remarcado'))}
+          onPress={() => openExternal(newBookingWhatsApp(settings.whatsapp, a, novo === 'remarcado'))}
           style={{ marginBottom: 14 }}
         />
       ) : null}

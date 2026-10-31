@@ -23,6 +23,7 @@ import { FinanceProvider } from '@/features/finance/FinanceContext';
 import { SessionProvider } from '@/features/session/SessionContext';
 import { SettingsProvider } from '@/features/settings/SettingsContext';
 import { colors } from '@/theme';
+import { ThemeSync } from '@/theme/ThemeSync';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -54,6 +55,7 @@ export default function RootLayout() {
                       <StatusBar style="dark" />
                       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }} />
                       <SyncBanner />
+                      <ThemeSync />
                     </LikesProvider>
                   </PostsProvider>
                 </FeedbackProvider>

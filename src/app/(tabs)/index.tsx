@@ -12,10 +12,11 @@ import { PostCard, ReviewCard, StudioAvatar, type FeedItem } from '@/features/fe
 import { usePosts } from '@/features/feed/PostsContext';
 import { useFinance } from '@/features/finance/FinanceContext';
 import { useSession } from '@/features/session/SessionContext';
-import { useSettings } from '@/features/settings/SettingsContext';
+import { instagramUrl, useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { formatDayMonth, today, toMinutes } from '@/utils/date';
 import { brl } from '@/utils/format';
+import { openExternal } from '@/utils/openExternal';
 
 type Shortcut = { icon: keyof typeof Ionicons.glyphMap; label: string; a11y?: string; href: Href };
 
@@ -189,6 +190,16 @@ function Profile({ postsCount, reviewsCount, average }: { postsCount: number; re
             <ProfileButton icon="star-outline" label="Avaliar" onPress={() => router.push('/avaliacoes/nova')} />
           </>
         )}
+        {settings.instagram ? (
+          <Pressable
+            onPress={() => openExternal(instagramUrl(settings.instagram))}
+            style={({ pressed }) => [styles.instagram, pressed && { opacity: 0.85 }]}
+            accessibilityRole="link"
+            accessibilityLabel={`Instagram do studio: @${settings.instagram}`}
+          >
+            <Ionicons name="logo-instagram" size={20} color={colors.plum} />
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -361,6 +372,7 @@ const styles = StyleSheet.create({
   profileName: { fontFamily: fonts.semibold, fontSize: 15, color: colors.ink, marginTop: 10 },
   profileBio: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.ink, marginTop: 2 },
   profileButtons: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  instagram: { width: 42, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm, backgroundColor: colors.blush },
   profileButton: {
     flex: 1,
     flexDirection: 'row',

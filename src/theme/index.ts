@@ -1,3 +1,6 @@
+import { readThemeSync } from './storage';
+import { themeById } from './themes';
+
 export const colors = {
   plum: '#2B1220',
   plumSoft: '#4A2236',
@@ -39,3 +42,11 @@ export const shadow = {
   shadowOffset: { width: 0, height: 8 },
   elevation: 4,
 };
+
+// Tema escolhido pela profissional (Ajustes › Tema do app), aplicado antes de qualquer estilo ser criado.
+export const activeTheme = themeById(readThemeSync() ?? undefined);
+Object.assign(colors, activeTheme.colors);
+if (!activeTheme.serifTitles) {
+  fonts.display = fonts.semibold;
+  fonts.displayItalic = fonts.semibold;
+}

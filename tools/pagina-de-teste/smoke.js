@@ -126,6 +126,27 @@ const page = fs.readFileSync(path.join(DIST, 'cores-e-fios-teste.html'));
     await shot('09-feed');
   });
 
+  await step('Instagram e os 5 temas', async () => {
+    await tab('Início');
+    const ig = R.getByLabel(/Instagram do studio/);
+    await ig.waitFor();
+    // O Instagram não é acessado de verdade: só confere o endereço que o botão abre.
+    await p.context().route(/instagram\.com/, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: 'ok' }));
+    const [popup] = await Promise.all([p.waitForEvent('popup', { timeout: 5000 }), ig.click()]);
+    await popup.waitForURL(/instagram\.com\/js\.cooresefios/, { timeout: 5000 });
+    await popup.close();
+    for (const [name, plum] of [['Romântico', 'rgb(74, 21, 48)'], ['Nude', 'rgb(59, 47, 40)'], ['Básico', 'rgb(22, 22, 22)'], ['Tecnologia', 'rgb(15, 23, 42)'], ['Rosé Gold', 'rgb(43, 18, 32)']]) {
+      await R.getByLabel('Ajustes').first().click(); await p.waitForTimeout(400);
+      await R.getByText('Tema do app').click(); await p.waitForTimeout(400);
+      await Promise.all([p.waitForEvent('load'), R.getByLabel(new RegExp(`^Tema ${name}:`)).click()]);
+      await p.waitForTimeout(1500);
+      await p.goto(url, { waitUntil: 'networkidle' }); await p.waitForTimeout(1200);
+      const bg = await R.getByRole('button', { name: 'Publicar' }).first().evaluate((el) => getComputedStyle(el).backgroundColor);
+      if (bg !== plum) throw new Error(`tema ${name}: cor ${bg}, esperado ${plum}`);
+      await shot(`13-tema-${name.normalize('NFD').replace(/[^a-zA-Z]/g, '').toLowerCase()}`);
+    }
+  });
+
   await browser.close();
   server.close();
   if (errors.length) {

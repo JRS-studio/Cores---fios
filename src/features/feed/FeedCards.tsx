@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { memo, useRef, useState, type ReactNode } from 'react';
@@ -10,6 +9,7 @@ import type { Feedback } from '@/features/feedback/FeedbackContext';
 import { WEB_URL } from '@/features/session/ClientLink';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { timeAgo } from '@/utils/date';
+import { openExternal } from '@/utils/openExternal';
 import { useLikes } from './LikesContext';
 import { postKindLabel, type Post } from './PostsContext';
 
@@ -23,7 +23,7 @@ async function shareText(text: string) {
   try {
     await Share.share({ message });
   } catch {
-    Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`);
+    openExternal(`https://wa.me/?text=${encodeURIComponent(message)}`);
   }
 }
 

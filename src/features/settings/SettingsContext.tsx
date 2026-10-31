@@ -23,6 +23,10 @@ export type Settings = {
   whatsapp: string;
   loyalty: LoyaltyRules;
   extraBenefits: string[];
+  // Tema do app escolhido pela profissional (vale para todas as clientes).
+  theme: string;
+  // Perfil do studio no Instagram (só o @, sem link).
+  instagram: string;
   // Pausas fixas (ex.: almoço) nos dias da semana escolhidos.
   breaks: BreakRule[];
   // Bloqueios de um dia específico (consulta, folga…). Dia inteiro: allDay.
@@ -47,6 +51,8 @@ export const DEFAULT_SETTINGS: Settings = {
   extraBenefits: DEFAULT_EXTRA_BENEFITS,
   breaks: [],
   blocks: [],
+  theme: 'rose',
+  instagram: 'js.cooresefios',
 };
 
 type SettingsApi = { settings: Settings; ready: boolean; saveSettings: (s: Settings) => void };
@@ -137,3 +143,5 @@ export function unavailableOn(settings: Settings, date: string): Unavailable[] {
 }
 
 export const isDayBlocked = (settings: Settings, date: string) => settings.blocks.some((b) => b.date === date && b.allDay);
+
+export const instagramUrl = (handle: string) => `https://www.instagram.com/${handle.replace(/^@/, '').trim()}/`;

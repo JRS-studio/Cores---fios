@@ -69,7 +69,7 @@ export function DateStrip({
 const STATUS_STYLE: Record<AppointmentStatus, { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }> = {
   agendado: { icon: 'time-outline', color: colors.plumSoft, bg: colors.blush },
   confirmado: { icon: 'checkmark-circle', color: colors.success, bg: '#E6F3EC' },
-  concluido: { icon: 'checkmark-done', color: colors.plum, bg: '#EFE6EA' },
+  concluido: { icon: 'checkmark-done', color: colors.plum, bg: colors.blush },
   cancelado: { icon: 'close-circle', color: colors.danger, bg: '#FBEAE4' },
   faltou: { icon: 'alert-circle', color: '#92400E', bg: '#FEF3C7' },
 };

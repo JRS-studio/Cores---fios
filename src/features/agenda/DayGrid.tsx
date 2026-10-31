@@ -127,7 +127,7 @@ export function DayGrid({ date, appointments, allergyFor }: { date: string; appo
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: radius.sm, paddingHorizontal: 14, paddingVertical: 10 },
   pause: { backgroundColor: '#F1ECEA' },
-  blocked: { backgroundColor: '#F6E6EC', borderWidth: 1, borderColor: '#E9C9D5', borderStyle: 'dashed' },
+  blocked: { backgroundColor: colors.blush, borderWidth: 1, borderColor: colors.roseGold, borderStyle: 'dashed' },
   time: { fontFamily: fonts.semibold, fontSize: 13, color: colors.ink },
   label: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
   link: { fontFamily: fonts.semibold, fontSize: 12, color: colors.wine },

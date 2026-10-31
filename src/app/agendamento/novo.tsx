@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -18,6 +17,7 @@ import { colors, fonts, radius } from '@/theme';
 import { newId } from '@/utils/id';
 import { formatLongDate, today } from '@/utils/date';
 import { brl, formatPhone, initials, isValidPhone, onlyDigits, parseDate } from '@/utils/format';
+import { openExternal } from '@/utils/openExternal';
 
 // Horário antigo com um serviço fora da lista (mantém nome, duração e valor que já tinha).
 const CUSTOM = 'personalizado';
@@ -137,7 +137,7 @@ export default function NovoAgendamentoScreen() {
     };
     saveAppointment(appointment);
     // A cliente avisa a profissional pelo WhatsApp dela (mensagem pronta; é só tocar em enviar).
-    if (clientMode && settings.whatsapp) Linking.openURL(newBookingWhatsApp(settings.whatsapp, appointment, !!editing));
+    if (clientMode && settings.whatsapp) openExternal(newBookingWhatsApp(settings.whatsapp, appointment, !!editing));
     router.dismissTo({ pathname: '/agendamento/[id]', params: { id: appointment.id, novo: editing ? 'remarcado' : 'criado' } });
   }
 
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   serviceHighlight: { borderColor: colors.roseGold },
-  serviceActive: { borderColor: colors.plum, backgroundColor: '#FBF5F7' },
+  serviceActive: { borderColor: colors.plum, backgroundColor: colors.blush },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: colors.muted, alignItems: 'center', justifyContent: 'center' },
   radioOn: { borderColor: colors.plum },
   radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.plum },

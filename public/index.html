@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>%WEB_TITLE%</title>
+    <meta name="description" content="Agende seu horário, teste cores de esmalte na sua mão e acompanhe seu cartão fidelidade, direto pelo navegador." />
+    <meta name="theme-color" content="#2B1220" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Cores & Fios" />
+    <meta property="og:title" content="Cores & Fios" />
+    <meta property="og:description" content="Agende seu horário e teste cores de esmalte pelo celular, sem instalar nada." />
+    <style id="expo-reset">
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        overflow: hidden;
+        background: #2b1220;
+      }
+      /* No celular o app ocupa a tela toda; no computador fica centralizado, na largura de um celular. */
+      #root {
+        display: flex;
+        position: relative;
+        height: 100%;
+        max-width: 480px;
+        margin: 0 auto;
+        background: #fcf8f6;
+        box-shadow: 0 0 60px rgba(0, 0, 0, 0.35);
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>Ative o JavaScript do navegador para usar o Cores &amp; Fios.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

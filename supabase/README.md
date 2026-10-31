@@ -38,6 +38,13 @@ As clientes entram só com o WhatsApp, recebendo um código (sem senha e sem doc
 
 Pronto: abra o app, vá em **Ajustes › Entrar › Sou a profissional** e entre com o e-mail e a senha do passo 2. Os ajustes do studio (nome, horários, meta) passam a valer para todas as clientes.
 
+## 5. Versão web para as clientes (opcional)
+
+1. Com o `.env` preenchido, rode `npm run web:deploy` e entre com uma conta Expo gratuita quando pedir. Ao final aparece o endereço do site (ex.: `https://cores-e-fios.expo.app`).
+2. Coloque esse endereço em `EXPO_PUBLIC_WEB_URL` no `.env` (e nas variáveis do EAS) e publique de novo.
+3. Em **Ajustes › Link para as clientes**, envie o link pelo WhatsApp. A cliente abre no navegador, entra com o código e agenda.
+4. No Supabase, em **Authentication › URL Configuration**, coloque esse endereço em *Site URL*.
+
 ## Quem vê o quê
 
 | | Profissional | Cliente (entrou pelo WhatsApp) | Sem login |

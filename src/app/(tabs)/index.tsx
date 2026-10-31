@@ -101,7 +101,11 @@ export default function HomeScreen() {
         </Pressable>
         <Pressable onPress={() => router.push('/ajustes')} accessibilityLabel="Ajustes">
           <LinearGradient colors={[colors.roseGoldLight, colors.roseGold]} style={styles.avatar}>
-            <Text style={styles.avatarText}>{displayName[0]?.toUpperCase()}</Text>
+            {canManage || me ? (
+              <Text style={styles.avatarText}>{displayName[0]?.toUpperCase()}</Text>
+            ) : (
+              <Ionicons name="person" size={20} color={colors.plum} />
+            )}
           </LinearGradient>
         </Pressable>
       </View>

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Chips, Field, ScreenHeader, SectionTitle } from '@/components/ui';
 import { clearAll, STORAGE_KEYS } from '@/data/storage';
+import { ClientLink } from '@/features/session/ClientLink';
 import { useSession } from '@/features/session/SessionContext';
 import { useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
@@ -69,6 +70,9 @@ export default function AjustesScreen() {
         contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }}
       >
         <ScreenHeader title="Ajustes" subtitle={canManage ? 'Seu studio e sua agenda' : 'Sua conta e privacidade'} />
+
+        {/* O link só faz sentido com servidor: sem ele, os dados da cliente ficariam no celular dela. */}
+        {remote && canManage && <ClientLink studioName={settings.studioName} />}
 
         {remote && (
           <View style={styles.account}>

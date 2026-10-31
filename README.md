@@ -112,6 +112,20 @@ Antes de publicar:
 - Hospedar `docs/politica-de-privacidade.md` (com o nome e o WhatsApp do studio) e informar a URL nas lojas.
 - Identificadores do app: `com.coresefios.app` (iOS e Android), em `app.json`.
 
+## Versão web (sem instalar nada)
+
+O mesmo app roda no navegador do celular ou do computador: a cliente abre um link e agenda, sem baixar nada. No computador ele aparece centralizado, na largura de um celular. É um PWA: no celular dá para tocar em "Adicionar à tela inicial" e ele abre como um app, com o ícone do studio.
+
+```bash
+npm run web:build       # gera o site em dist/
+npm run web:deploy      # publica no EAS Hosting (ex.: https://cores-e-fios.expo.app)
+```
+
+- Para as clientes, a versão web precisa do **servidor online** (abaixo): sem ele, os dados de cada cliente ficariam só no navegador dela.
+- Depois de publicar, coloque o endereço em `EXPO_PUBLIC_WEB_URL` (`.env`). Em **Ajustes › Link para as clientes**, a profissional copia ou envia pelo WhatsApp o link que abre direto no agendamento.
+- Em outras hospedagens (Netlify, Vercel, Cloudflare Pages…), configure para qualquer endereço abrir o `index.html` (o arquivo `public/_redirects` já faz isso na Netlify).
+- Teste da versão web: `node tools/web/smoke-web.js` (instruções no próprio arquivo).
+
 ## Servidor online (Supabase)
 
 Sem configuração, o app funciona só no aparelho. Com o Supabase ligado (passo a passo em [`supabase/README.md`](supabase/README.md)):

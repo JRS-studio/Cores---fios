@@ -24,7 +24,12 @@
       "package": "com.coresefios.app"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "name": "Cores & Fios",
+      "lang": "pt-BR",
+      "themeColor": "#2B1220",
+      "description": "Agende seu horário, teste cores de esmalte e acompanhe seu cartão fidelidade."
     },
     "plugins": [
       "expo-router",

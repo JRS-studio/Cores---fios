@@ -120,6 +120,15 @@ def main():
 
     # Favicon da versão web.
     down(icon, 48).save(ASSETS / "favicon.png")
+
+    # Versão web (PWA): ícones para "Adicionar à tela inicial" no Android e no iPhone.
+    web = ROOT / "public" / "icons"
+    web.mkdir(parents=True, exist_ok=True)
+    down(icon, 192).convert("RGB").save(web / "icon-192.png")
+    down(icon, 512).convert("RGB").save(web / "icon-512.png")
+    down(icon, 180).convert("RGB").save(web / "apple-touch-icon.png")
+    # "maskable": o sistema recorta em círculo, então o desenho fica menor, na zona segura.
+    down(Image.alpha_composite(bg, motif(S, scale=0.72)), 512).convert("RGB").save(web / "icon-maskable-512.png")
     print("Ícones gerados em", ASSETS)
 
 

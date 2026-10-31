@@ -408,15 +408,22 @@ export default function CadastroScreen() {
 
 function PrivacyConsent({ checked, onToggle, error }: { checked: boolean; onToggle: () => void; error: string | null }) {
   return (
-    <CheckRow checked={checked} onToggle={onToggle} error={error}>
-      Concordo com o uso dos meus dados para agendamentos e contato, conforme a LGPD. Posso pedir a exclusão a qualquer
-      momento.
-    </CheckRow>
+    <View>
+      <CheckRow checked={checked} onToggle={onToggle} error={error}>
+        Concordo com o uso dos meus dados para agendamentos e contato, conforme a LGPD. Posso pedir a exclusão a qualquer
+        momento.
+      </CheckRow>
+      <Pressable onPress={() => router.push('/privacidade')} hitSlop={6} style={styles.policyLink}>
+        <Text style={styles.policyLinkText}>Ler a política de privacidade</Text>
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
+  policyLink: { marginLeft: 34, marginTop: 2, alignSelf: 'flex-start' },
+  policyLinkText: { fontFamily: fonts.semibold, fontSize: 12, color: colors.wine, textDecorationLine: 'underline' },
   progress: { flexDirection: 'row', gap: 6, marginBottom: 20 },
   progressBar: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.border },
   progressBarOn: { backgroundColor: colors.wine },

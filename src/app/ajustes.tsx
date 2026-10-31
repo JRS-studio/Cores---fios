@@ -1,6 +1,7 @@
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Chips, Field, ScreenHeader, SectionTitle } from '@/components/ui';
@@ -104,6 +105,11 @@ export default function AjustesScreen() {
 
         <Button label={saved ? 'Ajustes salvos' : 'Salvar ajustes'} icon={saved ? 'checkmark-circle' : 'checkmark'} onPress={save} style={{ marginTop: 26 }} />
 
+        <Pressable style={styles.linkRow} onPress={() => router.push('/privacidade')}>
+          <Text style={styles.linkText}>Política de privacidade</Text>
+          <Text style={styles.linkText}>›</Text>
+        </Pressable>
+
         <View style={styles.danger}>
           <Text style={styles.dangerTitle}>Apagar todos os dados</Text>
           <Text style={styles.dangerText}>Remove clientes, agenda, lançamentos, avaliações e ajustes deste aparelho. Não dá para desfazer.</Text>
@@ -116,6 +122,7 @@ export default function AjustesScreen() {
             <Button label="Apagar dados" icon="trash-outline" variant="danger" onPress={() => setConfirmReset(true)} style={{ marginTop: 12 }} />
           )}
         </View>
+        <Text style={styles.version}>Cores & Fios · versão {Constants.expoConfig?.version ?? '1.0.0'}</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -125,6 +132,18 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
   label: { fontFamily: fonts.medium, fontSize: 13, color: colors.ink, marginTop: 12, marginBottom: 8 },
   error: { fontFamily: fonts.medium, fontSize: 12, color: colors.danger, marginTop: 6 },
+  linkRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 26,
+    padding: 16,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+  },
+  linkText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.plum },
+  version: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted, textAlign: 'center', marginTop: 20 },
   danger: { marginTop: 30, padding: 16, borderRadius: radius.md, borderWidth: 1, borderColor: '#F1C7B8', backgroundColor: '#FFF8F5' },
   dangerTitle: { fontFamily: fonts.semibold, fontSize: 14, color: colors.danger },
   dangerText: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.muted, marginTop: 4 },

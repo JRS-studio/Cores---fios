@@ -77,6 +77,47 @@ npx expo start
 
 Depois, escaneie o QR Code com o app **Expo Go** (Android ou iPhone), ou pressione `a` (emulador Android) / `i` (simulador iOS).
 
+Antes de enviar mudanças:
+
+```bash
+npx tsc --noEmit
+npx expo lint
+```
+
+## Página de teste
+
+Gera o app inteiro (versão web) num único arquivo HTML, com roteiro do que testar e dados de exemplo (clientes fictícias, um mês de atendimentos e despesas, datas relativas ao dia em que for aberta):
+
+```bash
+python3 tools/pagina-de-teste/build.py          # saída: dist-teste/cores-e-fios-teste.html
+node tools/pagina-de-teste/smoke.js             # percorre o app e falha se algo quebrar (Playwright)
+```
+
+Para usar uma foto real de mão no Provador, coloque a foto (3:4) e a posição das unhas em `tools/pagina-de-teste/local/` (ignorada pelo Git) e rode `build.py --foto local/mao.jpg --unhas local/unhas.json`.
+
+## Publicar nas lojas
+
+Ícone, ícone adaptativo do Android, tela de abertura e favicon são gerados por `python3 tools/brand/generate_icons.py`. O build é feito na nuvem pelo EAS (não precisa de Mac nem Android Studio):
+
+```bash
+npx eas-cli@latest login
+npx eas-cli@latest build --profile preview --platform android     # APK para instalar e testar
+npx eas-cli@latest build --profile production --platform all      # versões para Google Play e App Store
+npx eas-cli@latest submit --platform all                          # envia para as lojas
+```
+
+Antes de publicar:
+
+- Contas de desenvolvedor: Google Play (taxa única) e Apple Developer (anual).
+- Hospedar `docs/politica-de-privacidade.md` (com o nome e o WhatsApp do studio) e informar a URL nas lojas.
+- Identificadores do app: `com.coresefios.app` (iOS e Android), em `app.json`.
+
+## O que falta para uso com várias clientes
+
+- **Servidor (ex.: Supabase ou Firebase):** hoje os dados ficam no aparelho onde foram registrados. Com um servidor, a cliente agenda e avalia pelo celular dela e a profissional vê tudo no dela.
+- **Envio real do código pelo WhatsApp:** a verificação já está pronta nas telas; falta o servidor chamar a API do WhatsApp Business (ou SMS) em `src/features/verification/whatsappCode.ts`.
+- **Provador Virtual:** detecção automática das unhas na foto (hoje a marcação é por toque).
+
 ## Estrutura
 
 ```
@@ -90,6 +131,7 @@ src/
     agendamento/       # novo agendamento e detalhe do horário
     financeiro/novo.tsx # novo lançamento
     ajustes.tsx        # ajustes do studio
+    privacidade.tsx    # política de privacidade (LGPD)
   components/          # TabBar, Nail (miniatura de unha), SectionHeader, ui (campos, botões, estrelas)
   features/nails/      # desenho do esmalte em SVG: formatos, designs e acabamento
   features/tryon/      # Provador Virtual: área da foto, mão de exemplo, introdução
@@ -99,6 +141,7 @@ src/
   features/agenda/     # agendamentos, horários livres e componentes da agenda
   features/finance/    # lançamentos e gráficos do financeiro
   features/settings/   # ajustes do studio
+  features/verification/ # código de verificação do WhatsApp
   features/clients/    # cadastro de clientes (tipos e armazenamento)
   features/feedback/   # avaliações (armazenamento)
   data/mock.ts         # cores em destaque na página inicial

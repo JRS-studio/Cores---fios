@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Página de teste (gerada) e arquivos locais dela (fotos de pessoas não vão para o Git)
+dist-teste/
+tools/pagina-de-teste/local/

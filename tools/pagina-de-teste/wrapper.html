@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cores & Fios</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,600&family=Poppins:wght@400;500;600&display=swap">
+<style>
+/* Vitrine de teste: fundo ameixa fixo (identidade do app), roteiro à esquerda, app num aparelho à direita. */
+:root {
+  --plum: #2B1220;
+  --plum-2: #3A1A2C;
+  --wine: #7A2E4A;
+  --rose: #C9A27E;
+  --rose-light: #E8CDB5;
+  --text: #F7ECE8;
+  --muted: #C7B1B8;
+  --line: rgba(232, 205, 181, 0.18);
+  --display: "Playfair Display", Georgia, "Times New Roman", serif;
+  --body: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  margin: 0;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+body {
+  background: radial-gradient(circle at 85% 10%, var(--wine) 0%, transparent 45%), var(--plum);
+  color: var(--text);
+  font-family: var(--body);
+  overflow: hidden;
+}
+.stage {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 420px) auto;
+  justify-content: center;
+  align-items: center;
+  gap: 64px;
+  padding-block: 24px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box;
+}
+.guide { display: flex; flex-direction: column; gap: 20px; min-width: 0; max-height: 100%; overflow-y: auto; }
+.eyebrow { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--rose); font-weight: 600; margin: 0; }
+h1 { font-family: var(--display); font-weight: 600; font-size: 44px; line-height: 1.05; margin: 0; text-wrap: balance; }
+h1 em { color: var(--rose-light); }
+.lead { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; max-width: 38ch; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; counter-reset: s; }
+.steps li {
+  counter-increment: s;
+  display: grid; grid-template-columns: 28px 1fr; gap: 12px;
+  padding: 10px 0; border-top: 1px solid var(--line);
+  font-size: 13px; line-height: 1.55; color: var(--text);
+}
+.steps li::before {
+  content: counter(s);
+  width: 24px; height: 24px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 600; color: var(--plum); background: var(--rose-light);
+}
+.steps b { font-weight: 600; color: var(--rose-light); }
+.note { margin: 0; font-size: 12px; line-height: 1.6; color: var(--muted); padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; }
+.phone {
+  width: 390px; height: min(844px, calc(100vh - 48px)); max-width: 100%;
+  border-radius: 48px; padding: 12px; box-sizing: border-box;
+  background: #120810;
+  box-shadow: 0 0 0 1px rgba(232,205,181,0.25), 0 40px 80px rgba(0,0,0,0.5);
+}
+.screen { position: relative; width: 100%; height: 100%; border-radius: 38px; overflow: hidden; background: #FCF8F6; }
+#root { display: flex; height: 100%; flex: 1; }
+.topbar { display: none; }
+.sheet[hidden] { display: none !important; }
+
+@media (max-width: 860px) {
+  .stage { display: block; padding: 0; }
+  .guide { display: none; }
+  .stage { display: flex; flex-direction: column; align-items: stretch; height: 100%; gap: 0; }
+  .phone { width: 100%; flex: 1; min-height: 0; height: auto; border-radius: 0; padding: 0; box-shadow: none; background: transparent; }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    height: 40px; flex: none; box-sizing: border-box;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    background: var(--plum); color: var(--rose-light);
+    font: 500 12px var(--body); letter-spacing: 0.04em;
+  }
+  .topbar button {
+    height: 26px; padding: 0 12px; border-radius: 13px; border: 1px solid var(--line);
+    background: transparent; color: var(--rose-light); font: 600 11px var(--body); cursor: pointer;
+  }
+  .screen { border-radius: 0; }
+  .sheet {
+    position: fixed; inset: 0; z-index: 30;
+    background: rgba(18, 8, 16, 0.6);
+    display: flex; align-items: flex-end;
+  }
+  .sheet .guide {
+    display: flex; width: 100%; max-height: 85%;
+    background: var(--plum); border-radius: 24px 24px 0 0;
+    padding-block: 24px calc(24px + env(safe-area-inset-bottom, 0px));
+    padding-left: max(20px, env(safe-area-inset-left, 0px));
+    padding-right: max(20px, env(safe-area-inset-right, 0px));
+    box-sizing: border-box;
+  }
+  .sheet h1 { font-size: 32px; }
+  .close { align-self: flex-end; background: transparent; color: var(--rose-light); border: 1px solid var(--line); border-radius: 15px; height: 30px; padding: 0 14px; font: 500 12px var(--body); cursor: pointer; }
+}
+button:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+</style>
+</head>
+<body>
+
+<template id="guide-tpl">
+  <p class="eyebrow">Versão de teste</p>
+  <h1>Cores <em>&amp;</em> Fios</h1>
+  <p class="lead">App para manicures com agenda, financeiro e Provador Virtual de esmaltes. Use o app como se estivesse no celular.</p>
+  <ol class="steps">
+    <li><span>Na <b>Início</b>, veja o faturamento, a meta do mês e os próximos horários. Toque no seu avatar para os <b>Ajustes</b>.</span></li>
+    <li><span>Na <b>Agenda</b>, navegue pelos dias e toque num horário: confirme, mande lembrete no WhatsApp, remarque ou <b>Conclua</b> com o pagamento.</span></li>
+    <li><span>Toque em <b>Agendar</b>: escolha a cliente, o serviço e um horário livre. A agenda não deixa marcar em cima de outro horário.</span></li>
+    <li><span>No <b>Financeiro</b>, veja lucro, gráficos e ranking de serviços; toque em <b>Lançar</b> para registrar uma despesa.</span></li>
+    <li><span>Na aba <b>Clientes</b>, abra a Mariana (Premium, com alergia) e a Ana (aniversário este mês). Faça também um cadastro novo: só nome e WhatsApp, confirmado por código (nesta versão de teste o código aparece na tela).</span></li>
+    <li><span>Em <b>Avaliações</b>, envie uma foto, dê as estrelas e publique com seu nome ou como anônima.</span></li>
+    <li><span>No <b>Provador</b>, use a foto de exemplo, monte um look e toque em <b>Agendar</b>.</span></li>
+  </ol>
+  <p class="note">Clientes, horários e lançamentos já vêm com dados de exemplo para você avaliar. Tudo que você fizer fica salvo neste navegador; em Ajustes › Apagar dados você começa do zero.</p>
+</template>
+
+<div class="stage">
+  <div class="topbar"><span>Cores &amp; Fios · versão de teste</span><button id="help" type="button">Como testar</button></div>
+  <aside class="guide" id="guide-desktop"></aside>
+  <div class="phone"><div class="screen"><div id="root"></div></div></div>
+</div>
+<div class="sheet" id="sheet" hidden>
+  <aside class="guide" id="guide-mobile"><button class="close" id="close" type="button">Fechar</button></aside>
+</div>
+
+<script>
+(function () {
+  var tpl = document.getElementById('guide-tpl');
+  document.getElementById('guide-desktop').appendChild(tpl.content.cloneNode(true));
+  document.getElementById('guide-mobile').appendChild(tpl.content.cloneNode(true));
+  var sheet = document.getElementById('sheet');
+  document.getElementById('help').addEventListener('click', function () { sheet.hidden = false; });
+  document.getElementById('close').addEventListener('click', function () { sheet.hidden = true; });
+  sheet.addEventListener('click', function (e) { if (e.target === sheet) sheet.hidden = true; });
+  // O app usa o caminho da URL para as rotas; começa sempre pela tela inicial.
+  try { history.replaceState(null, '', '/'); } catch (e) {}
+})();
+</script>
+<!--SCRIPTS-->
+</body>
+</html>

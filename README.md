@@ -54,7 +54,7 @@ A tela inicial funciona como o perfil de uma rede social:
 - **Horários liberados para as clientes**: por dia da semana, quais horários a cliente pode escolher; a profissional agenda em qualquer um.
 - **Benefícios do Premium**: atendimentos para o prêmio, prêmio, selos de boas-vindas e de indicação, desconto de aniversário e benefícios extras escritos à mão.
 - Com o WhatsApp preenchido, ao agendar a cliente abre o WhatsApp com a mensagem pronta para a profissional (sem uma API paga de WhatsApp, o envio automático não é possível; a cliente só toca em enviar).
-- **Instagram do studio**: botão no perfil da página inicial (aceita @perfil ou o link colado).
+- **Instagram e WhatsApp do studio**: botões no perfil da página inicial (o WhatsApp é o cadastrado nos Ajustes; o Instagram aceita @perfil ou o link colado). Atalho para o tema no topo da tela inicial (só a profissional).
 - **Tema do app** (`src/theme/themes.ts`): Romântico, Rosé Gold, Nude, Básico e Tecnologia. Vale para todas as clientes; o app recarrega uma vez ao trocar.
 - Sem servidor, a opção de apagar todos os dados do aparelho.
 

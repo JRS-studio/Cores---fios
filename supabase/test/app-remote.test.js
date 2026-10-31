@@ -138,7 +138,8 @@ const site = http.createServer((_, res) => res.writeHead(200, { 'Content-Type': 
 
   await test('visitante vê o perfil do studio, sem faturamento nem a aba Financeiro', async () => {
     await R.getByText('publicações', { exact: true }).waitFor();
-    await R.getByText('Agendar horário').first().waitFor();
+    await R.getByText('Avaliar', { exact: true }).first().waitFor();
+    await R.getByLabel(/Instagram do studio/).waitFor();
     assert.equal(await R.getByText('horários hoje').count(), 0);
     assert.equal(await R.getByLabel('Financeiro', { exact: true }).count(), 0);
     await R.getByLabel('Conta', { exact: true }).waitFor();

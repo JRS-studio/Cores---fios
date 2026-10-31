@@ -15,7 +15,7 @@ import { useSession } from '@/features/session/SessionContext';
 import { instagramUrl, useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { formatDayMonth, today, toMinutes } from '@/utils/date';
-import { brl } from '@/utils/format';
+import { brl, formatPhone } from '@/utils/format';
 import { openExternal } from '@/utils/openExternal';
 
 type Shortcut = { icon: keyof typeof Ionicons.glyphMap; label: string; a11y?: string; href: Href };
@@ -135,6 +135,11 @@ function TopBar() {
           </View>
         )}
       </Pressable>
+      {canManage && (
+        <Pressable style={styles.iconButton} onPress={() => router.push('/ajustes/tema')} accessibilityLabel="Tema do app">
+          <Ionicons name="color-palette-outline" size={22} color={colors.plum} />
+        </Pressable>
+      )}
       <Pressable style={styles.iconButton} onPress={() => router.push('/ajustes')} accessibilityLabel="Ajustes">
         <Ionicons name="menu-outline" size={24} color={colors.plum} />
       </Pressable>
@@ -186,7 +191,7 @@ function Profile({ postsCount, reviewsCount, average }: { postsCount: number; re
           </>
         ) : (
           <>
-            <ProfileButton icon="calendar-outline" label="Agendar horário" primary onPress={() => router.push('/agendamento/novo')} />
+            <ProfileButton icon="calendar-outline" label="Agendar" primary onPress={() => router.push('/agendamento/novo')} />
             <ProfileButton icon="star-outline" label="Avaliar" onPress={() => router.push('/avaliacoes/nova')} />
           </>
         )}
@@ -198,6 +203,20 @@ function Profile({ postsCount, reviewsCount, average }: { postsCount: number; re
             accessibilityLabel={`Instagram do studio: @${settings.instagram}`}
           >
             <Ionicons name="logo-instagram" size={20} color={colors.plum} />
+          </Pressable>
+        ) : null}
+        {settings.whatsapp ? (
+          <Pressable
+            onPress={() =>
+              openExternal(
+                `https://wa.me/55${settings.whatsapp}?text=${encodeURIComponent(`Oi, ${settings.professionalName}! Vim pelo app do ${settings.studioName}.`)}`,
+              )
+            }
+            style={({ pressed }) => [styles.instagram, pressed && { opacity: 0.85 }]}
+            accessibilityRole="link"
+            accessibilityLabel={`WhatsApp do studio: ${formatPhone(settings.whatsapp)}`}
+          >
+            <Ionicons name="logo-whatsapp" size={20} color={colors.plum} />
           </Pressable>
         ) : null}
       </View>
@@ -213,7 +232,9 @@ function ProfileButton({ icon, label, primary, onPress }: { icon: keyof typeof I
       accessibilityRole="button"
     >
       <Ionicons name={icon} size={17} color={primary ? colors.roseGoldLight : colors.plum} />
-      <Text style={[styles.profileButtonText, primary && { color: colors.white }]}>{label}</Text>
+      <Text style={[styles.profileButtonText, primary && { color: colors.white }]} numberOfLines={1}>
+        {label}
+      </Text>
     </Pressable>
   );
 }

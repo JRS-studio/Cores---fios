@@ -126,6 +126,19 @@ const page = fs.readFileSync(path.join(DIST, 'cores-e-fios-teste.html'));
     await shot('09-feed');
   });
 
+  await step('WhatsApp da profissional e atalho de temas no topo', async () => {
+    await tab('Início');
+    if (await R.getByLabel(/WhatsApp do studio/).count()) throw new Error('botão do WhatsApp aparece sem número cadastrado');
+    await R.getByLabel('Ajustes').first().click(); await p.waitForTimeout(400);
+    await R.getByPlaceholder('(11) 98765-4321').fill('11987654321');
+    await R.getByText('Salvar ajustes').click(); await back();
+    await p.context().route(/wa\.me/, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: 'ok' }));
+    const [wa] = await Promise.all([p.waitForEvent('popup', { timeout: 5000 }), R.getByLabel(/WhatsApp do studio/).click()]);
+    await wa.waitForURL(/wa\.me\/5511987654321/, { timeout: 5000 }); await wa.close();
+    await shot('14-perfil-botoes');
+    await R.getByLabel('Tema do app').click(); await p.waitForTimeout(400);
+    await R.getByText('Vale para você e para todas as clientes').waitFor(); await back();
+  });
   await step('Instagram e os 5 temas', async () => {
     await tab('Início');
     const ig = R.getByLabel(/Instagram do studio/);

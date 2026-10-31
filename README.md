@@ -121,6 +121,14 @@ npm run web:build       # gera o site em dist/
 npm run web:deploy      # publica no EAS Hosting (ex.: https://cores-e-fios.expo.app)
 ```
 
+**Publicado em: https://jefersonroodrigo-cmyk.github.io/Cores---fios/** (GitHub Pages, branch `gh-pages`). Para publicar de novo depois de mudanças:
+
+```bash
+python3 tools/web/build-pages.py     # gera dist-pages/ com o Supabase do .env
+node tools/web/check-pages.js        # confere o site contra o Supabase real
+# envie dist-pages/ para o branch gh-pages (o GitHub publica sozinho em ~1 minuto)
+```
+
 - Para as clientes, a versão web precisa do **servidor online** (abaixo): sem ele, os dados de cada cliente ficariam só no navegador dela.
 - Depois de publicar, coloque o endereço em `EXPO_PUBLIC_WEB_URL` (`.env`). Em **Ajustes › Link para as clientes**, a profissional copia ou envia pelo WhatsApp o link que abre direto no agendamento.
 - Em outras hospedagens (Netlify, Vercel, Cloudflare Pages…), configure para qualquer endereço abrir o `index.html` (o arquivo `public/_redirects` já faz isso na Netlify).

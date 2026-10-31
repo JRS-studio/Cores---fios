@@ -16,7 +16,7 @@ export type Settings = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  professionalName: 'Juliana',
+  professionalName: 'Jhenifer',
   studioName: 'Studio Cores & Fios',
   monthlyGoal: 6000,
   openTime: '09:00',

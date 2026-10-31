@@ -1,5 +1,6 @@
 -- Banco de dados do Cores & Fios no Supabase (um projeto por studio).
 -- Rode este arquivo inteiro no SQL Editor do Supabase. Depois, veja supabase/README.md.
+-- Pode rodar de novo sem problema: ele só cria o que falta e refaz as regras de acesso.
 --
 -- Quem acessa o quê (garantido pelo banco, com Row Level Security):
 --   profissional (usuária cadastrada em `professionals`): tudo.
@@ -71,31 +72,47 @@ alter table transactions enable row level security;
 alter table feedbacks enable row level security;
 alter table settings enable row level security;
 
+drop policy if exists "profissional vê a si mesma" on professionals;
 create policy "profissional vê a si mesma" on professionals for select using (user_id = auth.uid());
 
+drop policy if exists "profissional: clientes" on clients;
 create policy "profissional: clientes" on clients for all using (is_owner()) with check (is_owner());
+drop policy if exists "cliente vê o próprio cadastro" on clients;
 create policy "cliente vê o próprio cadastro" on clients for select using (phone = current_phone());
+drop policy if exists "cliente cria o próprio cadastro" on clients;
 create policy "cliente cria o próprio cadastro" on clients for insert with check (phone = current_phone());
+drop policy if exists "cliente edita o próprio cadastro" on clients;
 create policy "cliente edita o próprio cadastro" on clients for update
   using (phone = current_phone()) with check (phone = current_phone());
+drop policy if exists "cliente apaga o próprio cadastro" on clients;
 create policy "cliente apaga o próprio cadastro" on clients for delete using (phone = current_phone());
 
+drop policy if exists "profissional: agenda" on appointments;
 create policy "profissional: agenda" on appointments for all using (is_owner()) with check (is_owner());
+drop policy if exists "cliente vê os próprios horários" on appointments;
 create policy "cliente vê os próprios horários" on appointments for select using (client_phone = current_phone());
+drop policy if exists "cliente marca horário" on appointments;
 create policy "cliente marca horário" on appointments for insert
   with check (client_phone = current_phone() and status = 'agendado');
+drop policy if exists "cliente remarca ou cancela" on appointments;
 create policy "cliente remarca ou cancela" on appointments for update
   using (client_phone = current_phone() and status in ('agendado', 'confirmado'))
   with check (client_phone = current_phone() and status in ('agendado', 'cancelado'));
 
+drop policy if exists "profissional: financeiro" on transactions;
 create policy "profissional: financeiro" on transactions for all using (is_owner()) with check (is_owner());
 
+drop policy if exists "todos veem avaliações" on feedbacks;
 create policy "todos veem avaliações" on feedbacks for select using (true);
+drop policy if exists "cliente publica avaliação" on feedbacks;
 create policy "cliente publica avaliação" on feedbacks for insert
   with check (auth.uid() is not null and author_id = auth.uid());
+drop policy if exists "profissional remove avaliação" on feedbacks;
 create policy "profissional remove avaliação" on feedbacks for delete using (is_owner());
 
+drop policy if exists "todos veem os ajustes" on settings;
 create policy "todos veem os ajustes" on settings for select using (true);
+drop policy if exists "profissional: ajustes" on settings;
 create policy "profissional: ajustes" on settings for all using (is_owner()) with check (is_owner());
 
 -- Horários ocupados de um dia, sem expor quem marcou (usado pela cliente ao escolher horário).
@@ -112,11 +129,22 @@ grant execute on function is_owner() to authenticated;
 -- Fotos das avaliações: leitura pública, envio por quem está logada.
 insert into storage.buckets (id, name, public) values ('avaliacoes', 'avaliacoes', true)
   on conflict (id) do nothing;
+drop policy if exists "fotos de avaliação: leitura" on storage.objects;
 create policy "fotos de avaliação: leitura" on storage.objects for select using (bucket_id = 'avaliacoes');
+drop policy if exists "fotos de avaliação: envio" on storage.objects;
 create policy "fotos de avaliação: envio" on storage.objects for insert
   with check (bucket_id = 'avaliacoes' and auth.uid() is not null);
+drop policy if exists "fotos de avaliação: profissional remove" on storage.objects;
 create policy "fotos de avaliação: profissional remove" on storage.objects for delete
   using (bucket_id = 'avaliacoes' and is_owner());
 
 -- Atualizações em tempo real nas telas abertas.
-alter publication supabase_realtime add table clients, appointments, transactions, feedbacks, settings;
+do $$
+declare t text;
+begin
+  foreach t in array array['clients', 'appointments', 'transactions', 'feedbacks', 'settings'] loop
+    if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = t) then
+      execute format('alter publication supabase_realtime add table %I', t);
+    end if;
+  end loop;
+end $$;

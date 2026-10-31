@@ -25,7 +25,10 @@ await db.exec(`
   grant usage on schema public, auth, storage to anon, authenticated;
   grant execute on all functions in schema auth to anon, authenticated;
 `);
-await db.exec(readFileSync(new URL('../schema.sql', import.meta.url), 'utf8'));
+const schema = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8');
+await db.exec(schema);
+// Rodar de novo não pode dar erro (a pessoa pode clicar em Run mais de uma vez).
+await db.exec(schema);
 await db.exec(`
   grant select, insert, update, delete on all tables in schema public to anon, authenticated;
   grant select, insert, delete on storage.objects to anon, authenticated;

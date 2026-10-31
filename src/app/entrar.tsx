@@ -96,7 +96,7 @@ export default function EntrarScreen() {
               </View>
             ) : (
               <View style={{ marginTop: 18 }}>
-                <Field label="E-mail" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+                <Field label="Login" value={email} onChangeText={setEmail} autoCapitalize="none" placeholder="Seu login ou e-mail" />
                 <Field label="Senha" value={password} onChangeText={setPassword} autoCapitalize="none" secure />
                 {error && <Text style={styles.error}>{error}</Text>}
                 <Button label="Entrar" icon="log-in-outline" onPress={loginProfessional} disabled={busy || !email || !password} />

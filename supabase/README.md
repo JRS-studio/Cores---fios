@@ -13,6 +13,7 @@ O plano gratuito do Supabase é suficiente para começar.
 ## 2. Criar o acesso da profissional
 
 1. Em **Authentication › Users**, clique em **Add user › Create new user** e informe o seu e-mail e uma senha (marque *Auto Confirm User*).
+   Para entrar com um login curto em vez do e-mail, cadastre o e-mail como `login@coresefios.app` (ex.: `jhenifer@coresefios.app`): no app, basta digitar `Jhenifer` no campo Login.
 2. Copie o **UID** do usuário criado e rode no **SQL Editor**:
 
    ```sql

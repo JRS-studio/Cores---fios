@@ -24,6 +24,16 @@ type SessionApi = {
   ensureUser: () => Promise<string | null>;
 };
 
+// O Supabase só entra com e-mail: um login curto (ex.: "Jhenifer") vira jhenifer@coresefios.app,
+// que é o e-mail cadastrado para a profissional em Authentication › Users.
+export const LOGIN_DOMAIN = 'coresefios.app';
+export function loginToEmail(login: string) {
+  const value = login.trim().toLowerCase();
+  if (value.includes('@')) return value;
+  const user = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9._-]/g, '');
+  return `${user}@${LOGIN_DOMAIN}`;
+}
+
 const SessionContext = createContext<SessionApi | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
@@ -77,8 +87,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       canManage: role === 'local' || role === 'profissional',
       signInProfessional: async (email, password) => {
         if (!supabase) return 'O app ainda não está ligado ao servidor.';
-        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-        return error ? 'E-mail ou senha incorretos.' : null;
+        const { error } = await supabase.auth.signInWithPassword({ email: loginToEmail(email), password });
+        return error ? 'Login ou senha incorretos.' : null;
       },
       signOut: async () => {
         // A cliente solta o número ao sair, para poder entrar de novo em qualquer aparelho.

@@ -53,7 +53,7 @@ const api = http.createServer((req, res) => {
     };
     if (p === '/auth/v1/signup') return login({ is_anonymous: true });
     if (p === '/auth/v1/token') {
-      if (body.email !== 'juliana@studio.com' || body.password !== 'senha123') return send(400, { error: 'invalid_grant' });
+      if (body.email !== 'jhenifer@coresefios.app' || body.password !== 'senha123') return send(400, { error: 'invalid_grant' });
       return login({ email: body.email });
     }
     if (p === '/auth/v1/logout') {
@@ -220,7 +220,7 @@ const site = http.createServer((_, res) => res.writeHead(200, { 'Content-Type': 
     await R.getByText('Entrar', { exact: true }).last().click();
     await wait();
     await R.getByText('Sou a profissional').click();
-    await R.getByLabel('E-mail').fill('juliana@studio.com');
+    await R.getByLabel('Login').fill('Jhenifer');
     await R.getByLabel('Senha').fill('senha123');
     await R.getByRole('button', { name: 'Entrar' }).last().click();
     await wait(1500);

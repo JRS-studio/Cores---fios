@@ -108,7 +108,7 @@ const api = http.createServer((req, res) => {
     watch(page);
     await page.goto(`${base}/entrar`, { waitUntil: 'networkidle' });
     await page.getByText('Sou a profissional').click();
-    await page.getByLabel('E-mail').fill('juliana@studio.com');
+    await page.getByLabel('Login').fill('juliana@studio.com');
     await page.getByLabel('Senha').fill('senha123');
     await page.getByRole('button', { name: 'Entrar' }).last().click();
     await page.getByText('Você entrou como profissional.').first().waitFor();

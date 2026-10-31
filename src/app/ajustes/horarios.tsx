@@ -1,12 +1,20 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, OwnerOnly, ScreenHeader, SectionTitle } from '@/components/ui';
+import { Button, Chips, Field, OwnerOnly, ScreenHeader, SectionTitle } from '@/components/ui';
 import { useSession } from '@/features/session/SessionContext';
-import { useSettings } from '@/features/settings/SettingsContext';
+import { useSettings, type BreakRule } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
 import { WEEKDAYS, WEEKDAYS_SHORT, toMinutes, toTime } from '@/utils/date';
+import { newId } from '@/utils/id';
+
+const isTime = (t: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
+const formatTime = (t: string) => {
+  const d = t.replace(/\D/g, '').slice(0, 4);
+  return d.length <= 2 ? d : `${d.slice(0, 2)}:${d.slice(2)}`;
+};
 
 export default function HorariosScreen() {
   const { canManage } = useSession();
@@ -19,6 +27,17 @@ function HorariosContent() {
   const [slots, setSlots] = useState<Record<string, string[]>>(settings.clientSlots);
   const [day, setDay] = useState(String(settings.workDays[0] ?? 1));
   const [saved, setSaved] = useState(false);
+  const [breaks, setBreaks] = useState<BreakRule[]>(settings.breaks);
+  const [tried, setTried] = useState(false);
+  const breakError = (b: BreakRule) =>
+    !isTime(b.start) || !isTime(b.end) || b.end <= b.start ? 'Use HH:MM, com o fim depois do início.' : b.days.length === 0 ? 'Escolha ao menos um dia.' : null;
+  const updateBreak = (id: string, patch: Partial<BreakRule>) => {
+    setBreaks((list) => list.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+    setSaved(false);
+  };
+  // Horário que cai numa pausa fixa do dia escolhido.
+  const inBreak = (t: string) =>
+    breaks.some((b) => !breakError(b) && b.days.includes(Number(day)) && toMinutes(t) >= toMinutes(b.start) && toMinutes(t) < toMinutes(b.end));
 
   // Todos os inícios possíveis no horário de funcionamento.
   const all: string[] = [];
@@ -44,7 +63,9 @@ function HorariosContent() {
   }
 
   function save() {
-    saveSettings({ ...settings, clientSlots: slots });
+    setTried(true);
+    if (breaks.some(breakError)) return;
+    saveSettings({ ...settings, clientSlots: slots, breaks: breaks.map((b) => ({ ...b, label: b.label.trim() || 'Pausa' })) });
     setSaved(true);
   }
 
@@ -55,7 +76,7 @@ function HorariosContent() {
       style={styles.screen}
       contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }}
     >
-      <ScreenHeader title="Horários liberados" subtitle="O que as clientes podem escolher ao agendar" />
+      <ScreenHeader title="Horários e pausas" subtitle="O que as clientes podem escolher ao agendar" />
       <Text style={styles.hint}>
         Toque nos horários para liberar ou bloquear. As clientes só veem os liberados que estiverem livres na agenda e couberem no serviço. Você
         continua podendo agendar em qualquer horário. Abertura, fechamento e dias de atendimento ficam em Ajustes.
@@ -100,6 +121,14 @@ function HorariosContent() {
       <View style={styles.grid}>
         {all.map((t) => {
           const on = isOn(t);
+          if (inBreak(t)) {
+            return (
+              <View key={t} style={[styles.slot, styles.slotPause]} accessibilityLabel={`${t} em pausa`}>
+                <Text style={[styles.slotText, { color: colors.muted }]}>{t}</Text>
+                <Text style={styles.pauseTag}>pausa</Text>
+              </View>
+            );
+          }
           return (
             <Pressable
               key={t}
@@ -114,6 +143,56 @@ function HorariosContent() {
           );
         })}
       </View>
+
+      <SectionTitle hint="Horários fixos sem atendimento, como o almoço. Ninguém consegue marcar neles, nem você.">Pausas fixas</SectionTitle>
+      {breaks.map((b, i) => {
+        const err = tried ? breakError(b) : null;
+        return (
+          <View key={b.id} style={styles.breakCard}>
+            <View style={styles.breakHead}>
+              <View style={{ flex: 1 }}>
+                <Field label="Nome" value={b.label} onChangeText={(t) => updateBreak(b.id, { label: t })} placeholder="Ex.: Almoço" maxLength={30} />
+              </View>
+              <Pressable
+                onPress={() => {
+                  setBreaks((list) => list.filter((x) => x.id !== b.id));
+                  setSaved(false);
+                }}
+                style={{ paddingTop: 18 }}
+                accessibilityLabel={`Remover pausa ${i + 1}`}
+              >
+                <Ionicons name="trash-outline" size={20} color={colors.wine} />
+              </Pressable>
+            </View>
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <Field label="Das" value={b.start} onChangeText={(t) => updateBreak(b.id, { start: formatTime(t) })} keyboardType="number-pad" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Field label="Até" value={b.end} onChangeText={(t) => updateBreak(b.id, { end: formatTime(t) })} keyboardType="number-pad" />
+              </View>
+            </View>
+            <Chips
+              options={WEEKDAYS_SHORT.map((d, k) => ({ id: String(k), label: d }))}
+              selected={b.days.map(String)}
+              onToggle={(id) => {
+                const d = Number(id);
+                updateBreak(b.id, { days: b.days.includes(d) ? b.days.filter((x) => x !== d) : [...b.days, d].sort() });
+              }}
+            />
+            {err && <Text style={styles.error}>{err}</Text>}
+          </View>
+        );
+      })}
+      <Button
+        label="Adicionar pausa"
+        icon="cafe-outline"
+        variant="secondary"
+        onPress={() => {
+          setBreaks((list) => [...list, { id: newId(), label: 'Almoço', days: [...settings.workDays], start: '12:00', end: '13:00' }]);
+          setSaved(false);
+        }}
+      />
 
       <Button label={saved ? 'Horários salvos' : 'Salvar horários'} icon={saved ? 'checkmark-circle' : 'checkmark'} onPress={save} style={{ marginTop: 22 }} />
     </ScrollView>
@@ -147,5 +226,11 @@ const styles = StyleSheet.create({
   slotOn: { backgroundColor: colors.wine, borderColor: colors.wine },
   slotOff: { backgroundColor: colors.white, borderColor: colors.border },
   slotText: { fontFamily: fonts.semibold, fontSize: 13 },
+  slotPause: { backgroundColor: '#F1ECEA', borderColor: '#F1ECEA', paddingVertical: 4 },
+  pauseTag: { fontFamily: fonts.regular, fontSize: 9, color: colors.muted },
+  breakCard: { backgroundColor: colors.white, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 12, gap: 4 },
+  breakHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  row: { flexDirection: 'row', gap: 12 },
+  error: { fontFamily: fonts.medium, fontSize: 12, color: colors.danger, marginTop: 6 },
   slotTextOff: { color: colors.muted, textDecorationLine: 'line-through' },
 });

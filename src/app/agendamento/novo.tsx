@@ -24,7 +24,7 @@ const CUSTOM = 'personalizado';
 
 export default function NovoAgendamentoScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ data?: string; id?: string; cliente?: string }>();
+  const params = useLocalSearchParams<{ data?: string; id?: string; cliente?: string; hora?: string }>();
   const { getAppointment, saveAppointment, availableSlots, loadBusy } = useAppointments();
   const { clients, getClient, findByPhone, saveClient } = useClients();
   const { settings } = useSettings();
@@ -44,7 +44,7 @@ export default function NovoAgendamentoScreen() {
   const [serviceId, setServiceId] = useState<string | undefined>(editing ? (editing.serviceId ?? CUSTOM) : undefined);
   const [price, setPrice] = useState(editing ? String(editing.price) : '');
   const [date, setDate] = useState(editing?.date ?? (params.data && params.data >= today() ? params.data : today()));
-  const [time, setTime] = useState<string | undefined>(editing?.time);
+  const [time, setTime] = useState<string | undefined>(editing?.time ?? params.hora);
   const [notes, setNotes] = useState(editing?.notes ?? '');
   const [tried, setTried] = useState(false);
 
@@ -130,8 +130,9 @@ export default function NovoAgendamentoScreen() {
       duration,
       date,
       time,
-      // Remarcar devolve para "agendado"; a cliente sempre marca como "agendado" e a profissional confirma.
-      status: clientMode || (editing && editing.status !== 'confirmado') ? 'agendado' : (editing?.status ?? 'agendado'),
+      // Pedido da cliente (novo ou remarcado) fica "a confirmar" até a profissional confirmar.
+      // O que a própria profissional marca ou remarca já nasce confirmado.
+      status: clientMode ? 'agendado' : 'confirmado',
       notes: notes.trim() || undefined,
     };
     saveAppointment(appointment);

@@ -14,7 +14,7 @@ import { useFinance } from '@/features/finance/FinanceContext';
 import { useSession } from '@/features/session/SessionContext';
 import { useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
-import { addDays, formatDayMonth, today, toMinutes } from '@/utils/date';
+import { formatDayMonth, today, toMinutes } from '@/utils/date';
 import { brl } from '@/utils/format';
 
 type Shortcut = { icon: keyof typeof Ionicons.glyphMap; label: string; a11y?: string; href: Href };
@@ -114,7 +114,7 @@ function TopBar() {
   const { appointments } = useAppointments();
   const todayIso = today();
   const toConfirm = canManage
-    ? appointments.filter((a) => a.status === 'agendado' && (a.date === todayIso || a.date === addDays(todayIso, 1))).length
+    ? appointments.filter((a) => a.status === 'agendado' && a.date >= todayIso).length
     : 0;
 
   return (
@@ -125,7 +125,7 @@ function TopBar() {
       <Pressable
         style={styles.iconButton}
         onPress={() => router.navigate('/agenda')}
-        accessibilityLabel={toConfirm ? `${toConfirm} horários para confirmar` : 'Agenda'}
+        accessibilityLabel={toConfirm ? `${toConfirm} pedidos de horário para confirmar` : 'Agenda'}
       >
         <Ionicons name={canManage ? 'notifications-outline' : 'calendar-outline'} size={22} color={colors.plum} />
         {toConfirm > 0 && (

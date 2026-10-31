@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { STORAGE_KEYS } from '@/data/storage';
 import { supabase, toAuthPhone } from '@/data/supabase';
 import { useCollection, type RemoteTable } from '@/data/useCollection';
-import type { Settings } from '@/features/settings/SettingsContext';
+import { unavailableOn, type Settings } from '@/features/settings/SettingsContext';
 import { today, toMinutes, toTime, weekdayOf } from '@/utils/date';
 
 export type AppointmentStatus = 'agendado' | 'confirmado' | 'concluido' | 'cancelado' | 'faltou';
@@ -29,7 +29,7 @@ export type Appointment = {
 };
 
 export const STATUS_LABEL: Record<AppointmentStatus, string> = {
-  agendado: 'Agendado',
+  agendado: 'A confirmar',
   confirmado: 'Confirmado',
   concluido: 'Concluído',
   cancelado: 'Cancelado',
@@ -117,6 +117,8 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
           ...(remoteBusy[date] ?? []).filter(
             ([s, e]) => !(ignored?.date === date && ignoredRange && s === ignoredRange[0] && e === ignoredRange[1]),
           ),
+          // Pausas fixas e bloqueios da profissional.
+          ...unavailableOn(settings, date).map((u) => [u.start, u.end]),
         ];
         const now = new Date();
         const nowMinutes = date === today() ? now.getHours() * 60 + now.getMinutes() : -1;

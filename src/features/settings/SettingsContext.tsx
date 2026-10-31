@@ -6,7 +6,7 @@ import { reportSyncError } from '@/data/syncStatus';
 import { usePersisted } from '@/data/usePersisted';
 import { DEFAULT_EXTRA_BENEFITS, DEFAULT_LOYALTY, premiumBenefits, type LoyaltyRules } from '@/data/loyalty';
 import { DEFAULT_SERVICES, type Service } from '@/data/services';
-import { weekdayOf } from '@/utils/date';
+import { toMinutes, weekdayOf } from '@/utils/date';
 
 export type Settings = {
   professionalName: string;
@@ -23,7 +23,14 @@ export type Settings = {
   whatsapp: string;
   loyalty: LoyaltyRules;
   extraBenefits: string[];
+  // Pausas fixas (ex.: almoço) nos dias da semana escolhidos.
+  breaks: BreakRule[];
+  // Bloqueios de um dia específico (consulta, folga…). Dia inteiro: allDay.
+  blocks: Block[];
 };
+
+export type BreakRule = { id: string; label: string; days: number[]; start: string; end: string };
+export type Block = { id: string; date: string; start: string; end: string; allDay?: boolean; label?: string };
 
 export const DEFAULT_SETTINGS: Settings = {
   professionalName: 'Jhenifer',
@@ -38,6 +45,8 @@ export const DEFAULT_SETTINGS: Settings = {
   whatsapp: '',
   loyalty: DEFAULT_LOYALTY,
   extraBenefits: DEFAULT_EXTRA_BENEFITS,
+  breaks: [],
+  blocks: [],
 };
 
 type SettingsApi = { settings: Settings; ready: boolean; saveSettings: (s: Settings) => void };
@@ -103,3 +112,28 @@ export const serviceIn = (settings: Settings, id?: string) => settings.services.
 export function releasedSlots(settings: Settings, date: string): string[] | null {
   return settings.clientSlots[String(weekdayOf(date))] ?? null;
 }
+
+// Intervalos (em minutos) em que ninguém pode ser atendido naquele dia: pausas e bloqueios.
+export type Unavailable = { start: number; end: number; kind: 'pausa' | 'bloqueio'; label: string; id: string };
+
+export function unavailableOn(settings: Settings, date: string): Unavailable[] {
+  const wd = weekdayOf(date);
+  const open = toMinutes(settings.openTime);
+  const close = toMinutes(settings.closeTime);
+  return [
+    ...settings.breaks
+      .filter((b) => b.days.includes(wd))
+      .map((b) => ({ start: toMinutes(b.start), end: toMinutes(b.end), kind: 'pausa' as const, label: b.label || 'Pausa', id: b.id })),
+    ...settings.blocks
+      .filter((b) => b.date === date)
+      .map((b) => ({
+        start: b.allDay ? open : toMinutes(b.start),
+        end: b.allDay ? close : toMinutes(b.end),
+        kind: 'bloqueio' as const,
+        label: b.label || (b.allDay ? 'Dia bloqueado' : 'Bloqueado'),
+        id: b.id,
+      })),
+  ];
+}
+
+export const isDayBlocked = (settings: Settings, date: string) => settings.blocks.some((b) => b.date === date && b.allDay);

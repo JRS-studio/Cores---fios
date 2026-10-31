@@ -99,7 +99,7 @@ export default function AjustesScreen() {
             {(
               [
                 ['cut-outline', 'Serviços, preços e tempo', '/ajustes/servicos'],
-                ['time-outline', 'Horários liberados para as clientes', '/ajustes/horarios'],
+                ['time-outline', 'Horários liberados e pausas', '/ajustes/horarios'],
                 ['diamond-outline', 'Benefícios do Premium', '/ajustes/premium'],
               ] as const
             ).map(([icon, label, href], i) => (

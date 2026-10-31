@@ -22,6 +22,11 @@ const NOTICES: Record<string, string> = {
   criado: 'Horário agendado!',
   remarcado: 'Horário remarcado.',
 };
+// Para a cliente, o horário só vale depois que a profissional confirma.
+const CLIENT_NOTICES: Record<string, string> = {
+  criado: 'Pedido de horário enviado! Agora é só aguardar a confirmação.',
+  remarcado: 'Pedido de remarcação enviado! Aguarde a confirmação.',
+};
 
 export default function AgendamentoScreen() {
   const insets = useSafeAreaInsets();
@@ -50,11 +55,12 @@ export default function AgendamentoScreen() {
 
   const client = a.clientId ? getClient(a.clientId) : undefined;
   const open = a.status === 'agendado' || a.status === 'confirmado';
-  const notice = action && action.novo === novo ? action.message : novo ? (NOTICES[novo] ?? null) : null;
+  const notice = action && action.novo === novo ? action.message : novo ? ((canManage ? NOTICES : CLIENT_NOTICES)[novo] ?? null) : null;
   const firstName = a.clientName.split(' ')[0];
   const when = `${formatLongDate(a.date)}, às ${a.time}`;
 
   const say = (message: string) => setAction({ message, novo });
+  const justConfirmed = !!action?.message.includes('confirmado');
 
   function whatsapp(text: string) {
     Linking.openURL(`https://wa.me/55${a!.clientPhone}?text=${encodeURIComponent(text)}`);
@@ -172,33 +178,53 @@ export default function AgendamentoScreen() {
             </View>
           ) : (
             <>
-              {canManage && (
+              {canManage && a.status === 'agendado' && (
                 <>
-                  <Button label="Concluir atendimento" icon="checkmark-done" onPress={() => setPaying(true)} />
-                  {a.status === 'agendado' && (
-                    <Button
-                      label="Marcar como confirmado"
-                      icon="checkmark-circle-outline"
-                      variant="secondary"
-                      onPress={() => {
-                        updateStatus(a.id, 'confirmado');
-                        say(`Presença de ${firstName} confirmada.`);
-                      }}
-                    />
-                  )}
                   <Button
-                    label={a.status === 'agendado' ? 'Pedir confirmação no WhatsApp' : 'Enviar lembrete no WhatsApp'}
+                    label="Confirmar horário"
+                    icon="checkmark-circle-outline"
+                    onPress={() => {
+                      updateStatus(a.id, 'confirmado');
+                      say(`Horário de ${firstName} confirmado. Avise a cliente pelo WhatsApp.`);
+                    }}
+                  />
+                  <Button
+                    label="Recusar e sugerir outro horário"
                     icon="logo-whatsapp"
                     variant="secondary"
                     onPress={() =>
                       whatsapp(
                         `Oi, ${firstName}! Aqui é a ${settings.professionalName}, do ${settings.studioName}. ` +
-                          `Seu horário de ${a.serviceName.toLowerCase()} está marcado para ${when}. ` +
-                          (a.status === 'agendado' ? 'Pode confirmar, por favor? 💅' : 'Te espero! 💅'),
+                          `Não vou conseguir te atender ${when}. Podemos ver outro horário? 💅`,
                       )
                     }
                   />
                 </>
+              )}
+              {canManage && a.status === 'confirmado' && (
+                <>
+                  <Button label="Concluir atendimento" icon="checkmark-done" onPress={() => setPaying(true)} />
+                  <Button
+                    label={justConfirmed ? `Avisar ${firstName} que está confirmado` : 'Enviar lembrete no WhatsApp'}
+                    icon="logo-whatsapp"
+                    variant={justConfirmed ? 'primary' : 'secondary'}
+                    onPress={() =>
+                      whatsapp(
+                        justConfirmed
+                          ? `Oi, ${firstName}! Seu horário de ${a.serviceName.toLowerCase()} no ${settings.studioName} está confirmado para ${when}. Te espero! 💅`
+                          : `Oi, ${firstName}! Passando para lembrar do seu horário de ${a.serviceName.toLowerCase()} ${when}. Te espero! 💅`,
+                      )
+                    }
+                  />
+                </>
+              )}
+              {!canManage && a.status === 'agendado' && (
+                <View style={styles.pending}>
+                  <Ionicons name="hourglass-outline" size={18} color="#B45309" />
+                  <Text style={styles.pendingText}>
+                    Aguardando a confirmação de {settings.professionalName}. Você recebe a confirmação pelo WhatsApp.
+                  </Text>
+                </View>
               )}
               <Button
                 label="Remarcar"
@@ -307,6 +333,8 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
+  pending: { flexDirection: 'row', gap: 10, backgroundColor: '#FEF3E2', borderRadius: radius.sm, padding: 12 },
+  pendingText: { flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: '#92400E' },
   screen: { flex: 1, backgroundColor: colors.cream },
   muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
   notice: {

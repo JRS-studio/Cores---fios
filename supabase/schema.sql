@@ -19,10 +19,45 @@ language sql stable security definer set search_path = public as $$
   select exists (select 1 from professionals where user_id = auth.uid());
 $$;
 
--- Telefone da cliente logada pelo código do WhatsApp (ex.: 5511987654321).
+-- Entrada da cliente só com o WhatsApp, sem código (enquanto não há envio por Twilio):
+-- o número fica preso ao aparelho (login anônimo do Supabase) que o usou primeiro.
+-- Outro aparelho só entra com esse número se a cliente sair ou se a profissional liberar.
+create table if not exists phone_claims (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  phone text not null unique,
+  claimed_at timestamptz not null default now()
+);
+
+-- Telefone da cliente logada: confirmado por código (no token) ou preso a este aparelho.
 create or replace function current_phone() returns text
-language sql stable as $$
-  select nullif(auth.jwt() ->> 'phone', '');
+language sql stable security definer set search_path = public as $$
+  select coalesce(
+    nullif(auth.jwt() ->> 'phone', ''),
+    (select phone from phone_claims where user_id = auth.uid())
+  );
+$$;
+
+create or replace function claim_phone(p_phone text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then
+    raise exception 'login_required';
+  end if;
+  if p_phone !~ '^55[1-9]{2}9[0-9]{8}$' then
+    raise exception 'invalid_phone';
+  end if;
+  if exists (select 1 from phone_claims where phone = p_phone and user_id <> auth.uid()) then
+    raise exception 'phone_taken';
+  end if;
+  delete from phone_claims where user_id = auth.uid();
+  insert into phone_claims (user_id, phone) values (auth.uid(), p_phone);
+end;
+$$;
+
+-- A cliente solta o próprio número ao sair do app.
+create or replace function release_my_phone() returns void
+language sql security definer set search_path = public as $$
+  delete from phone_claims where user_id = auth.uid();
 $$;
 
 -- Cada tabela guarda o registro do app em `data` e repete em colunas os campos usados nas regras.
@@ -75,6 +110,12 @@ alter table settings enable row level security;
 drop policy if exists "profissional vê a si mesma" on professionals;
 create policy "profissional vê a si mesma" on professionals for select using (user_id = auth.uid());
 
+alter table phone_claims enable row level security;
+drop policy if exists "cliente vê o próprio número" on phone_claims;
+create policy "cliente vê o próprio número" on phone_claims for select using (user_id = auth.uid());
+drop policy if exists "profissional: números" on phone_claims;
+create policy "profissional: números" on phone_claims for all using (is_owner()) with check (is_owner());
+
 drop policy if exists "profissional: clientes" on clients;
 create policy "profissional: clientes" on clients for all using (is_owner()) with check (is_owner());
 drop policy if exists "cliente vê o próprio cadastro" on clients;
@@ -124,6 +165,7 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 grant execute on function busy_slots(date) to anon, authenticated;
+grant execute on function claim_phone(text), release_my_phone() to authenticated;
 grant execute on function is_owner() to authenticated;
 
 -- Fotos das avaliações: leitura pública, envio por quem está logada.

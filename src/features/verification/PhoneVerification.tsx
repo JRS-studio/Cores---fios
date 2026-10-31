@@ -5,7 +5,17 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button } from '@/components/ui';
 import { colors, fonts, radius } from '@/theme';
 import { formatPhone, isValidPhone } from '@/utils/format';
-import { CODE_LENGTH, checkCode, requestCode, RESEND_SECONDS, type CheckResult } from './whatsappCode';
+import { supabase } from '@/data/supabase';
+import { useSession } from '@/features/session/SessionContext';
+import {
+  CODE_BY_WHATSAPP,
+  CODE_LENGTH,
+  checkCode,
+  connectPhoneWithoutCode,
+  requestCode,
+  RESEND_SECONDS,
+  type CheckResult,
+} from './whatsappCode';
 
 const MESSAGES: Record<Exclude<CheckResult, 'ok'>, string> = {
   wrong: 'Código incorreto. Confira e tente de novo.',
@@ -31,6 +41,8 @@ export function PhoneVerification({
   const [code, setCode] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [wait, setWait] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const { refresh } = useSession();
 
   useEffect(() => {
     if (wait <= 0) return;
@@ -43,6 +55,38 @@ export function PhoneVerification({
       <View style={styles.verified}>
         <Ionicons name="shield-checkmark" size={18} color={colors.success} />
         <Text style={styles.verifiedText}>WhatsApp {formatPhone(phone)} verificado</Text>
+      </View>
+    );
+  }
+
+  // Com servidor e sem envio de código: o número entra direto e fica preso a este aparelho.
+  if (supabase && !CODE_BY_WHATSAPP) {
+    const connect = async () => {
+      setBusy(true);
+      const result = await connectPhoneWithoutCode(phone);
+      setBusy(false);
+      if (result === 'ok') {
+        await refresh();
+        onVerified();
+      } else {
+        setMessage(
+          result === 'taken'
+            ? 'Este WhatsApp já está conectado em outro celular. Saia do app nele ou peça ao studio para liberar este aparelho.'
+            : 'Não foi possível conectar agora. Confira a internet e tente de novo.',
+        );
+      }
+    };
+    return (
+      <View style={[styles.box, !!(error || message) && styles.boxError]}>
+        <View style={styles.titleRow}>
+          <Ionicons name="logo-whatsapp" size={18} color={colors.success} />
+          <Text style={styles.title}>Confirme seu WhatsApp</Text>
+        </View>
+        <Text style={styles.text}>
+          Confira se o número {formatPhone(phone)} é o seu. Ele fica ligado a este celular; não pedimos senha nem documentos.
+        </Text>
+        <Button label="Confirmar e entrar" icon="checkmark" onPress={connect} disabled={!isValidPhone(phone) || busy} style={{ marginTop: 10 }} />
+        {(message || error) && <Text style={styles.error}>{message ?? error}</Text>}
       </View>
     );
   }

@@ -5,6 +5,24 @@
 // fica logada. Sem servidor, o código é gerado no aparelho e devolvido em `testCode` para a tela mostrar.
 import { supabase, toAuthPhone } from '@/data/supabase';
 
+// Com servidor, o código pelo WhatsApp só é pedido quando o envio (Twilio) estiver ligado.
+// Sem ele, a cliente entra só com o número, que fica preso ao aparelho (ver claim_phone no schema.sql).
+export const CODE_BY_WHATSAPP = process.env.EXPO_PUBLIC_WHATSAPP_CODE === '1';
+
+export type ConnectResult = 'ok' | 'taken' | 'error';
+
+export async function connectPhoneWithoutCode(phone: string): Promise<ConnectResult> {
+  if (!supabase) return 'error';
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) {
+    const { error } = await supabase.auth.signInAnonymously();
+    if (error) return 'error';
+  }
+  const { error } = await supabase.rpc('claim_phone', { p_phone: toAuthPhone(phone) });
+  if (error) return /phone_taken/.test(error.message) ? 'taken' : 'error';
+  return 'ok';
+}
+
 export const CODE_LENGTH = 6;
 export const RESEND_SECONDS = 30;
 const TTL_MS = 10 * 60 * 1000;

@@ -8,6 +8,8 @@ const db = new PGlite();
 const OWNER = '00000000-0000-0000-0000-000000000001';
 const CLIENT = '00000000-0000-0000-0000-000000000002';
 const OTHER = '00000000-0000-0000-0000-000000000003';
+const DEVICE_A = '00000000-0000-0000-0000-0000000000d1';
+const DEVICE_B = '00000000-0000-0000-0000-0000000000d2';
 
 // O que o Supabase já traz pronto: esquema auth, storage, papéis e publicação do realtime.
 await db.exec(`
@@ -33,7 +35,7 @@ await db.exec(`
   grant select, insert, update, delete on all tables in schema public to anon, authenticated;
   grant select, insert, delete on storage.objects to anon, authenticated;
   grant usage on all sequences in schema storage to anon, authenticated;
-  insert into auth.users values ('${OWNER}'), ('${CLIENT}'), ('${OTHER}');
+  insert into auth.users values ('${OWNER}'), ('${CLIENT}'), ('${OTHER}'), ('${DEVICE_A}'), ('${DEVICE_B}');
   insert into professionals values ('${OWNER}');
 `);
 
@@ -177,6 +179,44 @@ await test('upsert: profissional confirma e conclui', async () => {
   const cols = ['id', 'client_phone', 'status', 'starts_at', 'ends_at', 'data'];
   await as(owner, ...upsert('appointments', cols, ['a20', '5511987654321', 'concluido', '2026-11-05 15:00', '2026-11-05 16:00', '{}']));
   assert.equal((await rows(ana, `select status from appointments where id = 'a20'`))[0].status, 'concluido');
+});
+
+// Entrada sem código: login anônimo + número preso ao aparelho.
+const deviceA = { sub: DEVICE_A, is_anonymous: true };
+const deviceB = { sub: DEVICE_B, is_anonymous: true };
+
+await test('sem código: cliente entra com o número e vê o próprio cadastro', async () => {
+  await as(owner, `insert into clients (id, phone, data) values ('c30', '5511911112222', '{}')`);
+  await as(deviceA, `select claim_phone('5511911112222')`);
+  assert.deepEqual((await rows(deviceA, 'select id from clients')).map((x) => x.id), ['c30']);
+});
+await test('sem código: outro aparelho não consegue usar o mesmo número', async () => {
+  assert.ok(await fails(deviceB, `select claim_phone('5511911112222')`));
+  assert.equal((await rows(deviceB, 'select * from clients')).length, 0);
+});
+await test('sem código: número inválido e visitante sem login são recusados', async () => {
+  assert.ok(await fails(deviceB, `select claim_phone('123')`));
+  assert.ok(await fails('anon', `select claim_phone('5511933334444')`));
+});
+await test('sem código: cliente marca horário pelo número preso ao aparelho', async () => {
+  await as(deviceA, ...appt('a30', '5511911112222', '2026-11-06 10:00', '2026-11-06 11:00'));
+  assert.ok(await fails(deviceA, ...appt('a31', '5521999998888', '2026-11-06 14:00', '2026-11-06 15:00')));
+});
+await test('sem código: ao sair, o número fica livre para outro aparelho', async () => {
+  await as(deviceA, 'select release_my_phone()');
+  assert.equal((await rows(deviceA, 'select * from clients')).length, 0);
+  await as(deviceB, `select claim_phone('5511911112222')`);
+  assert.equal((await rows(deviceB, 'select id from clients'))[0].id, 'c30');
+});
+await test('sem código: profissional libera o número para um aparelho novo', async () => {
+  assert.ok(await fails(deviceA, `select claim_phone('5511911112222')`));
+  await as(owner, `delete from phone_claims where phone = '5511911112222'`);
+  await as(deviceA, `select claim_phone('5511911112222')`);
+});
+await test('sem código: cliente não vê nem apaga o número de outra', async () => {
+  assert.equal((await rows(deviceB, 'select * from phone_claims')).length, 0);
+  await as(deviceB, `delete from phone_claims where phone = '5511911112222'`);
+  assert.equal((await rows(owner, `select * from phone_claims where phone = '5511911112222'`)).length, 1);
 });
 
 console.log(`\n${passed} testes passaram.`);

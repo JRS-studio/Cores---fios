@@ -11,7 +11,10 @@ import { LEVELS, LOYALTY, levelFor, nextLevel } from '@/data/loyalty';
 import { useAppointments } from '@/features/agenda/AppointmentsContext';
 import { StatusChip } from '@/features/agenda/components';
 import { useClients } from '@/features/clients/ClientsContext';
+import { supabase, toAuthPhone } from '@/data/supabase';
+import { reportSyncError } from '@/data/syncStatus';
 import { useSession } from '@/features/session/SessionContext';
+import { CODE_BY_WHATSAPP } from '@/features/verification/whatsappCode';
 import { CONTACT_CHANNELS, LENGTHS, type Client } from '@/features/clients/types';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { formatDayMonth } from '@/utils/date';
@@ -215,6 +218,19 @@ export default function ClienteScreen() {
       )}
 
       <View style={{ marginTop: 22, gap: 10 }}>
+        {/* Entrada sem código: o número fica preso a um celular; a profissional libera quando a cliente troca de aparelho. */}
+        {supabase && canManage && !CODE_BY_WHATSAPP && (
+          <Button
+            label="Liberar acesso em outro celular"
+            icon="phone-portrait-outline"
+            variant="secondary"
+            onPress={async () => {
+              const { error } = await supabase!.from('phone_claims').delete().eq('phone', toAuthPhone(client.phone));
+              if (error) reportSyncError(error);
+              else setAction({ message: `${client.name.split(' ')[0]} já pode entrar no app por um celular novo.`, novo });
+            }}
+          />
+        )}
         <Button
           label="Editar cadastro"
           icon="create-outline"

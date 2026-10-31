@@ -12,7 +12,10 @@ const { chromium } = require('playwright');
 
 const API_PORT = 54329;
 const db = { clients: [], appointments: [], transactions: [], feedbacks: [], settings: [] };
-let session = null; // { phone } da cliente ou { owner: true }
+// Sessão do navegador que está fazendo a chamada (pelo token) e números presos a aparelhos.
+const sessions = new Map(); // token -> { user, phone?, owner? }
+const claims = new Map(); // phone -> userId
+let nextUser = 1;
 
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 const jwt = (claims) => `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64(claims)}.assinatura`;
@@ -40,33 +43,50 @@ const api = http.createServer((req, res) => {
   req.on('end', () => {
     const body = raw ? JSON.parse(raw) : {};
     const p = url.pathname;
-    if (p === '/auth/v1/otp') return send(200, {});
-    if (p === '/auth/v1/verify') {
-      if (body.token !== '123456') return send(400, { code: 'otp_invalid', msg: 'Token has expired or is invalid' });
-      const phone = body.phone.replace('+', '');
-      session = { phone };
-      return send(200, authResponse({ id: '00000000-0000-0000-0000-0000000000c1', phone }));
-    }
+    const token = (req.headers.authorization ?? '').replace('Bearer ', '');
+    const session = sessions.get(token) ?? null;
+    const login = (data) => {
+      const user = { id: `00000000-0000-0000-0000-${String(nextUser++).padStart(12, '0')}`, ...data };
+      const auth = authResponse(user);
+      sessions.set(auth.access_token, { user, owner: !!data.email });
+      return send(200, auth);
+    };
+    if (p === '/auth/v1/signup') return login({ is_anonymous: true });
     if (p === '/auth/v1/token') {
       if (body.email !== 'juliana@studio.com' || body.password !== 'senha123') return send(400, { error: 'invalid_grant' });
-      session = { owner: true };
-      return send(200, authResponse({ id: '00000000-0000-0000-0000-0000000000a1', email: body.email }));
+      return login({ email: body.email });
     }
     if (p === '/auth/v1/logout') {
-      session = null;
+      sessions.delete(token);
       return send(204);
     }
-    if (p === '/auth/v1/user') return send(200, authResponse({ id: 'x', phone: session?.phone }).user);
+    if (p === '/auth/v1/user') return send(200, session?.user ?? {});
     if (p === '/rest/v1/rpc/is_owner') return send(200, !!session?.owner);
+    if (p === '/rest/v1/rpc/claim_phone') {
+      const owner = claims.get(body.p_phone);
+      if (owner && owner !== session.user.id) return send(400, { code: 'P0001', message: 'phone_taken' });
+      for (const [ph, uid] of claims) if (uid === session.user.id) claims.delete(ph);
+      claims.set(body.p_phone, session.user.id);
+      return send(200, null);
+    }
+    if (p === '/rest/v1/rpc/release_my_phone') {
+      for (const [ph, uid] of claims) if (uid === session?.user.id) claims.delete(ph);
+      return send(200, null);
+    }
+    if (p === '/rest/v1/phone_claims') {
+      const mine = [...claims].find(([, uid]) => uid === session?.user.id);
+      return send(200, mine ? { phone: mine[0] } : null);
+    }
     if (p === '/rest/v1/rpc/busy_slots') {
       return send(200, db.appointments.filter((a) => a.starts_at.startsWith(body.day) && a.status !== 'cancelado').map(({ starts_at, ends_at }) => ({ starts_at, ends_at })));
     }
     const table = p.replace('/rest/v1/', '');
     if (!(table in db)) return send(404, {});
+    const myPhone = [...claims].find(([, uid]) => uid === session?.user.id)?.[0];
     // Imita as regras de acesso do schema.sql no que o teste usa.
     const visible = (row) =>
       session?.owner || table === 'feedbacks' || table === 'settings' ||
-      (table === 'clients' && row.phone === session?.phone) || (table === 'appointments' && row.client_phone === session?.phone);
+      (table === 'clients' && row.phone === myPhone) || (table === 'appointments' && row.client_phone === myPhone);
     if (req.method === 'GET') return send(200, db[table].filter(visible).map((r) => ({ data: r.data })));
     if (req.method === 'POST') {
       for (const row of [].concat(body)) {
@@ -113,20 +133,15 @@ const site = http.createServer((_, res) => res.writeHead(200, { 'Content-Type': 
     await shot('01-visitante');
   });
 
-  await test('cliente se cadastra com o código do WhatsApp (enviado pelo servidor, sem código na tela)', async () => {
+  await test('cliente se cadastra só com o WhatsApp, sem código', async () => {
     await R.getByLabel('Conta', { exact: true }).click();
     await wait();
     await R.getByText('Cadastro rápido', { exact: true }).click();
     await wait();
     await R.getByLabel('Nome', { exact: true }).fill('Paula Lima');
     await R.getByLabel('WhatsApp').fill('11955550000');
-    await R.getByText('Enviar código pelo WhatsApp').click();
-    await wait();
-    assert.equal(await R.getByText(/seu código é/).count(), 0);
-    await R.getByLabel('Código de verificação').fill('111111');
-    await wait();
-    await R.getByText(/Código incorreto/).waitFor();
-    await R.getByLabel('Código de verificação').fill('123456');
+    assert.equal(await R.getByLabel('Código de verificação').count(), 0);
+    await R.getByText('Confirmar e entrar').click();
     await wait(1200);
     await R.getByText(/verificado/).first().waitFor();
     await R.getByText(/Concordo com o uso/).click();
@@ -134,8 +149,23 @@ const site = http.createServer((_, res) => res.writeHead(200, { 'Content-Type': 
     await wait(1200);
     const row = db.clients.find((c) => c.phone === '5511955550000');
     assert.ok(row, 'cadastro gravado com o telefone no formato do login');
-    assert.equal(row.data.phoneVerified, true);
+    assert.equal(claims.get('5511955550000') !== undefined, true);
     await shot('02-cadastro');
+  });
+
+  await test('outro celular não consegue entrar com o mesmo número', async () => {
+    const other = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await other.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
+    await other.waitForTimeout(1500);
+    await other.locator('#root').getByLabel('Conta', { exact: true }).click();
+    await other.waitForTimeout(400);
+    await other.locator('#root').getByText('Já tenho cadastro: entrar').click();
+    await other.waitForTimeout(400);
+    await other.locator('#root').getByLabel('WhatsApp').fill('11955550000');
+    await other.locator('#root').getByText('Confirmar e entrar').click();
+    await other.locator('#root').getByText(/já está conectado em outro celular/).waitFor();
+    await other.screenshot({ path: path.join(shots, '02b-outro-celular.png') });
+    await other.close();
   });
 
   await test('cliente agenda para si mesma; o servidor recebe telefone, início e fim', async () => {

@@ -41,7 +41,8 @@ def export_web():
     shutil.rmtree(web, ignore_errors=True)
     try:
         app_json.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n")
-        env = {**os.environ, "CI": "1", "EXPO_OFFLINE": "1"}
+        # A página de teste roda sem servidor: ignora o .env (servidor só se as variáveis vierem do terminal).
+        env = {**os.environ, "CI": "1", "EXPO_OFFLINE": "1", "EXPO_NO_DOTENV": "1"}
         subprocess.run(["npx", "expo", "export", "-p", "web", "--output-dir", str(web)], cwd=ROOT, env=env, check=True)
     finally:
         app_json.write_text(original)

@@ -20,13 +20,20 @@ O plano gratuito do Supabase é suficiente para começar.
 
    Só quem está nessa tabela vê o financeiro, a lista de clientes e a agenda completa.
 
-## 3. Código pelo WhatsApp para as clientes
+## 3. Como as clientes entram
+
+**Sem a Twilio (padrão):** a cliente entra só com o número do WhatsApp, sem código. O número fica preso ao primeiro celular que o usou: outro aparelho não consegue entrar com ele. Se a cliente trocar de celular, ela toca em **Sair** no aparelho antigo ou a profissional toca em **Liberar acesso em outro celular** no perfil dela. Para isso, ative em **Authentication › Sign In / Providers** a opção **Allow anonymous sign-ins**.
+
+> Sem código, alguém que saiba o número de uma cliente que ainda não usou o app poderia entrar antes dela. Para fechar essa brecha, ligue a Twilio (abaixo).
+
+### Com código pelo WhatsApp (opcional, Twilio)
 
 As clientes entram só com o WhatsApp, recebendo um código (sem senha e sem documentos).
 
 1. Crie uma conta na [Twilio](https://www.twilio.com) e ative o envio por WhatsApp (o *Sandbox* serve para testes; para uso real, aprove um número e o modelo de mensagem de código na Meta, pela própria Twilio).
 2. No Supabase, em **Authentication › Sign In / Providers › Phone**, ative o provedor, escolha **Twilio** (ou **Twilio Verify**) e informe *Account SID*, *Auth Token* e o número/serviço de envio.
 3. Ainda em Phone, deixe a validade do código em 10 minutos.
+4. No `.env`, coloque `EXPO_PUBLIC_WHATSAPP_CODE=1` e publique o app de novo.
 
 > O Supabase também aceita envio por SMS pelos mesmos provedores, caso prefira.
 

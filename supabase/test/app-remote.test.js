@@ -11,7 +11,7 @@ const assert = require('assert/strict');
 const { chromium } = require('playwright');
 
 const API_PORT = 54329;
-const db = { clients: [], appointments: [], transactions: [], feedbacks: [], settings: [] };
+const db = { clients: [], appointments: [], transactions: [], feedbacks: [], settings: [], posts: [], likes: [] };
 // Sessão do navegador que está fazendo a chamada (pelo token) e números presos a aparelhos.
 const sessions = new Map(); // token -> { user, phone?, owner? }
 const claims = new Map(); // phone -> userId
@@ -85,17 +85,27 @@ const api = http.createServer((req, res) => {
     const myPhone = [...claims].find(([, uid]) => uid === session?.user.id)?.[0];
     // Imita as regras de acesso do schema.sql no que o teste usa.
     const visible = (row) =>
-      session?.owner || table === 'feedbacks' || table === 'settings' ||
+      session?.owner || ['feedbacks', 'settings', 'posts', 'likes'].includes(table) ||
       (table === 'clients' && row.phone === myPhone) || (table === 'appointments' && row.client_phone === myPhone);
     if (req.method === 'GET') return send(200, db[table].filter(visible).map((r) => ({ data: r.data })));
     if (req.method === 'POST') {
       for (const row of [].concat(body)) {
-        if (table === 'transactions' && !session?.owner) return send(403, { code: '42501', message: 'rls' });
+        if (['transactions', 'posts'].includes(table) && !session?.owner) return send(403, { code: '42501', message: 'rls' });
+        if (table === 'likes') {
+          if (!session) return send(403, { code: '42501', message: 'rls' });
+          row.user_id = session.user.id; // default auth.uid() do banco
+        }
         db[table] = db[table].filter((r) => r.id !== row.id).concat(row);
       }
       return send(201, []);
     }
-    if (req.method === 'DELETE') return send(204);
+    if (req.method === 'DELETE') {
+      // ?id=in.("a","b"): curtida só a dona apaga; o resto, só a profissional.
+      const ids = (url.searchParams.get('id') ?? '').replace(/^in\.\(|\)$/g, '').split(',').map((v) => v.replace(/"/g, ''));
+      const allowed = (r) => (table === 'likes' ? r.user_id === session?.user.id : session?.owner);
+      db[table] = db[table].filter((r) => !(ids.includes(r.id) && allowed(r)));
+      return send(204);
+    }
     send(404, {});
   });
 });
@@ -126,8 +136,10 @@ const site = http.createServer((_, res) => res.writeHead(200, { 'Content-Type': 
   await p.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
   await wait(1500);
 
-  await test('visitante não vê faturamento nem a aba Financeiro', async () => {
-    assert.equal(await R.getByText('Resumo de hoje').count(), 0);
+  await test('visitante vê o perfil do studio, sem faturamento nem a aba Financeiro', async () => {
+    await R.getByText('publicações', { exact: true }).waitFor();
+    await R.getByText('Agendar horário').first().waitFor();
+    assert.equal(await R.getByText('horários hoje').count(), 0);
     assert.equal(await R.getByLabel('Financeiro', { exact: true }).count(), 0);
     await R.getByLabel('Conta', { exact: true }).waitFor();
     await shot('01-visitante');
@@ -217,11 +229,42 @@ const site = http.createServer((_, res) => res.writeHead(200, { 'Content-Type': 
     await wait(800);
     await R.getByLabel('Voltar').last().click();
     await wait(800);
-    await R.getByText('Resumo de hoje').waitFor();
+    await R.getByText('horários hoje').waitFor();
     await R.getByRole('button', { name: 'Financeiro' }).last().waitFor();
     await R.getByRole('button', { name: 'Agenda' }).last().click();
     await wait(800);
     await shot('04-profissional');
+  });
+
+  await test('profissional publica no feed; a publicação vai para o servidor', async () => {
+    await R.getByRole('button', { name: 'Publicar' }).last().click();
+    await wait(800);
+    await R.getByText('Promoção', { exact: true }).click();
+    await R.getByLabel('Legenda').fill('Pé e mão por R$ 60 nesta semana!');
+    await R.getByText('Publicar', { exact: true }).last().click();
+    await wait(1200);
+    assert.equal(db.posts.length, 1);
+    assert.equal(db.posts[0].data.kind, 'promocao');
+    await R.getByText('Pé e mão por R$ 60 nesta semana!').first().waitFor();
+    await shot('05-publicado');
+  });
+
+  await test('visitante vê a publicação e curte sem cadastro; só a própria curtida sai', async () => {
+    const other = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const O = other.locator('#root');
+    await other.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
+    await other.waitForTimeout(1500);
+    await O.getByText('Pé e mão por R$ 60 nesta semana!').waitFor();
+    await O.getByLabel('Curtir').first().click();
+    await other.waitForTimeout(1200);
+    assert.equal(db.likes.length, 1);
+    assert.equal(db.likes[0].item_id, db.posts[0].id);
+    await O.getByLabel('Descurtir').first().waitFor();
+    await other.screenshot({ path: path.join(shots, '06-curtida.png') });
+    await O.getByLabel('Descurtir').first().click();
+    await other.waitForTimeout(1200);
+    assert.equal(db.likes.length, 0);
+    await other.close();
   });
 
   await browser.close();

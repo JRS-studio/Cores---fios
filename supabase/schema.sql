@@ -6,8 +6,9 @@
 --   profissional (usuária cadastrada em `professionals`): tudo.
 --   cliente (entrou pelo código do WhatsApp): o próprio cadastro e os próprios horários;
 --     marca horários só nos espaços livres; publica avaliações.
---   qualquer pessoa: avaliações publicadas, ajustes do studio e quais horários estão ocupados
---     (só início e duração, sem dados de quem marcou).
+--   qualquer pessoa: publicações do studio, avaliações, curtidas, ajustes do studio e quais horários
+--     estão ocupados (só início e duração, sem dados de quem marcou).
+--   quem está logada (mesmo sem número, com login anônimo): curte e descurte, só em nome próprio.
 
 -- Profissionais: quem administra o studio.
 create table if not exists professionals (
@@ -95,6 +96,23 @@ create table if not exists feedbacks (
   created_at timestamptz not null default now()
 );
 
+-- Publicações da profissional no feed da página inicial.
+create table if not exists posts (
+  id text primary key,
+  data jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+-- Curtidas em publicações e avaliações (item_id é o id de uma ou de outra). Uma por pessoa e item.
+create table if not exists likes (
+  id text primary key,
+  item_id text not null,
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  data jsonb not null,
+  created_at timestamptz not null default now(),
+  unique (item_id, user_id)
+);
+
 create table if not exists settings (
   id int primary key default 1 check (id = 1),
   data jsonb not null
@@ -106,6 +124,8 @@ alter table appointments enable row level security;
 alter table transactions enable row level security;
 alter table feedbacks enable row level security;
 alter table settings enable row level security;
+alter table posts enable row level security;
+alter table likes enable row level security;
 
 drop policy if exists "profissional vê a si mesma" on professionals;
 create policy "profissional vê a si mesma" on professionals for select using (user_id = auth.uid());
@@ -151,6 +171,20 @@ create policy "cliente publica avaliação" on feedbacks for insert
 drop policy if exists "profissional remove avaliação" on feedbacks;
 create policy "profissional remove avaliação" on feedbacks for delete using (is_owner());
 
+drop policy if exists "todos veem publicações" on posts;
+create policy "todos veem publicações" on posts for select using (true);
+drop policy if exists "profissional: publicações" on posts;
+create policy "profissional: publicações" on posts for all using (is_owner()) with check (is_owner());
+
+drop policy if exists "todos veem curtidas" on likes;
+create policy "todos veem curtidas" on likes for select using (true);
+drop policy if exists "curte em nome próprio" on likes;
+create policy "curte em nome próprio" on likes for insert with check (auth.uid() is not null and user_id = auth.uid());
+drop policy if exists "atualiza a própria curtida" on likes;
+create policy "atualiza a própria curtida" on likes for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists "descurte a própria curtida" on likes;
+create policy "descurte a própria curtida" on likes for delete using (user_id = auth.uid());
+
 drop policy if exists "todos veem os ajustes" on settings;
 create policy "todos veem os ajustes" on settings for select using (true);
 drop policy if exists "profissional: ajustes" on settings;
@@ -168,7 +202,7 @@ grant execute on function busy_slots(date) to anon, authenticated;
 grant execute on function claim_phone(text), release_my_phone() to authenticated;
 grant execute on function is_owner() to authenticated;
 
--- Fotos das avaliações: leitura pública, envio por quem está logada.
+-- Fotos das avaliações e das publicações: leitura pública, envio por quem está logada.
 insert into storage.buckets (id, name, public) values ('avaliacoes', 'avaliacoes', true)
   on conflict (id) do nothing;
 drop policy if exists "fotos de avaliação: leitura" on storage.objects;
@@ -184,7 +218,7 @@ create policy "fotos de avaliação: profissional remove" on storage.objects for
 do $$
 declare t text;
 begin
-  foreach t in array array['clients', 'appointments', 'transactions', 'feedbacks', 'settings'] loop
+  foreach t in array array['clients', 'appointments', 'transactions', 'feedbacks', 'settings', 'posts', 'likes'] loop
     if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = t) then
       execute format('alter publication supabase_realtime add table %I', t);
     end if;

@@ -14,6 +14,3 @@ export const services: Service[] = [
 ];
 
 export const serviceById = (id?: string) => services.find((s) => s.id === id);
-
-// Serviço montado no Provador: alongamento leva mais tempo.
-export const tryOnDuration = (name: string) => (/alongamento|quadrada|redonda|amendoada|bailarina|stiletto/i.test(name) ? 120 : 60);

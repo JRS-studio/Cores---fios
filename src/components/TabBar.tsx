@@ -11,52 +11,65 @@ type IconName = keyof typeof Ionicons.glyphMap;
 const ICONS: Record<string, [IconName, IconName]> = {
   index: ['home', 'home-outline'],
   agenda: ['calendar', 'calendar-outline'],
-  provador: ['color-palette', 'color-palette-outline'],
   financeiro: ['wallet', 'wallet-outline'],
   clientes: ['people', 'people-outline'],
 };
 
-// O Provador Virtual é o diferencial do app, por isso ganha um botão central em destaque.
-const FEATURED = 'provador';
+// Botão central em destaque, como o "+" das redes sociais: não é uma aba, abre uma tela de criação.
+export type CenterAction = { label: string; onPress: () => void };
 
-export function TabBar({ state, descriptors, emitter, navigateToTab, hidden = [] }: BottomTabBarProps & { hidden?: string[] }) {
+type Props = BottomTabBarProps & { hidden?: string[]; center?: CenterAction };
+
+export function TabBar({ state, descriptors, emitter, navigateToTab, hidden = [], center }: Props) {
   const insets = useSafeAreaInsets();
+  const visible = state.routes.filter((r) => !hidden.includes(r.name));
+  const centerAt = Math.ceil(visible.length / 2);
 
   return (
     <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 12) }]}>
       <View style={styles.bar}>
         {state.routes.map((route, index) => {
           if (hidden.includes(route.name)) return null;
-          const focused = state.index === index;
-          const label = descriptors[route.key].options.title ?? route.name;
-          const [activeIcon, idleIcon] = ICONS[route.name] ?? ['ellipse', 'ellipse-outline'];
-
-          const onPress = () => {
-            const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-            if (!focused && !event.defaultPrevented) navigateToTab(route.key);
-          };
-
-          if (route.name === FEATURED) {
-            return (
-              <Pressable key={route.key} onPress={onPress} style={styles.item} accessibilityRole="button" accessibilityLabel={label}>
-                <LinearGradient colors={[colors.wine, colors.plum]} style={styles.featured}>
-                  <Ionicons name="sparkles" size={24} color={colors.roseGoldLight} />
-                </LinearGradient>
-                <Text style={[styles.label, focused && styles.labelActive]}>{label}</Text>
-              </Pressable>
-            );
-          }
-
-          return (
-            <Pressable key={route.key} onPress={onPress} style={styles.item} accessibilityRole="button" accessibilityLabel={label}>
-              <Ionicons name={focused ? activeIcon : idleIcon} size={22} color={focused ? colors.plum : colors.muted} />
-              <Text style={[styles.label, focused && styles.labelActive]}>{label}</Text>
-              {focused && <View style={styles.dot} />}
-            </Pressable>
+          const tab = (
+            <TabItem key={route.key} route={route} index={index} state={state} descriptors={descriptors} emitter={emitter} navigateToTab={navigateToTab} />
           );
+          if (!center || visible.indexOf(route) !== centerAt) return tab;
+          return [
+            <Pressable key="center" onPress={center.onPress} style={styles.item} accessibilityRole="button" accessibilityLabel={center.label}>
+              <LinearGradient colors={[colors.wine, colors.plum]} style={styles.featured}>
+                <Ionicons name="add" size={30} color={colors.roseGoldLight} />
+              </LinearGradient>
+              <Text style={styles.label}>{center.label}</Text>
+            </Pressable>,
+            tab,
+          ];
         })}
       </View>
     </View>
+  );
+}
+
+type TabItemProps = Pick<BottomTabBarProps, 'state' | 'descriptors' | 'emitter' | 'navigateToTab'> & {
+  route: BottomTabBarProps['state']['routes'][number];
+  index: number;
+};
+
+function TabItem({ route, index, state, descriptors, emitter, navigateToTab }: TabItemProps) {
+  const focused = state.index === index;
+  const label = descriptors[route.key].options.title ?? route.name;
+  const [activeIcon, idleIcon] = ICONS[route.name] ?? ['ellipse', 'ellipse-outline'];
+
+  const onPress = () => {
+    const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+    if (!focused && !event.defaultPrevented) navigateToTab(route.key);
+  };
+
+  return (
+    <Pressable onPress={onPress} style={styles.item} accessibilityRole="button" accessibilityLabel={label}>
+      <Ionicons name={focused ? activeIcon : idleIcon} size={22} color={focused ? colors.plum : colors.muted} />
+      <Text style={[styles.label, focused && styles.labelActive]}>{label}</Text>
+      {focused && <View style={styles.dot} />}
+    </Pressable>
   );
 }
 

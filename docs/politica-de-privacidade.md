@@ -14,14 +14,14 @@ Esta é a versão para publicar na internet e informar nas lojas (Google Play e 
 - **Cadastro Premium (opcional):** e-mail, data de nascimento e endereço (todos opcionais), preferências de atendimento e ficha de saúde.
 - **Agendamentos:** serviços, datas, valores pagos e forma de pagamento.
 - **Avaliações:** nota, comentário, foto do resultado e o nome que você escolher mostrar, ou nenhum, se publicar como anônima.
-- **Provador Virtual:** a foto da sua mão é usada só na tela, durante o teste, e não é guardada.
+- **Curtidas:** ficam ligadas a um código do seu aparelho, sem nome nem número; o feed mostra só o total.
 
 ## Para que usamos
 
 - Agendar, confirmar e lembrar seus horários pelo WhatsApp.
 - Programa de fidelidade: selos, prêmios e desconto no mês do aniversário.
 - Sua segurança no atendimento, consultando alergias e cuidados antes de começar.
-- Organização financeira do studio e exibição das avaliações.
+- Organização financeira do studio e exibição das avaliações e publicações no feed do app.
 
 ## Ficha de saúde
 
@@ -35,7 +35,7 @@ _Se o studio usar o app sem servidor, os dados ficam só no aparelho em que fora
 
 ## Permissões do celular
 
-- **Câmera e fotos:** usadas só quando você toca para fotografar ou escolher uma imagem, no Provador Virtual ou ao enviar a foto de uma avaliação.
+- **Câmera e fotos:** usadas só quando você toca para fotografar ou escolher uma imagem, ao enviar a foto de uma avaliação (ou, para a profissional, de uma publicação).
 
 ## Seus direitos (art. 18 da LGPD)
 

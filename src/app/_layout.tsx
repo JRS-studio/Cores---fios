@@ -17,6 +17,8 @@ import { SyncBanner } from '@/components/SyncBanner';
 import { AppointmentsProvider } from '@/features/agenda/AppointmentsContext';
 import { ClientsProvider } from '@/features/clients/ClientsContext';
 import { FeedbackProvider } from '@/features/feedback/FeedbackContext';
+import { LikesProvider } from '@/features/feed/LikesContext';
+import { PostsProvider } from '@/features/feed/PostsContext';
 import { FinanceProvider } from '@/features/finance/FinanceContext';
 import { SessionProvider } from '@/features/session/SessionContext';
 import { SettingsProvider } from '@/features/settings/SettingsContext';
@@ -47,9 +49,13 @@ export default function RootLayout() {
             <AppointmentsProvider>
               <FinanceProvider>
                 <FeedbackProvider>
-                  <StatusBar style="dark" />
-                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }} />
-                  <SyncBanner />
+                  <PostsProvider>
+                    <LikesProvider>
+                      <StatusBar style="dark" />
+                      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }} />
+                      <SyncBanner />
+                    </LikesProvider>
+                  </PostsProvider>
                 </FeedbackProvider>
               </FinanceProvider>
             </AppointmentsProvider>

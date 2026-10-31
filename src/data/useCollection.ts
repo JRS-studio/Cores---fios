@@ -18,6 +18,9 @@ export function useCollection<T extends { id: string }>(localKey: string, remote
   const [items, setItems] = useState<T[]>([]);
   const [ready, setReady] = useState(false);
   const itemsRef = useRef<T[]>([]);
+  // Conta as gravações: uma leitura que começou antes ou durante uma gravação traz dados velhos
+  // e é descartada (senão a curtida ou o horário recém-salvo some da tela por um instante).
+  const writes = useRef(0);
 
   const apply = useCallback((next: T[]) => {
     itemsRef.current = next;
@@ -26,8 +29,12 @@ export function useCollection<T extends { id: string }>(localKey: string, remote
 
   const fetchRemote = useCallback(async () => {
     if (!supabase) return;
+    const seq = writes.current;
     const { data, error } = await supabase.from(remote.table).select('data');
-    if (error) return reportSyncError(error);
+    if (seq !== writes.current) return;
+    // Tabela nova que o banco ainda não tem (schema.sql não foi rodado de novo): na leitura, a lista
+    // só fica vazia; o aviso para atualizar o servidor aparece quando a profissional tenta gravar.
+    if (error) return error.code === 'PGRST205' ? undefined : reportSyncError(error);
     const next = (data ?? []).map((row) => row.data as T);
     apply(next);
     saveJson(localKey, next);
@@ -64,6 +71,7 @@ export function useCollection<T extends { id: string }>(localKey: string, remote
   const commit = useCallback(
     async (next: T[]) => {
       const previous = itemsRef.current;
+      writes.current += 1;
       apply(next);
       saveJson(localKey, next);
       if (!supabase) return true;
@@ -77,6 +85,7 @@ export function useCollection<T extends { id: string }>(localKey: string, remote
         upserts.length ? supabase.from(remote.table).upsert(upserts) : null,
         removed.length ? supabase.from(remote.table).delete().in('id', removed) : null,
       ]);
+      writes.current += 1;
       const error = results.find((r) => r?.error)?.error;
       if (error) {
         // O servidor recusou (ex.: horário ocupado por outra cliente): volta ao que estava salvo lá.

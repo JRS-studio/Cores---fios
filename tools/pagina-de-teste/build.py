@@ -1,17 +1,12 @@
 """Gera a página de teste: o app inteiro (versão web) num único arquivo HTML, com roteiro e dados de exemplo.
 
 Uso (na raiz do projeto):
-    python3 tools/pagina-de-teste/build.py [--foto local/mao.jpg --unhas local/unhas.json]
-
---foto / --unhas (opcionais): foto real de mão (proporção 3:4) e posição das unhas, usadas no botão
-"Experimentar com foto de exemplo" do Provador. Guarde-as em tools/pagina-de-teste/local/ (ignorada
-pelo Git) — fotos de pessoas não vão para o repositório.
+    python3 tools/pagina-de-teste/build.py [--saida arquivo.html]
 
 Saída: dist-teste/cores-e-fios-teste.html
 """
 import argparse
 import base64
-import io
 import json
 import os
 import shutil
@@ -61,30 +56,14 @@ def inline_bundle(web: Path) -> str:
     return js.replace("</script", "<\\/script")
 
 
-def demo_photo_script(photo: Path, nails: Path) -> str:
-    from PIL import Image  # só necessário com --foto
-
-    im = Image.open(photo).convert("RGB")
-    im.thumbnail((900, 1200))
-    buf = io.BytesIO()
-    im.save(buf, "JPEG", quality=86)
-    uri = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
-    data = {"uri": uri, "nails": json.loads(nails.read_text())}
-    return "window.__CORES_DEMO_PHOTO__=" + json.dumps(data) + ";"
-
-
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--foto", type=Path)
-    parser.add_argument("--unhas", type=Path)
     parser.add_argument("--saida", type=Path, default=OUT / "cores-e-fios-teste.html")
     args = parser.parse_args()
 
     OUT.mkdir(exist_ok=True)
     bundle = inline_bundle(export_web())
     pre = (HERE / "seed.js").read_text()
-    if args.foto and args.unhas:
-        pre = demo_photo_script(args.foto, args.unhas) + "\n" + pre
     scripts = f"<script>{pre}</script>\n<script>\n{bundle}\n</script>"
     page = (HERE / "wrapper.html").read_text().replace("<!--SCRIPTS-->", scripts)
     target = args.saida

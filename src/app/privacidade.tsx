@@ -28,7 +28,7 @@ export default function PrivacidadeScreen() {
         'Cadastro Premium, se você quiser: e-mail, data de nascimento e endereço (todos opcionais), preferências de atendimento e a ficha de saúde.',
         'Agendamentos, serviços realizados, valores pagos e forma de pagamento.',
         'Avaliações: nota, comentário, foto do resultado e o nome que você escolher mostrar, ou nenhum, se publicar como anônima.',
-        'Provador Virtual: a foto da sua mão é usada só na tela, durante o teste, e não é guardada.',
+        'Curtidas: ficam ligadas a um código do seu aparelho, sem nome nem número; o feed mostra só o total.',
       ],
     },
     {
@@ -37,7 +37,7 @@ export default function PrivacidadeScreen() {
         'Agendar, confirmar e lembrar seus horários pelo WhatsApp.',
         'Programa de fidelidade: selos, prêmios e desconto no mês do aniversário.',
         'Sua segurança no atendimento, consultando alergias e cuidados antes de começar.',
-        'Organização financeira do studio e exibição das avaliações.',
+        'Organização financeira do studio e exibição das avaliações e publicações no feed do app.',
       ],
     },
     {

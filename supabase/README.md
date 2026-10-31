@@ -8,6 +8,7 @@ O plano gratuito do Supabase é suficiente para começar.
 
 1. Crie uma conta em [supabase.com](https://supabase.com) e um projeto novo (região **South America (São Paulo)**).
 2. No menu **SQL Editor**, cole todo o conteúdo de [`schema.sql`](schema.sql) e clique em **Run**. Isso cria as tabelas, as regras de acesso, o espaço das fotos das avaliações e a atualização em tempo real.
+   **Quando o app ganhar uma função nova** (como o feed com publicações e curtidas), rode o arquivo de novo do mesmo jeito: ele só cria o que falta e não apaga nada. Se o app mostrar "O servidor precisa ser atualizado", é isso que falta.
 
 ## 2. Criar o acesso da profissional
 

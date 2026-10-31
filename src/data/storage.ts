@@ -43,4 +43,6 @@ export const STORAGE_KEYS = {
   appointments: 'cores:appointments:v1',
   transactions: 'cores:transactions:v1',
   settings: 'cores:settings:v1',
+  posts: 'cores:posts:v1',
+  likes: 'cores:likes:v1',
 };

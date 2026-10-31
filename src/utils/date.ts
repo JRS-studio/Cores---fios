@@ -65,3 +65,18 @@ export function brToIso(br: string) {
   const iso = `${match[3]}-${match[2]}-${match[1]}`;
   return toISODate(fromISODate(iso)) === iso ? iso : null;
 }
+
+// "agora", "há 5 min", "há 2 h", "ontem", "há 3 dias" e, depois de uma semana, a data.
+export function timeAgo(isoDateTime: string, now = new Date()) {
+  const then = new Date(isoDateTime);
+  const minutes = Math.floor((now.getTime() - then.getTime()) / 60000);
+  if (minutes < 1) return 'agora';
+  if (minutes < 60) return `há ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `há ${hours} h`;
+  const days = Math.round((fromISODate(toISODate(now)).getTime() - fromISODate(toISODate(then)).getTime()) / 86400000);
+  if (days <= 1) return 'ontem';
+  if (days < 7) return `há ${days} dias`;
+  const sameYear = then.getFullYear() === now.getFullYear();
+  return `${then.getDate()} de ${MONTHS[then.getMonth()].toLowerCase()}${sameYear ? '' : ` de ${then.getFullYear()}`}`;
+}

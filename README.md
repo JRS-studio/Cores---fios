@@ -2,32 +2,30 @@
 
 App para manicures (Android e iOS) feito com **Expo / React Native** e **Expo Router**.
 
-<img src="docs/home.png" width="260" alt="Página inicial" /> <img src="docs/provador.png" width="260" alt="Provador Virtual" />
+<img src="docs/home.png" width="260" alt="Página inicial em formato de feed" />
 
 ## Módulos
 
 | Módulo | Status |
 | --- | --- |
-| Página inicial (faturamento, meta do mês, próximos horários, avaliações) | ✅ Pronto |
+| Página inicial em formato de rede social (publicações do studio, avaliações, curtidas) | ✅ Pronto |
 | Agenda de clientes | ✅ Pronto |
 | Financeiro | ✅ Pronto |
 | Ajustes do studio | ✅ Pronto |
-| Provador Virtual (foto da mão + teste de esmaltes e designs) | ✅ Pronto |
 | Clientes: cadastro rápido e Premium com programa fidelidade | ✅ Pronto |
 | Avaliações com foto, estrelas e opção anônima | ✅ Pronto |
 
-## Provador Virtual
+## Página inicial (feed)
 
-1. A cliente tira uma foto da mão (ou escolhe da galeria) — ou usa a **mão de exemplo**.
-2. Toca sobre cada unha para marcá-la; pode arrastar, aumentar, alongar e girar cada uma.
-3. Escolhe entre 15 cores, 8 designs (tradicional, gel, matte, francesinha, baby boomer, glitter, cromado e nail art poá) e 6 formatos (natural ou alongamento quadrado, redondo, amendoado, bailarina e stiletto), com o preço de cada serviço.
-4. Pode decorar uma **unha de destaque** (+R$ 15), segurar o botão para ver o **antes**, salvar looks para comparar e tocar em **Agendar** para levar o serviço escolhido à agenda.
+A tela inicial funciona como o perfil de uma rede social:
 
-Preços, cores e formatos ficam em `src/data/catalog.ts`.
-
-### Realismo
-
-O esmalte é desenhado em SVG (`src/features/nails/`) no contorno do formato escolhido e recebe a luz da foto: um filtro passa-alta compara cada ponto da unha real com a vizinhança e transfere reflexos e sombras para o esmalte, sem mudar o tom do vidro. Somam-se curvatura lateral, sombra na cutícula, borda e o brilho do top coat. Os acabamentos foram calibrados comparando com fotos reais de unhas feitas (Open Images, CC BY 2.0, usadas só como referência visual): reflexo em faixa ao longo da unha e curvo na ponta no gel, glitter fino e iridescente com poucas lascas maiores, cromado com faixas no sentido do comprimento e matte sem reflexo. Sobre o alongamento (fora da unha real) a luz da foto some em degradê.
+- **Perfil do studio**: foto (inicial do studio), número de publicações, de avaliações e a nota média. Para a cliente, botões **Agendar horário** e **Avaliar**; para a profissional, **Publicar** e **Agenda**.
+- **Atalhos em círculos**, como destaques: agendar, despesa, nova cliente, avaliações e ajustes (profissional) ou agendar, horários, avaliar e conta (cliente).
+- **Resumo do dia** só para a profissional (horários de hoje, próxima cliente, recebido hoje); a cliente vê o **próximo horário** dela.
+- **Feed** com as publicações da profissional e as avaliações das clientes, da mais nova para a mais antiga, com filtro (Tudo, Do studio, Avaliações).
+- **Publicações** da profissional (`src/app/publicacao/nova.tsx`): até 4 fotos que passam para o lado, ou só texto em destaque, com o tipo (trabalho feito, promoção, novidade ou aviso). A profissional pode excluir.
+- **Curtidas** com o coração ou com dois toques na foto. Quem não tem cadastro também curte (o app faz um login anônimo, sem pedir nada). **Compartilhar** abre o menu do celular ou o WhatsApp.
+- O **+** no meio da barra de baixo publica (profissional) ou agenda (cliente).
 
 ## Agenda
 
@@ -35,7 +33,6 @@ O esmalte é desenhado em SVG (`src/features/nails/`) no contorno do formato esc
 - **Novo agendamento**: cliente cadastrada (com alerta de alergia e preferências) ou avulsa (pode virar cadastro rápido), serviço com duração e preço (`src/data/services.ts`), desconto de aniversário para Premium e **só os horários livres**, calculados pela duração do serviço, pelo horário de funcionamento e pelos horários já ocupados.
 - No horário: confirmar presença, pedir confirmação ou lembrete no **WhatsApp**, remarcar, cancelar ou marcar falta.
 - **Concluir atendimento** registra o pagamento (Pix, dinheiro, débito ou crédito), lança a entrada no financeiro e, se a cliente for Premium, dá o selo do cartão fidelidade.
-- O look montado no Provador vai direto para o agendamento com o valor calculado.
 
 ## Financeiro
 
@@ -49,7 +46,7 @@ Nome da profissional e do studio, meta do mês, horário de funcionamento, dias 
 
 ## Avaliações
 
-Na página inicial, **Avaliar meu atendimento** abre o formulário: foto do resultado (câmera ou galeria), nota de 1 a 5 estrelas, serviço realizado, comentário e a escolha entre publicar **com o nome** ou como **anônima**. A lista mostra a média, a distribuição das notas e filtros (com foto, 5 estrelas); a profissional pode remover uma avaliação.
+Na página inicial, **Avaliar** (ou "Como ficaram suas unhas?") abre o formulário: foto do resultado (câmera ou galeria), nota de 1 a 5 estrelas, serviço realizado, comentário e a escolha entre publicar **com o nome** ou como **anônima**. A avaliação aparece no feed da página inicial. A lista completa mostra a média, a distribuição das notas e filtros (com foto, 5 estrelas); a profissional pode remover uma avaliação.
 
 ## Cadastro de clientes
 
@@ -92,8 +89,6 @@ Gera o app inteiro (versão web) num único arquivo HTML, com roteiro do que tes
 python3 tools/pagina-de-teste/build.py          # saída: dist-teste/cores-e-fios-teste.html
 node tools/pagina-de-teste/smoke.js             # percorre o app e falha se algo quebrar (Playwright)
 ```
-
-Para usar uma foto real de mão no Provador, coloque a foto (3:4) e a posição das unhas em `tools/pagina-de-teste/local/` (ignorada pelo Git) e rode `build.py --foto local/mao.jpg --unhas local/unhas.json`.
 
 ## Publicar nas lojas
 
@@ -140,13 +135,13 @@ Sem configuração, o app funciona só no aparelho. Com o Supabase ligado (passo
 
 - **Profissional** entra com e-mail e senha e vê tudo: agenda completa, clientes, financeiro e ajustes.
 - **Cliente** entra só com o WhatsApp, recebendo o código de verdade (Twilio pelo Supabase Auth). Vê e marca só os próprios horários, edita o próprio cadastro e publica avaliações. As abas mudam: sem Financeiro, e "Clientes" vira "Conta".
-- **Sem login**: vê avaliações e pode se cadastrar.
+- **Sem login**: vê o feed (publicações e avaliações), curte e pode se cadastrar.
 - As regras ficam no banco (Row Level Security, em `supabase/schema.sql`), testadas com `npm run test:db`. O banco recusa horários sobrepostos, inclusive de duas clientes ao mesmo tempo.
 - Os dados ficam em cache no aparelho e se atualizam em tempo real entre os celulares; as fotos das avaliações vão para o Storage do Supabase.
 
 ## Próximos passos
 
-- **Provador Virtual:** detecção automática das unhas na foto (hoje a marcação é por toque).
+- Comentários nas publicações.
 
 ## Estrutura
 
@@ -154,7 +149,8 @@ Sem configuração, o app funciona só no aparelho. Com o Supabase ligado (passo
 src/
   app/                 # rotas (Expo Router)
     _layout.tsx        # fontes e navegação raiz
-    (tabs)/            # abas: início, agenda, provador, financeiro, clientes
+    (tabs)/            # abas: início (feed), agenda, financeiro, clientes
+    publicacao/nova.tsx # nova publicação da profissional
     avaliacoes/        # lista e nova avaliação
     cadastro.tsx       # cadastro rápido e Premium (4 passos)
     cliente/[id].tsx   # perfil com cartão fidelidade e histórico
@@ -163,10 +159,9 @@ src/
     ajustes.tsx        # ajustes do studio
     privacidade.tsx    # política de privacidade (LGPD)
     entrar.tsx         # login da profissional e da cliente
-  components/          # TabBar, Nail (miniatura de unha), SectionHeader, ui (campos, botões, estrelas)
-  features/nails/      # desenho do esmalte em SVG: formatos, designs e acabamento
-  features/tryon/      # Provador Virtual: área da foto, mão de exemplo, introdução
-  data/catalog.ts      # esmaltes, designs e preços
+  components/          # TabBar (com o + central), SectionHeader, ui (campos, botões, estrelas)
+  features/feed/       # publicações, curtidas e os cartões do feed
+  data/catalog.ts      # cores, designs e formatos (preferências da cliente Premium)
   data/loyalty.ts      # regras do programa fidelidade
   data/services.ts     # serviços da agenda (preço e duração)
   features/agenda/     # agendamentos, horários livres e componentes da agenda

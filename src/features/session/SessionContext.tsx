@@ -13,11 +13,15 @@ type SessionApi = {
   role: Role;
   // WhatsApp da cliente logada (só dígitos, sem o 55).
   phone: string | null;
+  // Quem está usando (id do login no servidor; 'local' sem servidor). Usado nas curtidas.
+  userId: string | null;
   canManage: boolean;
   signInProfessional: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   // Relê o login (ex.: depois de ligar o número ao aparelho).
   refresh: () => Promise<void>;
+  // Garante um login (anônimo, sem pedir nada) para quem só quer curtir uma publicação.
+  ensureUser: () => Promise<string | null>;
 };
 
 const SessionContext = createContext<SessionApi | null>(null);
@@ -25,10 +29,12 @@ const SessionContext = createContext<SessionApi | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>(isRemote ? 'visitante' : 'local');
   const [phone, setPhone] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(isRemote ? null : 'local');
   const [ready, setReady] = useState(!isRemote);
 
   const resolve = useCallback(async (session: Session | null) => {
     if (!supabase) return;
+    setUserId(session?.user.id ?? null);
     if (!session) {
       setRole('visitante');
       setPhone(null);
@@ -80,8 +86,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await supabase?.auth.signOut();
       },
       refresh,
+      userId,
+      ensureUser: async () => {
+        if (!supabase || userId) return userId;
+        const { data, error } = await supabase.auth.signInAnonymously();
+        if (error || !data.user) return null;
+        setUserId(data.user.id);
+        return data.user.id;
+      },
     }),
-    [ready, role, phone, refresh],
+    [ready, role, phone, userId, refresh],
   );
 
   return <SessionContext.Provider value={api}>{children}</SessionContext.Provider>;

@@ -9,7 +9,10 @@ export function reportSyncError(error: { code?: string; message?: string } | nul
       ? 'Esse horário acabou de ser ocupado. Escolha outro.'
       : error.code === '42501'
         ? 'Você não tem permissão para fazer isso.'
-        : 'Não foi possível salvar no servidor. Confira a internet e tente de novo.';
+        : error.code === 'PGRST205' || error.code === '42P01'
+          ? // Tabela nova do app que ainda não existe no banco.
+            'O servidor precisa ser atualizado: rode de novo o supabase/schema.sql no Supabase.'
+          : 'Não foi possível salvar no servidor. Confira a internet e tente de novo.';
   listeners.forEach((l) => l(message));
 }
 

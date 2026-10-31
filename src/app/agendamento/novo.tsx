@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, CheckRow, Field, ScreenHeader, SectionTitle } from '@/components/ui';
 import { shapeById } from '@/data/catalog';
 import { LOYALTY } from '@/data/loyalty';
-import { serviceById, services, tryOnDuration } from '@/data/services';
+import { serviceById, services } from '@/data/services';
 import { useAppointments, type Appointment } from '@/features/agenda/AppointmentsContext';
 import { DateStrip, endTime } from '@/features/agenda/components';
 import { useClients } from '@/features/clients/ClientsContext';
@@ -18,11 +18,12 @@ import { newId } from '@/utils/id';
 import { formatLongDate, today } from '@/utils/date';
 import { brl, formatPhone, initials, isValidPhone, onlyDigits, parseDate } from '@/utils/format';
 
-const TRY_ON = 'provador';
+// Horário antigo com um serviço fora da lista (mantém nome, duração e valor que já tinha).
+const CUSTOM = 'personalizado';
 
 export default function NovoAgendamentoScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ data?: string; servico?: string; valor?: string; id?: string; cliente?: string }>();
+  const params = useLocalSearchParams<{ data?: string; id?: string; cliente?: string }>();
   const { getAppointment, saveAppointment, availableSlots, loadBusy } = useAppointments();
   const { clients, getClient, findByPhone, saveClient } = useClients();
   const { settings } = useSettings();
@@ -38,9 +39,9 @@ export default function NovoAgendamentoScreen() {
   const [name, setName] = useState(editing && !editing.clientId ? editing.clientName : '');
   const [phone, setPhone] = useState(editing && !editing.clientId ? formatPhone(editing.clientPhone) : '');
   const [saveAsClient, setSaveAsClient] = useState(true);
-  const tryOnName = params.servico;
-  const [serviceId, setServiceId] = useState<string | undefined>(editing ? (editing.serviceId ?? TRY_ON) : tryOnName ? TRY_ON : undefined);
-  const [price, setPrice] = useState(editing ? String(editing.price) : params.valor ?? '');
+  const custom = editing && !editing.serviceId ? editing : undefined;
+  const [serviceId, setServiceId] = useState<string | undefined>(editing ? (editing.serviceId ?? CUSTOM) : undefined);
+  const [price, setPrice] = useState(editing ? String(editing.price) : '');
   const [date, setDate] = useState(editing?.date ?? (params.data && params.data >= today() ? params.data : today()));
   const [time, setTime] = useState<string | undefined>(editing?.time);
   const [notes, setNotes] = useState(editing?.notes ?? '');
@@ -50,8 +51,8 @@ export default function NovoAgendamentoScreen() {
   const selectedId = clientMode ? me?.id : clientId;
   const client = selectedId ? getClient(selectedId) : undefined;
   const service = serviceById(serviceId);
-  const serviceName = serviceId === TRY_ON ? (editing?.serviceId ? '' : editing?.serviceName ?? tryOnName ?? '') : service?.name ?? '';
-  const duration = serviceId === TRY_ON ? (editing && !editing.serviceId ? editing.duration : tryOnDuration(serviceName)) : service?.duration ?? 60;
+  const serviceName = serviceId === CUSTOM ? (custom?.serviceName ?? '') : (service?.name ?? '');
+  const duration = serviceId === CUSTOM ? (custom?.duration ?? 60) : (service?.duration ?? 60);
   const slots = availableSlots(date, duration, settings, editing?.id);
 
   // Com servidor, os horários das outras clientes vêm só como "ocupado".
@@ -81,7 +82,7 @@ export default function NovoAgendamentoScreen() {
   function chooseService(id: string) {
     setServiceId(id);
     const s = serviceById(id);
-    setPrice(id === TRY_ON ? (params.valor ?? price) : s ? String(s.price) : '');
+    setPrice(id === CUSTOM ? String(custom?.price ?? price) : s ? String(s.price) : '');
     setTime(undefined);
   }
 
@@ -118,7 +119,7 @@ export default function NovoAgendamentoScreen() {
       clientId: finalClientId,
       clientName,
       clientPhone,
-      serviceId: serviceId === TRY_ON ? undefined : serviceId,
+      serviceId: serviceId === CUSTOM ? undefined : serviceId,
       serviceName,
       price: Number(price.replace(',', '.')),
       duration,
@@ -243,13 +244,13 @@ export default function NovoAgendamentoScreen() {
 
           {/* Serviço */}
           <SectionTitle>Serviço</SectionTitle>
-          {(tryOnName || (editing && !editing.serviceId)) && (
+          {custom && (
             <ServiceOption
-              active={serviceId === TRY_ON}
-              name={tryOnName ?? editing?.serviceName ?? ''}
-              detail={`Do provador · ${tryOnDuration(tryOnName ?? editing?.serviceName ?? '')} min`}
-              price={Number(params.valor ?? editing?.price ?? 0)}
-              onPress={() => chooseService(TRY_ON)}
+              active={serviceId === CUSTOM}
+              name={custom.serviceName}
+              detail={`${custom.duration} min`}
+              price={custom.price}
+              onPress={() => chooseService(CUSTOM)}
               highlight
             />
           )}

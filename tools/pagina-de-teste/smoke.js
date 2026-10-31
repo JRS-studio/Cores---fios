@@ -33,7 +33,12 @@ const page = fs.readFileSync(path.join(DIST, 'cores-e-fios-teste.html'));
   await p.goto(url, { waitUntil: 'networkidle' });
   await p.waitForTimeout(1500);
 
-  await step('Início com dados de exemplo', async () => { await R.getByText('Resumo de hoje').waitFor(); await shot('01-inicio'); });
+  await step('Início em formato de feed', async () => {
+    await R.getByText('horários hoje').waitFor();
+    await R.getByText(/Semana da francesinha/).waitFor();
+    if (await R.getByText(/Provador/).count()) throw new Error('Provador ainda aparece');
+    await shot('01-inicio');
+  });
   await step('Agenda e detalhe do horário', async () => {
     await tab('Agenda'); await shot('02-agenda');
     await R.getByText('Mariana Alves').last().click(); await p.waitForTimeout(500);
@@ -65,18 +70,25 @@ const page = fs.readFileSync(path.join(DIST, 'cores-e-fios-teste.html'));
     await R.getByText('Política de privacidade').click(); await p.waitForTimeout(500);
     await R.getByText('Quem cuida dos seus dados').waitFor(); await shot('07-privacidade'); await back(); await back();
   });
-  await step('Avaliação', async () => {
-    await p.mouse.move(195, 400); await p.mouse.wheel(0, 1200); await p.waitForTimeout(300);
-    await R.getByText('Avaliar meu atendimento').click(); await p.waitForTimeout(500);
+  await step('Avaliação aparece no feed', async () => {
+    await R.getByLabel('Avaliações', { exact: true }).click(); await p.waitForTimeout(500);
+    await R.getByText('Deixar minha avaliação').click(); await p.waitForTimeout(500);
     await R.getByLabel('5 estrelas: Excelente').click();
+    await R.getByPlaceholder(/Atendimento, acabamento/).fill('Amei a esmaltação!');
     await R.getByText('Anônima', { exact: true }).click();
     await R.getByText('Publicar avaliação').click(); await p.waitForTimeout(600);
     await R.getByText(/Avaliação publicada/).waitFor(); await shot('08-avaliacoes'); await back();
+    await R.getByText('Amei a esmaltação!').first().waitFor();
   });
-  await step('Provador', async () => {
-    await tab('Provador');
-    await R.getByText(/Experimentar com (foto|mão) de exemplo/).click(); await p.waitForTimeout(800);
-    await R.getByText('Cores', { exact: true }).waitFor(); await shot('09-provador');
+  await step('Publicação da manicure e curtida', async () => {
+    await R.getByRole('button', { name: 'Publicar' }).last().click(); await p.waitForTimeout(500);
+    await R.getByText('Novidade', { exact: true }).click();
+    await R.getByLabel('Legenda').fill('Chegaram as cores de verão!');
+    await R.getByText('Publicar', { exact: true }).last().click(); await p.waitForTimeout(800);
+    await R.getByText('Chegaram as cores de verão!').first().waitFor();
+    await R.getByLabel('Curtir').first().click(); await p.waitForTimeout(300);
+    await R.getByLabel('Descurtir').first().waitFor();
+    await shot('09-feed');
   });
 
   await browser.close();

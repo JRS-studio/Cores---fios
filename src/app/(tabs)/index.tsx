@@ -1,708 +1,470 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, type Href } from 'expo-router';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Nail } from '@/components/Nail';
-import { SectionHeader } from '@/components/SectionHeader';
-import { Stars } from '@/components/ui';
-import { trendingPolishes } from '@/data/mock';
 import { isActive, useAppointments } from '@/features/agenda/AppointmentsContext';
 import { useClients } from '@/features/clients/ClientsContext';
 import { useFeedback } from '@/features/feedback/FeedbackContext';
+import { PostCard, ReviewCard, StudioAvatar, type FeedItem } from '@/features/feed/FeedCards';
+import { usePosts } from '@/features/feed/PostsContext';
 import { useFinance } from '@/features/finance/FinanceContext';
 import { useSession } from '@/features/session/SessionContext';
 import { useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
-import { addDays, formatDayMonth, monthKey, today, toMinutes } from '@/utils/date';
+import { addDays, formatDayMonth, today, toMinutes } from '@/utils/date';
 import { brl } from '@/utils/format';
 
-function greeting() {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Bom dia';
-  if (hour < 18) return 'Boa tarde';
-  return 'Boa noite';
-}
+type Shortcut = { icon: keyof typeof Ionicons.glyphMap; label: string; a11y?: string; href: Href };
 
-type QuickAction = { icon: keyof typeof Ionicons.glyphMap; label: string; href: Href };
-
-// Atalhos da cliente (com servidor, quando quem usa o app não é a profissional).
-const CLIENT_ACTIONS: QuickAction[] = [
-  { icon: 'add-circle-outline', label: 'Agendar\nhorário', href: '/agendamento/novo' },
-  { icon: 'color-palette-outline', label: 'Provar\ncores', href: '/provador' },
-  { icon: 'star-outline', label: 'Avaliar\natendimento', href: '/avaliacoes/nova' },
-  { icon: 'person-outline', label: 'Minha\nconta', href: '/clientes' },
+// Atalhos em círculos, como os destaques de um perfil.
+const OWNER_SHORTCUTS: Shortcut[] = [
+  { icon: 'add', label: 'Agendar', href: '/agendamento/novo' },
+  { icon: 'cash-outline', label: 'Despesa', href: '/financeiro/novo' },
+  { icon: 'person-add-outline', label: 'Cliente', href: { pathname: '/cadastro', params: { tipo: 'rapido' } } },
+  { icon: 'star-outline', label: 'Avaliações', href: '/avaliacoes' },
+  { icon: 'settings-outline', label: 'Ajustes', href: '/ajustes' },
 ];
 
-const QUICK_ACTIONS: QuickAction[] = [
-  { icon: 'add-circle-outline', label: 'Novo\nagendamento', href: '/agendamento/novo' },
-  { icon: 'cash-outline', label: 'Lançar\ndespesa', href: '/financeiro/novo' },
-  { icon: 'person-add-outline', label: 'Nova\ncliente', href: { pathname: '/cadastro', params: { tipo: 'rapido' } } },
-  { icon: 'settings-outline', label: 'Ajustes\ndo studio', href: '/ajustes' },
+// Agendar já está no "+" da barra e no botão do perfil.
+const CLIENT_SHORTCUTS: Shortcut[] = [
+  { icon: 'time-outline', label: 'Horários', a11y: 'Meus horários', href: '/agenda' },
+  { icon: 'camera-outline', label: 'Avaliar', href: '/avaliacoes/nova' },
+  { icon: 'star-outline', label: 'Avaliações', href: '/avaliacoes' },
+  { icon: 'person-outline', label: 'Conta', a11y: 'Minha conta', href: '/clientes' },
 ];
 
-const HERO_NAILS = ['#B3123C', '#E7BFB0', '#6B2D5C', '#E8A0B4'];
+type Filter = 'tudo' | 'studio' | 'avaliacoes';
+const FILTERS: [Filter, string][] = [
+  ['tudo', 'Tudo'],
+  ['studio', 'Do studio'],
+  ['avaliacoes', 'Avaliações'],
+];
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { feedbacks, average } = useFeedback();
-  const latest = feedbacks[0];
+  const { settings } = useSettings();
+  const { canManage, phone } = useSession();
+  const { feedbacks, average, removeFeedback } = useFeedback();
+  const { posts, removePost } = usePosts();
+  const [filter, setFilter] = useState<Filter>('tudo');
+
+  const feed = useMemo<FeedItem[]>(() => {
+    const items: FeedItem[] = [
+      ...(filter === 'avaliacoes' ? [] : posts.map((post) => ({ type: 'post' as const, id: post.id, createdAt: post.createdAt, post }))),
+      ...(filter === 'studio' ? [] : feedbacks.map((review) => ({ type: 'review' as const, id: review.id, createdAt: review.createdAt, review }))),
+    ];
+    return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [posts, feedbacks, filter]);
+
+  const renderItem = useCallback(
+    ({ item }: { item: FeedItem }) =>
+      item.type === 'post' ? (
+        <PostCard post={item.post} studioName={settings.studioName} canManage={canManage} onRemove={() => removePost(item.id)} />
+      ) : (
+        <ReviewCard review={item.review} canManage={canManage} onRemove={() => removeFeedback(item.id)} />
+      ),
+    [settings.studioName, canManage, removePost, removeFeedback],
+  );
+
+  const header = (
+    <>
+      <TopBar />
+      <Profile postsCount={posts.length} reviewsCount={feedbacks.length} average={average} />
+      <Shortcuts />
+      {canManage ? <TodayCard /> : phone ? <NextAppointment /> : null}
+      <Composer />
+      <View style={styles.filters}>
+        {FILTERS.map(([id, label]) => (
+          <Pressable
+            key={id}
+            style={[styles.filter, filter === id && styles.filterActive]}
+            onPress={() => setFilter(id)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: filter === id }}
+          >
+            <Text style={[styles.filterText, filter === id && styles.filterTextActive]}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </>
+  );
+
+  return (
+    <FlatList
+      style={styles.screen}
+      data={feed}
+      keyExtractor={(item) => `${item.type}-${item.id}`}
+      renderItem={renderItem}
+      ListHeaderComponent={header}
+      ListEmptyComponent={<EmptyFeed filter={filter} />}
+      contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 120 }}
+      showsVerticalScrollIndicator={false}
+      initialNumToRender={4}
+      windowSize={7}
+    />
+  );
+}
+
+function TopBar() {
+  const { settings } = useSettings();
+  const { canManage } = useSession();
+  const { appointments } = useAppointments();
+  const todayIso = today();
+  const toConfirm = canManage
+    ? appointments.filter((a) => a.status === 'agendado' && (a.date === todayIso || a.date === addDays(todayIso, 1))).length
+    : 0;
+
+  return (
+    <View style={styles.topBar}>
+      <Text style={styles.logo} numberOfLines={1}>
+        {settings.studioName}
+      </Text>
+      <Pressable
+        style={styles.iconButton}
+        onPress={() => router.navigate('/agenda')}
+        accessibilityLabel={toConfirm ? `${toConfirm} horários para confirmar` : 'Agenda'}
+      >
+        <Ionicons name={canManage ? 'notifications-outline' : 'calendar-outline'} size={22} color={colors.plum} />
+        {toConfirm > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{toConfirm}</Text>
+          </View>
+        )}
+      </Pressable>
+      <Pressable style={styles.iconButton} onPress={() => router.push('/ajustes')} accessibilityLabel="Ajustes">
+        <Ionicons name="menu-outline" size={24} color={colors.plum} />
+      </Pressable>
+    </View>
+  );
+}
+
+function Profile({ postsCount, reviewsCount, average }: { postsCount: number; reviewsCount: number; average: number }) {
   const { settings } = useSettings();
   const { canManage, phone } = useSession();
   const { findByPhone } = useClients();
-  // A profissional vê o próprio nome; a cliente, o dela (ou boas-vindas, antes de entrar).
   const me = !canManage && phone ? findByPhone(phone) : undefined;
-  const displayName = canManage ? settings.professionalName : (me?.name.split(' ')[0] ?? 'Bem-vinda');
-  const { appointments } = useAppointments();
-  const { transactions } = useFinance();
 
-  const todayIso = today();
-  const now = new Date();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const income = transactions.filter((t) => t.type === 'entrada');
-  const todayIncome = income.filter((t) => t.date === todayIso).reduce((sum, t) => sum + t.amount, 0);
-  const monthIncome = income.filter((t) => t.date.startsWith(monthKey(todayIso))).reduce((sum, t) => sum + t.amount, 0);
-  const goalProgress = settings.monthlyGoal > 0 ? Math.min(monthIncome / settings.monthlyGoal, 1) : 0;
-  const todayCount = appointments.filter((a) => a.date === todayIso && isActive(a)).length;
-  // Próximos: ainda não concluídos e que não terminaram.
-  const upcoming = appointments
-    .filter(
-      (a) =>
-        (a.status === 'agendado' || a.status === 'confirmado') &&
-        (a.date > todayIso || (a.date === todayIso && toMinutes(a.time) + a.duration > nowMinutes)),
-    )
-    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-  const nextToday = upcoming.find((a) => a.date === todayIso);
-  const toConfirm = appointments.filter(
-    (a) => a.status === 'agendado' && (a.date === todayIso || a.date === addDays(todayIso, 1)),
-  ).length;
+  const stats = [
+    { value: String(postsCount), label: 'publicações' },
+    { value: String(reviewsCount), label: 'avaliações' },
+    { value: reviewsCount ? average.toFixed(1).replace('.', ',') : '–', label: 'nota', star: true },
+  ];
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 120 }}
-      showsVerticalScrollIndicator={false}
+    <View style={styles.profile}>
+      <View style={styles.profileTop}>
+        <StudioAvatar name={settings.studioName} size={74} />
+        <View style={styles.stats}>
+          {stats.map((s) => (
+            <View key={s.label} style={styles.stat}>
+              <View style={styles.statValueRow}>
+                {s.star && <Ionicons name="star" size={13} color="#E0A526" />}
+                <Text style={styles.statValue}>{s.value}</Text>
+              </View>
+              <Text style={styles.statLabel}>{s.label}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+      <Text style={styles.profileName}>{settings.professionalName}</Text>
+      <Text style={styles.profileBio}>
+        {canManage
+          ? 'Seu perfil como as clientes veem. Publique seus trabalhos e novidades.'
+          : me
+            ? `Que bom te ver, ${me.name.split(' ')[0]}! Confira as novidades e os trabalhos do studio.`
+            : 'Manicure e nail designer. Veja os trabalhos, as avaliações das clientes e agende seu horário.'}
+      </Text>
+      <View style={styles.profileButtons}>
+        {canManage ? (
+          <>
+            <ProfileButton icon="add-circle-outline" label="Publicar" primary onPress={() => router.push('/publicacao/nova')} />
+            <ProfileButton icon="calendar-outline" label="Agenda" onPress={() => router.navigate('/agenda')} />
+          </>
+        ) : (
+          <>
+            <ProfileButton icon="calendar-outline" label="Agendar horário" primary onPress={() => router.push('/agendamento/novo')} />
+            <ProfileButton icon="star-outline" label="Avaliar" onPress={() => router.push('/avaliacoes/nova')} />
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function ProfileButton({ icon, label, primary, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; primary?: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.profileButton, primary && styles.profileButtonPrimary, pressed && { opacity: 0.85 }]}
+      accessibilityRole="button"
     >
-      {/* Cabeçalho */}
-      <View style={[styles.header, styles.gutter]}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>{canManage || me ? `${greeting()},` : `${greeting()}!`}</Text>
-          <Text style={styles.name}>{displayName}</Text>
-          <Text style={styles.studio}>{settings.studioName}</Text>
-        </View>
-        <Pressable
-          style={styles.iconButton}
-          onPress={() => router.navigate('/agenda')}
-          accessibilityLabel={toConfirm ? `${toConfirm} horários para confirmar` : 'Agenda'}
-        >
-          <Ionicons name="notifications-outline" size={22} color={colors.plum} />
-          {toConfirm > 0 && <View style={styles.badge} />}
-        </Pressable>
-        <Pressable onPress={() => router.push('/ajustes')} accessibilityLabel="Ajustes">
-          <LinearGradient colors={[colors.roseGoldLight, colors.roseGold]} style={styles.avatar}>
-            {canManage || me ? (
-              <Text style={styles.avatarText}>{displayName[0]?.toUpperCase()}</Text>
-            ) : (
-              <Ionicons name="person" size={20} color={colors.plum} />
-            )}
-          </LinearGradient>
-        </Pressable>
-      </View>
+      <Ionicons name={icon} size={17} color={primary ? colors.roseGoldLight : colors.plum} />
+      <Text style={[styles.profileButtonText, primary && { color: colors.white }]}>{label}</Text>
+    </Pressable>
+  );
+}
 
-      {/* Destaque: Provador Virtual */}
-      <View style={styles.gutter}>
-        <Pressable onPress={() => router.navigate('/provador')} style={({ pressed }) => pressed && { opacity: 0.92 }}>
-          <LinearGradient
-            colors={[colors.wine, colors.plum]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.hero}
-          >
-            <View style={styles.heroGlow} />
-            <View style={styles.heroContent}>
-              <View style={styles.heroTag}>
-                <Ionicons name="sparkles" size={12} color={colors.plum} />
-                <Text style={styles.heroTagText}>Exclusivo</Text>
-              </View>
-              <Text style={styles.heroTitle}>
-                Provador <Text style={styles.heroTitleItalic}>Virtual</Text>
-              </Text>
-              <Text style={styles.heroText}>
-                Sua cliente fotografa a mão e testa esmaltes e designs antes de escolher.
-              </Text>
-              <View style={styles.heroButton}>
-                <Ionicons name="camera-outline" size={16} color={colors.plum} />
-                <Text style={styles.heroButtonText}>Testar agora</Text>
-              </View>
-            </View>
-            <View style={styles.heroNails}>
-              {HERO_NAILS.map((color, i) => (
-                <View key={color} style={[styles.finger, { height: 92 + (i === 1 || i === 2 ? 18 : 0) }]}>
-                  <Nail color={color} width={22} height={32} />
-                </View>
-              ))}
+function Shortcuts() {
+  const { canManage } = useSession();
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shortcuts}>
+      {(canManage ? OWNER_SHORTCUTS : CLIENT_SHORTCUTS).map((s) => (
+        <Pressable key={s.label} style={styles.shortcut} onPress={() => router.navigate(s.href)} accessibilityRole="button" accessibilityLabel={s.a11y ?? s.label}>
+          <LinearGradient colors={[colors.roseGoldLight, colors.roseGold]} style={styles.shortcutRing}>
+            <View style={styles.shortcutInner}>
+              <Ionicons name={s.icon} size={24} color={colors.plum} />
             </View>
           </LinearGradient>
+          <Text style={styles.shortcutLabel} numberOfLines={1}>
+            {s.label}
+          </Text>
         </Pressable>
-      </View>
-
-      {/* Resumo do dia (só para a profissional) */}
-      {canManage && (
-        <View style={[styles.section, styles.gutter]}>
-          <SectionHeader title="Resumo de hoje" />
-          <View style={styles.revenueCard}>
-            <View style={styles.revenueTop}>
-              <View>
-                <Text style={styles.cardLabel}>Faturamento de hoje</Text>
-                <Text style={styles.revenueValue}>{brl(todayIncome)}</Text>
-              </View>
-              <Pressable style={styles.trend} onPress={() => router.navigate('/financeiro')}>
-                <Text style={styles.trendText}>Mês: {brl(monthIncome)}</Text>
-                <Ionicons name="chevron-forward" size={14} color={colors.success} />
-              </Pressable>
-            </View>
-            <View style={styles.progressTrack}>
-              <LinearGradient
-                colors={[colors.roseGold, colors.wine]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[styles.progressFill, { width: `${goalProgress * 100}%` }]}
-              />
-            </View>
-            <Text style={styles.progressText}>
-              {Math.round(goalProgress * 100)}% da meta do mês de {brl(settings.monthlyGoal)}
-            </Text>
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Ionicons name="calendar-outline" size={20} color={colors.wine} />
-              <Text style={styles.statValue}>{todayCount}</Text>
-              <Text style={styles.cardLabel} numberOfLines={1}>Hoje</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Ionicons name="star-outline" size={20} color={colors.wine} />
-              <Text style={styles.statValue}>{feedbacks.length ? average.toFixed(1).replace('.', ',') : '–'}</Text>
-              <Text style={styles.cardLabel} numberOfLines={1}>Avaliação</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Ionicons name="time-outline" size={20} color={colors.wine} />
-              <Text style={styles.statValue}>{nextToday?.time ?? '–'}</Text>
-              <Text style={styles.cardLabel} numberOfLines={1}>Próxima</Text>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* Acesso rápido */}
-      <View style={[styles.section, styles.gutter]}>
-        <SectionHeader title="Acesso rápido" />
-        <View style={styles.quickRow}>
-          {(canManage ? QUICK_ACTIONS : CLIENT_ACTIONS).map((action) => (
-            <Pressable key={action.label} style={styles.quickItem} onPress={() => router.navigate(action.href)}>
-              <View style={styles.quickIcon}>
-                <Ionicons name={action.icon} size={24} color={colors.plum} />
-              </View>
-              <Text style={styles.quickLabel}>{action.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-
-      {/* Próximos horários */}
-      <View style={[styles.section, styles.gutter]}>
-        <SectionHeader
-          title={canManage ? 'Próximos horários' : 'Seus próximos horários'}
-          action="Ver agenda"
-          onAction={() => router.navigate('/agenda')}
-        />
-        <View style={styles.listCard}>
-          {upcoming.slice(0, 4).map((item, i) => (
-            <Pressable
-              key={item.id}
-              style={[styles.appointment, i > 0 && styles.appointmentDivider]}
-              onPress={() => router.push({ pathname: '/agendamento/[id]', params: { id: item.id } })}
-            >
-              <View style={styles.timeBox}>
-                <Text style={styles.timeText}>{item.time}</Text>
-                {item.date !== todayIso && <Text style={styles.timeDate}>{formatDayMonth(item.date)}</Text>}
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.clientName}>{item.clientName}</Text>
-                <View style={styles.serviceRow}>
-                  {item.status === 'confirmado' && <Ionicons name="checkmark-circle" size={13} color={colors.success} />}
-                  <Text style={styles.serviceText} numberOfLines={1}>
-                    {item.serviceName}
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.price}>{brl(item.price)}</Text>
-            </Pressable>
-          ))}
-          {upcoming.length === 0 && (
-            <Pressable style={styles.emptyAgenda} onPress={() => router.push('/agendamento/novo')}>
-              <Text style={styles.serviceText}>Nenhum horário marcado.</Text>
-              <Text style={styles.emptyAgendaCta}>Agendar ›</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
-
-      {/* Avaliações */}
-      <View style={[styles.section, styles.gutter]}>
-        <SectionHeader title="Avaliações" action="Ver todas" onAction={() => router.push('/avaliacoes')} />
-        <View style={styles.reviewCard}>
-          <View style={styles.reviewSummary}>
-            <Text style={styles.reviewAverage}>{feedbacks.length ? average.toFixed(1).replace('.', ',') : '–'}</Text>
-            <View>
-              <Stars value={average} size={16} />
-              <Text style={styles.reviewCount}>
-                {feedbacks.length
-                  ? `${feedbacks.length} ${feedbacks.length === 1 ? 'avaliação' : 'avaliações'}`
-                  : 'Nenhuma avaliação ainda'}
-              </Text>
-            </View>
-          </View>
-          {latest && (
-            <View style={styles.reviewLatest}>
-              {latest.photoUri && <Image source={{ uri: latest.photoUri }} style={styles.reviewPhoto} />}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.reviewName}>{latest.displayName ?? 'Cliente anônima'}</Text>
-                <Text style={styles.reviewComment} numberOfLines={2}>
-                  {latest.comment || `${latest.rating} ${latest.rating === 1 ? 'estrela' : 'estrelas'}`}
-                </Text>
-              </View>
-            </View>
-          )}
-          <Pressable style={styles.reviewButton} onPress={() => router.push('/avaliacoes/nova')}>
-            <Ionicons name="star-outline" size={16} color={colors.white} />
-            <Text style={styles.reviewButtonText}>Avaliar meu atendimento</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      {/* Cores em alta */}
-      <View style={styles.section}>
-        <View style={styles.gutter}>
-          <SectionHeader title="Cores em alta" action="Testar" onAction={() => router.navigate('/provador')} />
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.polishList}>
-          {trendingPolishes.map((polish) => (
-            <Pressable key={polish.id} style={styles.polishCard} onPress={() => router.navigate('/provador')}>
-              <Nail color={polish.color} width={36} height={50} />
-              <Text style={styles.polishName}>{polish.name}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
+      ))}
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.cream,
-  },
-  gutter: {
-    paddingHorizontal: 20,
-  },
-  section: {
-    marginTop: 28,
-  },
+// Resumo do dia da profissional, discreto, acima do feed.
+function TodayCard() {
+  const { appointments } = useAppointments();
+  const { transactions } = useFinance();
+  const todayIso = today();
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const todayIncome = transactions.filter((t) => t.type === 'entrada' && t.date === todayIso).reduce((sum, t) => sum + t.amount, 0);
+  const todays = appointments.filter((a) => a.date === todayIso && isActive(a));
+  const next = todays
+    .filter((a) => (a.status === 'agendado' || a.status === 'confirmado') && toMinutes(a.time) + a.duration > nowMinutes)
+    .sort((a, b) => a.time.localeCompare(b.time))[0];
 
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 22,
-  },
-  greeting: {
-    fontFamily: fonts.regular,
-    fontSize: 14,
-    color: colors.muted,
-  },
-  name: {
-    fontFamily: fonts.display,
-    fontSize: 30,
-    color: colors.ink,
-    lineHeight: 38,
-  },
-  studio: {
-    fontFamily: fonts.medium,
-    fontSize: 12,
-    color: colors.roseGold,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
-  iconButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadow,
-  },
+  return (
+    <View style={styles.today}>
+      <Pressable style={styles.todayItem} onPress={() => router.navigate('/agenda')} accessibilityRole="button">
+        <Text style={styles.todayValue}>{todays.length}</Text>
+        <Text style={styles.todayLabel}>horários hoje</Text>
+      </Pressable>
+      <View style={styles.todayDivider} />
+      <Pressable style={styles.todayItem} onPress={() => router.navigate('/agenda')} accessibilityRole="button">
+        <Text style={styles.todayValue}>{next?.time ?? '–'}</Text>
+        <Text style={styles.todayLabel} numberOfLines={1}>
+          {next ? next.clientName.split(' ')[0] : 'próxima'}
+        </Text>
+      </Pressable>
+      <View style={styles.todayDivider} />
+      <Pressable style={styles.todayItem} onPress={() => router.navigate('/financeiro')} accessibilityRole="button">
+        <Text style={styles.todayValue}>{brl(todayIncome)}</Text>
+        <Text style={styles.todayLabel}>recebido hoje</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function NextAppointment() {
+  const { appointments } = useAppointments();
+  const todayIso = today();
+  const next = appointments
+    .filter((a) => (a.status === 'agendado' || a.status === 'confirmado') && a.date >= todayIso)
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))[0];
+  if (!next) return null;
+  return (
+    <Pressable style={styles.next} onPress={() => router.push({ pathname: '/agendamento/[id]', params: { id: next.id } })}>
+      <View style={styles.nextIcon}>
+        <Ionicons name="calendar" size={18} color={colors.roseGoldLight} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.nextTitle}>Seu próximo horário</Text>
+        <Text style={styles.nextText} numberOfLines={1}>
+          {next.date === todayIso ? 'Hoje' : formatDayMonth(next.date)} às {next.time} · {next.serviceName}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+    </Pressable>
+  );
+}
+
+function Composer() {
+  const { canManage, phone } = useSession();
+  const { settings } = useSettings();
+  const { findByPhone } = useClients();
+  const me = !canManage && phone ? findByPhone(phone) : undefined;
+  return (
+    <Pressable
+      style={styles.composer}
+      onPress={() => router.push(canManage ? '/publicacao/nova' : '/avaliacoes/nova')}
+      accessibilityRole="button"
+    >
+      {canManage ? (
+        <StudioAvatar name={settings.studioName} size={30} />
+      ) : (
+        <View style={styles.composerAvatar}>
+          {me ? <Text style={styles.composerAvatarText}>{me.name[0]?.toUpperCase()}</Text> : <Ionicons name="person" size={16} color={colors.muted} />}
+        </View>
+      )}
+      <Text style={styles.composerText} numberOfLines={1}>
+        {canManage ? 'Compartilhe um trabalho ou novidade…' : 'Como ficaram suas unhas? Conte aqui…'}
+      </Text>
+      <Ionicons name={canManage ? 'image-outline' : 'camera-outline'} size={22} color={colors.wine} />
+    </Pressable>
+  );
+}
+
+function EmptyFeed({ filter }: { filter: Filter }) {
+  const { canManage } = useSession();
+  const studio = filter === 'studio';
+  return (
+    <View style={styles.empty}>
+      <View style={styles.emptyIcon}>
+        <Ionicons name={studio ? 'images-outline' : 'chatbubble-ellipses-outline'} size={28} color={colors.wine} />
+      </View>
+      <Text style={styles.emptyTitle}>{studio || filter === 'tudo' ? 'Nenhuma publicação ainda' : 'Nenhuma avaliação ainda'}</Text>
+      <Text style={styles.emptyText}>
+        {canManage
+          ? 'Publique fotos dos seus trabalhos, promoções e avisos. As avaliações das clientes também aparecem aqui.'
+          : 'Logo aparecem aqui os trabalhos do studio e as avaliações das clientes.'}
+      </Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.cream },
+
+  topBar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, marginBottom: 14 },
+  logo: { flex: 1, fontFamily: fonts.displayItalic, fontSize: 24, color: colors.plum },
+  iconButton: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   badge: {
     position: 'absolute',
-    top: 12,
-    right: 13,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: 4,
+    right: 2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
     backgroundColor: colors.wine,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: colors.white,
+    borderColor: colors.cream,
   },
-  avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+  badgeText: { fontFamily: fonts.semibold, fontSize: 10, color: colors.white },
+
+  profile: { paddingHorizontal: 18 },
+  profileTop: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  stats: { flex: 1, flexDirection: 'row', justifyContent: 'space-around' },
+  stat: { alignItems: 'center' },
+  statValueRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  statValue: { fontFamily: fonts.semibold, fontSize: 18, color: colors.ink },
+  statLabel: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
+  profileName: { fontFamily: fonts.semibold, fontSize: 15, color: colors.ink, marginTop: 10 },
+  profileBio: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.ink, marginTop: 2 },
+  profileButtons: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  profileButton: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  avatarText: {
-    fontFamily: fonts.display,
-    fontSize: 20,
-    color: colors.plum,
-  },
-
-  hero: {
-    borderRadius: radius.lg,
-    padding: 22,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    minHeight: 200,
-    ...shadow,
-    shadowOpacity: 0.25,
-  },
-  heroGlow: {
-    position: 'absolute',
-    right: -60,
-    top: -60,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(201,162,126,0.18)',
-  },
-  heroContent: {
-    flex: 1,
-    paddingRight: 8,
-    zIndex: 1,
-  },
-  heroTag: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.roseGoldLight,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    marginBottom: 12,
-  },
-  heroTagText: {
-    fontFamily: fonts.semibold,
-    fontSize: 11,
-    color: colors.plum,
-    letterSpacing: 0.4,
-  },
-  heroTitle: {
-    fontFamily: fonts.display,
-    fontSize: 26,
-    color: colors.white,
-    lineHeight: 32,
-  },
-  heroTitleItalic: {
-    fontFamily: fonts.displayItalic,
-    color: colors.roseGoldLight,
-  },
-  heroText: {
-    fontFamily: fonts.regular,
-    fontSize: 13,
-    lineHeight: 19,
-    color: 'rgba(255,255,255,0.78)',
-    marginTop: 6,
-    marginBottom: 16,
-  },
-  heroButton: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.white,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: radius.pill,
-  },
-  heroButtonText: {
-    fontFamily: fonts.semibold,
-    fontSize: 13,
-    color: colors.plum,
-  },
-  heroNails: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 5,
-    marginBottom: -22,
-    alignSelf: 'flex-end',
-  },
-  finger: {
-    width: 30,
-    backgroundColor: '#E9C3AE',
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-    alignItems: 'center',
-    paddingTop: 5,
-  },
-
-  revenueCard: {
-    backgroundColor: colors.white,
-    borderRadius: radius.md,
-    padding: 18,
-    ...shadow,
-  },
-  revenueTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  cardLabel: {
-    fontFamily: fonts.regular,
-    fontSize: 12,
-    color: colors.muted,
-  },
-  revenueValue: {
-    fontFamily: fonts.display,
-    fontSize: 32,
-    color: colors.ink,
-    marginTop: 2,
-  },
-  trend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#E6F3EC',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-  },
-  trendText: {
-    fontFamily: fonts.semibold,
-    fontSize: 12,
-    color: colors.success,
-  },
-  progressTrack: {
-    height: 8,
-    borderRadius: 4,
+    paddingVertical: 9,
+    borderRadius: radius.sm,
     backgroundColor: colors.blush,
-    marginTop: 14,
-    overflow: 'hidden',
   },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  progressText: {
-    fontFamily: fonts.regular,
-    fontSize: 12,
-    color: colors.muted,
-    marginTop: 8,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.white,
-    borderRadius: radius.md,
-    padding: 14,
-    gap: 2,
-    ...shadow,
-  },
-  statValue: {
-    fontFamily: fonts.semibold,
-    fontSize: 20,
-    color: colors.ink,
-    marginTop: 6,
-  },
+  profileButtonPrimary: { backgroundColor: colors.plum },
+  profileButtonText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.plum },
 
-  quickRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  quickItem: {
-    alignItems: 'center',
-    width: '23%',
-  },
-  quickIcon: {
-    width: 62,
-    height: 62,
-    borderRadius: 20,
-    backgroundColor: colors.blush,
+  shortcuts: { paddingHorizontal: 14, paddingVertical: 16, gap: 14 },
+  shortcut: { alignItems: 'center', width: 70, gap: 6 },
+  shortcutRing: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
+  shortcutInner: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+  },
+  shortcutLabel: { fontFamily: fonts.medium, fontSize: 11, color: colors.ink },
+
+  today: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderRadius: radius.md,
+    marginHorizontal: 12,
+    paddingVertical: 12,
+    ...shadow,
+    shadowOpacity: 0.06,
+  },
+  todayItem: { flex: 1, alignItems: 'center' },
+  todayValue: { fontFamily: fonts.semibold, fontSize: 16, color: colors.ink },
+  todayLabel: { fontFamily: fonts.regular, fontSize: 11, color: colors.muted },
+  todayDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: colors.border },
+
+  next: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.white,
+    borderRadius: radius.md,
+    marginHorizontal: 12,
+    padding: 12,
+    ...shadow,
+    shadowOpacity: 0.06,
+  },
+  nextIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.plum, alignItems: 'center', justifyContent: 'center' },
+  nextTitle: { fontFamily: fonts.semibold, fontSize: 13, color: colors.ink },
+  nextText: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
+
+  composer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.white,
+    borderRadius: radius.pill,
+    marginHorizontal: 12,
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingLeft: 8,
+    paddingRight: 16,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  quickLabel: {
-    fontFamily: fonts.medium,
-    fontSize: 11,
-    lineHeight: 15,
-    color: colors.ink,
-    textAlign: 'center',
-  },
-
-  listCard: {
-    backgroundColor: colors.white,
-    borderRadius: radius.md,
-    paddingHorizontal: 16,
-    ...shadow,
-  },
-  appointment: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    gap: 12,
-  },
-  appointmentDivider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  timeBox: {
-    backgroundColor: colors.plum,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  timeText: {
-    fontFamily: fonts.semibold,
-    fontSize: 13,
-    color: colors.roseGoldLight,
-  },
-  clientName: {
-    fontFamily: fonts.semibold,
-    fontSize: 14,
-    color: colors.ink,
-  },
-  serviceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
-  },
-  timeDate: {
-    fontFamily: fonts.regular,
-    fontSize: 10,
-    color: colors.roseGold,
-    textAlign: 'center',
-  },
-  emptyAgenda: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-  },
-  emptyAgendaCta: {
-    fontFamily: fonts.semibold,
-    fontSize: 13,
-    color: colors.wine,
-  },
-  serviceText: {
-    fontFamily: fonts.regular,
-    fontSize: 12,
-    color: colors.muted,
-  },
-  price: {
-    fontFamily: fonts.semibold,
-    fontSize: 14,
-    color: colors.wine,
-  },
-
-  reviewCard: {
-    backgroundColor: colors.white,
-    borderRadius: radius.md,
-    padding: 16,
-    gap: 14,
-    ...shadow,
-  },
-  reviewSummary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  reviewAverage: {
-    fontFamily: fonts.display,
-    fontSize: 36,
-    color: colors.ink,
-  },
-  reviewCount: {
-    fontFamily: fonts.regular,
-    fontSize: 12,
-    color: colors.muted,
-    marginTop: 2,
-  },
-  reviewLatest: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingTop: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  reviewPhoto: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-    backgroundColor: colors.blush,
-  },
-  reviewName: {
-    fontFamily: fonts.semibold,
-    fontSize: 13,
-    color: colors.ink,
-  },
-  reviewComment: {
-    fontFamily: fonts.regular,
-    fontSize: 12,
-    lineHeight: 17,
-    color: colors.muted,
-  },
-  reviewButton: {
-    flexDirection: 'row',
+  composerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.roseGoldLight,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.plum,
-    borderRadius: radius.pill,
-    paddingVertical: 12,
   },
-  reviewButtonText: {
-    fontFamily: fonts.semibold,
-    fontSize: 14,
-    color: colors.white,
-  },
+  composerAvatarText: { fontFamily: fonts.display, fontSize: 16, color: colors.plum },
+  composerText: { flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
 
-  polishList: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    gap: 12,
-  },
-  polishCard: {
-    width: 82,
-    alignItems: 'center',
+  filters: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, marginTop: 16, marginBottom: 12 },
+  filter: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
     backgroundColor: colors.white,
-    borderRadius: radius.md,
-    paddingVertical: 14,
-    gap: 10,
-    ...shadow,
   },
-  polishName: {
-    fontFamily: fonts.medium,
-    fontSize: 11,
-    color: colors.ink,
+  filterActive: { backgroundColor: colors.plum, borderColor: colors.plum },
+  filterText: { fontFamily: fonts.medium, fontSize: 12, color: colors.ink },
+  filterTextActive: { color: colors.white },
+
+  empty: { alignItems: 'center', paddingVertical: 32, paddingHorizontal: 32 },
+  emptyIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.blush,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
+  emptyTitle: { fontFamily: fonts.display, fontSize: 19, color: colors.ink, marginBottom: 6 },
+  emptyText: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.muted, textAlign: 'center' },
 });

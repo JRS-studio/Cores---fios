@@ -95,7 +95,7 @@ const api = http.createServer((req, res) => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
     watch(page);
     await page.goto(base, { waitUntil: 'networkidle' });
-    await page.getByText('Acesso rápido').waitFor();
+    await page.getByText('publicações', { exact: true }).waitFor();
     const box = await page.locator('#root').boundingBox();
     assert.equal(Math.round(box.width), 480);
     assert.equal(Math.round(box.x), 400);

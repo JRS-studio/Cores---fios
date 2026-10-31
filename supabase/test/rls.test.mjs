@@ -219,4 +219,37 @@ await test('sem código: cliente não vê nem apaga o número de outra', async (
   assert.equal((await rows(owner, `select * from phone_claims where phone = '5511911112222'`)).length, 1);
 });
 
+await test('publicações: só a profissional publica, apaga e edita; todas veem', async () => {
+  await as(owner, `insert into posts (id, data) values ('p1', '{"caption":"Novidade"}')`);
+  assert.ok(await fails(ana, `insert into posts (id, data) values ('p2', '{}')`));
+  assert.ok(await fails('anon', `insert into posts (id, data) values ('p3', '{}')`));
+  await as(ana, `update posts set data = '{"caption":"x"}' where id = 'p1'`);
+  await as(ana, `delete from posts where id = 'p1'`);
+  assert.equal((await rows('anon', 'select data from posts'))[0].data.caption, 'Novidade');
+  assert.equal((await rows(ana, 'select id from posts')).length, 1);
+});
+const like = (id, item, userId) => [
+  `insert into likes (id, item_id, data) values ($1, $2, $3) on conflict (id) do update set data = excluded.data`,
+  [id, item, JSON.stringify({ id, itemId: item, userId })],
+];
+await test('curtidas: cada pessoa curte em nome próprio, uma vez por item', async () => {
+  await as(ana, ...like(`p1:${CLIENT}`, 'p1', CLIENT));
+  await as(ana, ...like(`p1:${CLIENT}`, 'p1', CLIENT)); // de novo (upsert do app) não duplica
+  await as(deviceB, ...like(`p1:${DEVICE_B}`, 'p1', DEVICE_B)); // login anônimo também curte
+  assert.ok(await fails('anon', ...like('p1:anon', 'p1', null)));
+  // Não dá para curtir duas vezes o mesmo item com outro id.
+  assert.ok(await fails(ana, ...like('p1:outro', 'p1', CLIENT)));
+  // Não dá para curtir em nome de outra pessoa.
+  assert.ok(await fails(ana, `insert into likes (id, item_id, user_id, data) values ('p1:x', 'p1', '${OTHER}', '{}')`));
+  const all = await rows('anon', `select user_id from likes where item_id = 'p1'`);
+  assert.equal(all.length, 2);
+});
+await test('curtidas: só a dona descurte', async () => {
+  await as(bia, `delete from likes where id = 'p1:${CLIENT}'`);
+  await as(owner, `delete from likes where id = 'p1:${CLIENT}'`);
+  assert.equal((await rows('anon', `select * from likes where id = 'p1:${CLIENT}'`)).length, 1);
+  await as(ana, `delete from likes where id = 'p1:${CLIENT}'`);
+  assert.equal((await rows('anon', `select * from likes where item_id = 'p1'`)).length, 1);
+});
+
 console.log(`\n${passed} testes passaram.`);

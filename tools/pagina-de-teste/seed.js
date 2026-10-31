@@ -72,7 +72,19 @@
   expense(-sinceFirst - 1, 800, 'Aluguel da sala', 'Aluguel');
   expense(-sinceFirst - 12, 180, 'Lixas, algodão e acetona', 'Materiais');
 
+  // Publicações do studio (só texto: a página de teste não guarda fotos de exemplo).
+  var hoursAgo = function (h) { return new Date(now.getTime() - h * 3600000).toISOString(); };
+  var posts = [
+    { id: 'demo-p1', createdAt: hoursAgo(3), kind: 'promocao', photos: [],
+      caption: 'Semana da francesinha: de segunda a quarta, francesinha com esmaltação em gel por R$ 60. Agende pelo app!' },
+    { id: 'demo-p2', createdAt: hoursAgo(28), kind: 'aviso', photos: [],
+      caption: 'No feriado o studio abre das 9h às 14h. Garanta seu horário!' },
+    { id: 'demo-p3', createdAt: hoursAgo(96), kind: 'novidade', photos: [],
+      caption: 'Chegou a nova cartela de cromados e glitters. Venha conhecer no próximo atendimento.' },
+  ];
+
   window.__CORES_DEMO_SEED__ = {
+    'cores:posts:v1': posts,
     'cores:clients:v1': clients,
     'cores:appointments:v1': appointments,
     'cores:transactions:v1': transactions,

@@ -37,8 +37,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Permita o acesso às fotos para testar esmaltes na sua mão e enviar a foto das unhas na avaliação.",
-          "cameraPermission": "Permita o acesso à câmera para fotografar sua mão no provador e as unhas prontas na avaliação."
+          "photosPermission": "Permita o acesso às fotos para enviar a foto das unhas na avaliação e nas publicações do studio.",
+          "cameraPermission": "Permita o acesso à câmera para fotografar as unhas prontas na avaliação e nas publicações do studio."
         }
       ],
       [
@@ -55,6 +55,6 @@
     "experiments": {
       "typedRoutes": true
     },
-    "description": "App para manicures: agenda, financeiro, clientes com fidelidade, avaliações e Provador Virtual de esmaltes."
+    "description": "App para manicures: feed com publicações e avaliações, agenda, financeiro e clientes com fidelidade."
   }
 }

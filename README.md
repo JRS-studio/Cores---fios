@@ -53,12 +53,13 @@ Na página inicial, **Avaliar meu atendimento** abre o formulário: foto do resu
 
 ## Cadastro de clientes
 
-Campos escolhidos a partir do que sistemas de agendamento de salão e fichas de manicure costumam pedir.
+Campos escolhidos a partir do que sistemas de agendamento de salão e fichas de manicure costumam pedir. **O app não pede documentos (CPF etc.)**: a cliente se identifica só pelo WhatsApp, confirmado com um código de 6 dígitos (`src/features/verification/`). Nesta versão, sem servidor, o código é gerado no aparelho e mostrado na tela; ao ligar um servidor, ele passa a ser enviado pela API do WhatsApp Business (ou SMS) sem mudar as telas.
 
 | | Rápido | Premium |
 | --- | --- | --- |
 | Para quem | Agenda de vez em quando | Cliente recorrente |
-| Dados | Nome e WhatsApp | Nome completo, WhatsApp, e-mail, nascimento, CPF (opcional, nota fiscal), endereço (opcional, domicílio), canal de contato |
+| Dados | Nome e WhatsApp | Nome e WhatsApp; e-mail, nascimento (desconto de aniversário) e endereço (domicílio) opcionais; canal de contato |
+| Validação | Código pelo WhatsApp | Código pelo WhatsApp |
 | Preferências | – | Formato, comprimento, até 5 cores favoritas, melhores horários, como conheceu / quem indicou |
 | Ficha de saúde | – | Alergias, condições (diabetes, circulação, gestante, anticoagulante, unhas frágeis, micose) e observações — só salva com autorização específica (dado sensível pela LGPD) |
 | Fidelidade | – | Cartão de 10 selos = 1 esmaltação em gel grátis, selo de boas-vindas, 15% no mês do aniversário, +2 selos por indicação, níveis Rosé, Ouro e Diamante |

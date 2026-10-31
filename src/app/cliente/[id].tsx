@@ -14,7 +14,7 @@ import { useClients } from '@/features/clients/ClientsContext';
 import { CONTACT_CHANNELS, LENGTHS, type Client } from '@/features/clients/types';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { formatDayMonth } from '@/utils/date';
-import { brl, formatCpf, formatPhone, formatShortDate, initials, parseDate } from '@/utils/format';
+import { brl, formatPhone, formatShortDate, initials, parseDate } from '@/utils/format';
 
 const WELCOME: Record<string, string> = {
   rapido: 'Cadastro concluído! Seus dados já ficam prontos para o próximo agendamento.',
@@ -162,10 +162,9 @@ export default function ClienteScreen() {
       </Section>
 
       <Section title="Contato">
-        <Row label="WhatsApp" value={formatPhone(client.phone)} />
+        <Row label="WhatsApp" value={`${formatPhone(client.phone)}${client.phoneVerified ? ' · verificado' : ''}`} />
         {client.email && <Row label="E-mail" value={client.email} />}
         {client.birthDate && <Row label="Nascimento" value={client.birthDate} />}
-        {client.cpf && <Row label="CPF" value={formatCpf(client.cpf)} />}
         {client.address && <Row label="Endereço" value={client.address} />}
         {client.contactChannel && (
           <Row label="Prefere contato por" value={CONTACT_CHANNELS.find((c) => c.id === client.contactChannel)?.label ?? ''} />

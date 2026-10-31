@@ -44,28 +44,6 @@ export function isValidBirthDate(value: string) {
   return age >= 12 && age <= 110;
 }
 
-export function formatCpf(value: string) {
-  const d = onlyDigits(value).slice(0, 11);
-  return d
-    .replace(/^(\d{3})(\d)/, '$1.$2')
-    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/\.(\d{3})(\d)/, '.$1-$2');
-}
-
-export function isValidCpf(value: string) {
-  const d = onlyDigits(value);
-  if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
-  const check = (len: number) => {
-    const sum = d
-      .slice(0, len)
-      .split('')
-      .reduce((acc, n, i) => acc + Number(n) * (len + 1 - i), 0);
-    const rest = (sum * 10) % 11;
-    return rest === 10 ? 0 : rest;
-  };
-  return check(9) === Number(d[9]) && check(10) === Number(d[10]);
-}
-
 export const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
 
 export function initials(name: string) {

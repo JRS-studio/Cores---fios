@@ -22,13 +22,22 @@ const ClientsContext = createContext<ClientsApi | null>(null);
 
 const emptyLoyalty = { stamps: 0, totalVisits: 0, rewardsRedeemed: 0 };
 
+// O app não guarda documentos: remove o CPF de cadastros feitos em versões anteriores.
+const withoutDocuments = (c: Client & { cpf?: string }): Client => {
+  const copy = { ...c };
+  delete copy.cpf;
+  return copy;
+};
+
 export function ClientsProvider({ children }: { children: ReactNode }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     loadJson<Client[]>(KEY, []).then((data) => {
-      setClients(data);
+      const clean = data.map(withoutDocuments);
+      setClients(clean);
+      if (data.some((c) => 'cpf' in c)) saveJson(KEY, clean);
       setReady(true);
     });
   }, []);

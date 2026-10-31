@@ -21,16 +21,8 @@ import {
 } from '@/features/clients/types';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { newId } from '@/utils/id';
-import {
-  formatCpf,
-  formatDate,
-  formatPhone,
-  isValidBirthDate,
-  isValidCpf,
-  isValidEmail,
-  isValidPhone,
-  onlyDigits,
-} from '@/utils/format';
+import { PhoneVerification } from '@/features/verification/PhoneVerification';
+import { formatDate, formatPhone, isValidBirthDate, isValidEmail, isValidPhone, onlyDigits } from '@/utils/format';
 
 const STEPS = ['Seus dados', 'Preferências', 'Ficha de saúde', 'Confirmação'];
 const MAX_COLORS = 5;
@@ -51,7 +43,6 @@ export default function CadastroScreen() {
     phone: existing ? formatPhone(existing.phone) : '',
     email: existing?.email ?? '',
     birthDate: existing?.birthDate ?? '',
-    cpf: existing?.cpf ? formatCpf(existing.cpf) : '',
     address: existing?.address ?? '',
     contactChannel: existing?.contactChannel ?? 'whatsapp',
     preferredShape: existing?.preferredShape,
@@ -76,31 +67,32 @@ export default function CadastroScreen() {
       return list.length >= max ? f : { ...f, [key]: [...list, id] };
     });
 
+  // O WhatsApp é a identificação da cliente: vale como verificado só o número confirmado por código.
+  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(existing?.phoneVerified ? existing.phone : null);
+  const phoneDigits = onlyDigits(form.phone);
+  const phoneVerified = verifiedPhone === phoneDigits;
+
   const hasHealthData = form.allergies.length > 0 || form.healthConditions.length > 0 || form.healthNotes.trim().length > 0;
   const duplicate = findByPhone(onlyDigits(form.phone));
 
   const errors: Record<string, string | null> = {
-    name:
-      form.name.trim().length < 2
-        ? 'Digite seu nome.'
-        : premium && form.name.trim().split(/\s+/).length < 2
-          ? 'Digite nome e sobrenome.'
-          : null,
+    name: form.name.trim().length < 2 ? 'Digite seu nome.' : null,
     phone: !isValidPhone(form.phone)
       ? 'Digite um celular com DDD, ex.: (11) 98765-4321.'
       : duplicate && duplicate.id !== existing?.id
         ? 'Já existe um cadastro com este WhatsApp.'
         : null,
-    email: premium && !isValidEmail(form.email) ? 'Digite um e-mail válido.' : null,
-    birthDate: premium && !isValidBirthDate(form.birthDate) ? 'Use o formato DD/MM/AAAA.' : null,
-    cpf: premium && form.cpf && !isValidCpf(form.cpf) ? 'CPF inválido. Confira os números ou deixe em branco.' : null,
+    verification: !phoneVerified ? 'Confirme seu WhatsApp com o código para continuar.' : null,
+    email: premium && form.email.trim() && !isValidEmail(form.email) ? 'Confira o e-mail ou deixe em branco.' : null,
+    birthDate:
+      premium && form.birthDate && !isValidBirthDate(form.birthDate) ? 'Use o formato DD/MM/AAAA ou deixe em branco.' : null,
     healthConsent: hasHealthData && !form.healthConsent ? 'Para salvar a ficha de saúde, autorize o registro.' : null,
     privacyConsent: !form.privacyConsent ? 'É preciso concordar para concluir o cadastro.' : null,
   };
 
   const stepFields: string[][] = premium
-    ? [['name', 'phone', 'email', 'birthDate', 'cpf'], [], ['healthConsent'], ['privacyConsent']]
-    : [['name', 'phone', 'privacyConsent']];
+    ? [['name', 'phone', 'verification', 'email', 'birthDate'], [], ['healthConsent'], ['privacyConsent']]
+    : [['name', 'phone', 'verification', 'privacyConsent']];
   const stepValid = stepFields[step].every((k) => !errors[k]);
   const lastStep = step === stepFields.length - 1;
   const showError = (key: string) => (tried ? errors[key] : null);
@@ -129,16 +121,16 @@ export default function CadastroScreen() {
       createdAt: existing?.createdAt ?? new Date().toISOString(),
       plan,
       name: form.name.trim(),
-      phone: onlyDigits(form.phone),
+      phone: phoneDigits,
+      phoneVerified: true,
       privacyConsent: true,
       remindersConsent: form.remindersConsent,
     };
     const client: Client = premium
       ? {
           ...base,
-          email: form.email.trim(),
-          birthDate: form.birthDate,
-          cpf: form.cpf ? onlyDigits(form.cpf) : undefined,
+          email: form.email.trim() || undefined,
+          birthDate: form.birthDate || undefined,
           address: form.address.trim() || undefined,
           contactChannel: form.contactChannel,
           preferredShape: form.preferredShape,
@@ -190,7 +182,7 @@ export default function CadastroScreen() {
               </View>
             )}
             <Field
-              label={premium ? 'Nome completo' : 'Nome'}
+              label="Nome"
               value={form.name}
               onChangeText={(t) => set('name', t)}
               placeholder={premium ? 'Ex.: Mariana Alves' : 'Como prefere ser chamada'}
@@ -205,12 +197,21 @@ export default function CadastroScreen() {
               placeholder="(11) 98765-4321"
               keyboardType="phone-pad"
               error={showError('phone')}
-              helper="Usado para confirmar e lembrar seus horários."
+              helper="Seu WhatsApp é sua identificação no studio. Não pedimos documentos."
             />
+            {!errors.phone && (
+              <PhoneVerification
+                phone={phoneDigits}
+                verified={phoneVerified}
+                onVerified={() => setVerifiedPhone(phoneDigits)}
+                error={showError('verification')}
+              />
+            )}
             {premium && (
               <>
                 <Field
                   label="E-mail"
+                  optional
                   value={form.email}
                   onChangeText={(t) => set('email', t)}
                   placeholder="voce@email.com"
@@ -220,22 +221,13 @@ export default function CadastroScreen() {
                 />
                 <Field
                   label="Data de nascimento"
+                  optional
                   value={form.birthDate}
                   onChangeText={(t) => set('birthDate', formatDate(t))}
                   placeholder="DD/MM/AAAA"
                   keyboardType="number-pad"
                   error={showError('birthDate')}
                   helper={`Você ganha ${LOYALTY.birthdayDiscount}% de desconto no mês do aniversário.`}
-                />
-                <Field
-                  label="CPF"
-                  optional
-                  value={form.cpf}
-                  onChangeText={(t) => set('cpf', formatCpf(t))}
-                  placeholder="000.000.000-00"
-                  keyboardType="number-pad"
-                  error={showError('cpf')}
-                  helper="Só para emissão de nota fiscal."
                 />
                 <Field
                   label="Endereço"

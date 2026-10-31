@@ -13,14 +13,14 @@ export type Client = {
   plan: Plan;
   createdAt: string;
   name: string;
-  phone: string; // só dígitos
+  phone: string; // só dígitos; é a identificação da cliente (sem documentos)
+  phoneVerified?: boolean; // confirmado por código no WhatsApp
   privacyConsent: boolean;
   remindersConsent: boolean;
 
   // Cadastro Premium
   email?: string;
   birthDate?: string; // DD/MM/AAAA
-  cpf?: string;
   address?: string;
   contactChannel?: 'whatsapp' | 'ligacao' | 'email';
   preferredShape?: ShapeId;

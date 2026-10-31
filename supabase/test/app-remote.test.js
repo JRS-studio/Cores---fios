@@ -268,6 +268,25 @@ const site = http.createServer((_, res) => res.writeHead(200, { 'Content-Type': 
     await other.close();
   });
 
+  await test('cliente escolhe o próprio tema; o padrão do studio não muda', async () => {
+    const other = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const O = other.locator('#root');
+    await other.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
+    await other.waitForTimeout(1500);
+    await O.getByLabel('Tema do app').click();
+    await other.waitForTimeout(500);
+    await O.getByText('A escolha vale só para você', { exact: false }).waitFor();
+    await Promise.all([other.waitForEvent('load'), O.getByLabel(/^Tema Tecnologia:/).click()]);
+    await other.waitForTimeout(1500);
+    await other.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
+    await other.waitForTimeout(1500);
+    const bg = await O.getByRole('button', { name: 'Agendar' }).first().evaluate((el) => getComputedStyle(el).backgroundColor);
+    assert.equal(bg, 'rgb(15, 23, 42)');
+    assert.equal(db.settings.length, 0, 'a escolha da cliente não vai para os ajustes do studio');
+    await other.screenshot({ path: path.join(shots, '07-tema-cliente.png') });
+    await other.close();
+  });
+
   await browser.close();
   api.close();
   site.close();

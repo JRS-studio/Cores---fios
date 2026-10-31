@@ -106,7 +106,6 @@ export default function AjustesScreen() {
                 ['cut-outline', 'Serviços, preços e tempo', '/ajustes/servicos'],
                 ['time-outline', 'Horários liberados e pausas', '/ajustes/horarios'],
                 ['diamond-outline', 'Benefícios do Premium', '/ajustes/premium'],
-                ['color-palette-outline', 'Tema do app', '/ajustes/tema'],
               ] as const
             ).map(([icon, label, href], i) => (
               <Pressable key={href} style={[styles.menuRow, i > 0 && styles.menuDivider]} onPress={() => router.push(href)} accessibilityRole="button">
@@ -208,6 +207,11 @@ export default function AjustesScreen() {
             />
           </>
         )}
+
+        <Pressable style={styles.linkRow} onPress={() => router.push('/ajustes/tema')}>
+          <Text style={styles.linkText}>Tema do app</Text>
+          <Text style={styles.linkText}>›</Text>
+        </Pressable>
 
         <Pressable style={styles.linkRow} onPress={() => router.push('/privacidade')}>
           <Text style={styles.linkText}>Política de privacidade</Text>

@@ -2,30 +2,39 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { OwnerOnly, ScreenHeader } from '@/components/ui';
+import { ScreenHeader } from '@/components/ui';
 import { useSession } from '@/features/session/SessionContext';
 import { useSettings } from '@/features/settings/SettingsContext';
 import { activeTheme, colors, fonts, radius } from '@/theme';
+import { applyTheme } from '@/theme/ThemeSync';
 import { THEMES, type Theme } from '@/theme/themes';
 
+// Cada pessoa escolhe o tema do próprio celular. A escolha da profissional vira também o padrão do studio,
+// usado por quem ainda não escolheu.
 export default function TemaScreen() {
-  const { canManage } = useSession();
-  return canManage ? <TemaContent /> : <OwnerOnly title="Tema do app" />;
-}
-
-function TemaContent() {
   const insets = useSafeAreaInsets();
   const { settings, saveSettings } = useSettings();
+  const { canManage } = useSession();
+
+  async function choose(id: string) {
+    if (canManage && settings.theme !== id) await saveSettings({ ...settings, theme: id });
+    applyTheme(id, true);
+  }
 
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }}
     >
-      <ScreenHeader title="Tema do app" subtitle="Vale para você e para todas as clientes" />
-      <Text style={styles.hint}>Toque num tema para usar. O app recarrega com as cores novas. Se não recarregar sozinho, feche e abra de novo.</Text>
+      <ScreenHeader title="Tema do app" subtitle="Escolha as cores do app no seu celular" />
+      <Text style={styles.hint}>
+        Toque num tema para usar. O app recarrega com as cores novas (se não recarregar sozinho, feche e abra de novo).
+        {canManage
+          ? ' O tema que você escolher também vira o padrão do studio para as clientes que ainda não escolheram o delas.'
+          : ' A escolha vale só para você, neste celular.'}
+      </Text>
       {THEMES.map((t) => (
-        <ThemeCard key={t.id} theme={t} selected={activeTheme.id === t.id} onPress={() => saveSettings({ ...settings, theme: t.id })} />
+        <ThemeCard key={t.id} theme={t} selected={activeTheme.id === t.id} onPress={() => choose(t.id)} />
       ))}
     </ScrollView>
   );

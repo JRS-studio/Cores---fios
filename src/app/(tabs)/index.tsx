@@ -135,11 +135,9 @@ function TopBar() {
           </View>
         )}
       </Pressable>
-      {canManage && (
-        <Pressable style={styles.iconButton} onPress={() => router.push('/ajustes/tema')} accessibilityLabel="Tema do app">
-          <Ionicons name="color-palette-outline" size={22} color={colors.plum} />
-        </Pressable>
-      )}
+      <Pressable style={styles.iconButton} onPress={() => router.push('/ajustes/tema')} accessibilityLabel="Tema do app">
+        <Ionicons name="color-palette-outline" size={22} color={colors.plum} />
+      </Pressable>
       <Pressable style={styles.iconButton} onPress={() => router.push('/ajustes')} accessibilityLabel="Ajustes">
         <Ionicons name="menu-outline" size={24} color={colors.plum} />
       </Pressable>

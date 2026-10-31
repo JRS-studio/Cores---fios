@@ -55,7 +55,7 @@ export const DEFAULT_SETTINGS: Settings = {
   instagram: 'js.cooresefios',
 };
 
-type SettingsApi = { settings: Settings; ready: boolean; saveSettings: (s: Settings) => void };
+type SettingsApi = { settings: Settings; ready: boolean; saveSettings: (s: Settings) => Promise<void> };
 
 const SettingsContext = createContext<SettingsApi | null>(null);
 
@@ -84,7 +84,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const saveSettings = useCallback(
     (next: Settings) => {
       commit(next);
-      supabase?.from('settings').upsert({ id: 1, data: next }).then(({ error }) => error && reportSyncError(error));
+      // Devolve a gravação no servidor, para quem precisa esperar (ex.: antes de recarregar o app).
+      if (!supabase) return Promise.resolve();
+      return Promise.resolve(supabase.from('settings').upsert({ id: 1, data: next })).then(({ error }) => {
+        if (error) reportSyncError(error);
+      });
     },
     [commit],
   );

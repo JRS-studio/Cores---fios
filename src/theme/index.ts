@@ -1,4 +1,4 @@
-import { readThemeSync } from './storage';
+import { readStoredTheme } from './storage';
 import { themeById } from './themes';
 
 export const colors = {
@@ -43,8 +43,10 @@ export const shadow = {
   elevation: 4,
 };
 
-// Tema escolhido pela profissional (Ajustes › Tema do app), aplicado antes de qualquer estilo ser criado.
-export const activeTheme = themeById(readThemeSync() ?? undefined);
+// Tema deste aparelho (escolhido pela pessoa ou, se ela não escolheu, o padrão do studio),
+// aplicado antes de qualquer estilo ser criado.
+export const storedTheme = readStoredTheme();
+export const activeTheme = themeById(storedTheme?.id);
 Object.assign(colors, activeTheme.colors);
 if (!activeTheme.serifTitles) {
   fonts.display = fonts.semibold;

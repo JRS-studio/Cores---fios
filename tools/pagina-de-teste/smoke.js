@@ -137,7 +137,7 @@ const page = fs.readFileSync(path.join(DIST, 'cores-e-fios-teste.html'));
     await wa.waitForURL(/wa\.me\/5511987654321/, { timeout: 5000 }); await wa.close();
     await shot('14-perfil-botoes');
     await R.getByLabel('Tema do app').click(); await p.waitForTimeout(400);
-    await R.getByText('Vale para você e para todas as clientes').waitFor(); await back();
+    await R.getByText('Escolha as cores do app no seu celular').waitFor(); await back();
   });
   await step('Instagram e os 5 temas', async () => {
     await tab('Início');

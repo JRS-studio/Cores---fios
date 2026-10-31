@@ -55,7 +55,8 @@ const server = http.createServer((req, res) => {
     await R.getByText('Fazer cadastro rápido').click();
     await page.waitForTimeout(600);
     await R.getByLabel('Nome', { exact: true }).fill('Teste Claude');
-    await R.getByLabel('WhatsApp').fill('11900000002');
+    // Número fictício diferente a cada execução (o número fica preso ao aparelho até a cliente sair).
+    await R.getByLabel('WhatsApp').fill(`119000${String(Date.now()).slice(-5)}`);
     await R.getByText('Confirmar e entrar').click();
     await R.getByText(/verificado/).first().waitFor({ timeout: 20000 });
     await R.getByText(/Concordo com o uso/).click();
@@ -66,7 +67,8 @@ const server = http.createServer((req, res) => {
   await step('cliente de teste apaga o próprio cadastro e sai', async () => {
     await R.getByText('Excluir cadastro').click();
     await R.getByText('Apagar', { exact: true }).click();
-    await page.waitForTimeout(2500);
+    // Só termina quando a saída (que solta o número) foi concluída: a aba Conta volta a oferecer "entrar".
+    await R.getByText('Já tenho cadastro: entrar').waitFor({ timeout: 20000 });
   });
 
   await browser.close();

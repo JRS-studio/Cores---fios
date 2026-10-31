@@ -152,7 +152,7 @@ const site = http.createServer((_, res) => res.writeHead(200, { 'Content-Type': 
     await R.getByText('Cadastro rápido', { exact: true }).click();
     await wait();
     await R.getByLabel('Nome', { exact: true }).fill('Paula Lima');
-    await R.getByLabel('WhatsApp').fill('11955550000');
+    await R.getByLabel('WhatsApp', { exact: true }).fill('11955550000');
     assert.equal(await R.getByLabel('Código de verificação').count(), 0);
     await R.getByText('Confirmar e entrar').click();
     await wait(1200);
@@ -174,7 +174,7 @@ const site = http.createServer((_, res) => res.writeHead(200, { 'Content-Type': 
     await other.waitForTimeout(400);
     await other.locator('#root').getByText('Já tenho cadastro: entrar').click();
     await other.waitForTimeout(400);
-    await other.locator('#root').getByLabel('WhatsApp').fill('11955550000');
+    await other.locator('#root').getByLabel('WhatsApp', { exact: true }).fill('11955550000');
     await other.locator('#root').getByText('Confirmar e entrar').click();
     await other.locator('#root').getByText(/já está conectado em outro celular/).waitFor();
     await other.screenshot({ path: path.join(shots, '02b-outro-celular.png') });

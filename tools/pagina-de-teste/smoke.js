@@ -27,7 +27,7 @@ const page = fs.readFileSync(path.join(DIST, 'cores-e-fios-teste.html'));
   const tab = async (label) => { await R.getByLabel(label, { exact: true }).click(); await p.waitForTimeout(500); };
   const back = async () => { await R.getByLabel('Voltar').last().click(); await p.waitForTimeout(500); };
   const step = async (name, fn) => {
-    try { await fn(); console.log(`ok   ${name}`); } catch (e) { errors.push(`${name}: ${e.message.split('\n')[0]}`); console.log(`FALHA ${name}`); }
+    try { await fn(); console.log(`ok   ${name}`); } catch (e) { await p.screenshot({ path: path.join(PRINTS, 'falha-' + name.slice(0, 20).replace(/\W+/g, '-') + '.png') }).catch(() => {}); errors.push(`${name}: ${e.message.split('\n')[0]}`); console.log(`FALHA ${name}`); }
   };
 
   await p.goto(url, { waitUntil: 'networkidle' });
@@ -71,7 +71,7 @@ const page = fs.readFileSync(path.join(DIST, 'cores-e-fios-teste.html'));
     await tab('Clientes');
     await R.getByText('Cadastro rápido', { exact: true }).click(); await p.waitForTimeout(500);
     await R.getByLabel('Nome', { exact: true }).fill('Teste');
-    await R.getByLabel('WhatsApp').fill('11955550000');
+    await R.getByLabel('WhatsApp', { exact: true }).fill('11955550000');
     await R.getByText('Enviar código pelo WhatsApp').click(); await p.waitForTimeout(300);
     const code = (await R.getByText(/seu código é/).last().innerText()).match(/(\d{6})/)[1];
     await R.getByLabel('Código de verificação').fill(code); await p.waitForTimeout(300);

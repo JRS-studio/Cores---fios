@@ -39,9 +39,10 @@ type FieldProps = {
   autoCapitalize?: 'none' | 'sentences' | 'words';
   multiline?: boolean;
   maxLength?: number;
+  secure?: boolean;
 };
 
-export function Field({ label, error, helper, optional, multiline, ...input }: FieldProps) {
+export function Field({ label, error, helper, optional, multiline, secure, ...input }: FieldProps) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>
@@ -51,6 +52,7 @@ export function Field({ label, error, helper, optional, multiline, ...input }: F
       <TextInput
         {...input}
         multiline={multiline}
+        secureTextEntry={secure}
         placeholderTextColor={colors.muted}
         style={[styles.input, multiline && styles.inputMultiline, !!error && styles.inputError]}
         accessibilityLabel={label}
@@ -355,3 +357,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
+
+// Tela mostrada quando uma área da profissional é aberta por quem não é a profissional.
+export function OwnerOnly({ title }: { title: string }) {
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.cream, padding: 20, paddingTop: 60 }}>
+      <ScreenHeader title={title} />
+      <Text style={styles.helper}>Esta área é só da profissional do studio.</Text>
+    </View>
+  );
+}

@@ -76,6 +76,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--foto", type=Path)
     parser.add_argument("--unhas", type=Path)
+    parser.add_argument("--saida", type=Path, default=OUT / "cores-e-fios-teste.html")
     args = parser.parse_args()
 
     OUT.mkdir(exist_ok=True)
@@ -85,7 +86,7 @@ def main():
         pre = demo_photo_script(args.foto, args.unhas) + "\n" + pre
     scripts = f"<script>{pre}</script>\n<script>\n{bundle}\n</script>"
     page = (HERE / "wrapper.html").read_text().replace("<!--SCRIPTS-->", scripts)
-    target = OUT / "cores-e-fios-teste.html"
+    target = args.saida
     target.write_text(page)
     print(f"{target} ({len(page) / 1e6:.1f} MB)")
 

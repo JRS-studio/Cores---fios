@@ -6,10 +6,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Chips, Field, ScreenHeader, SectionTitle, Stars, ratingLabel } from '@/components/ui';
 import { designs } from '@/data/catalog';
-import { persistPhoto } from '@/data/photoStorage';
+import { storePhoto } from '@/data/photoUpload';
 import { useFeedback } from '@/features/feedback/FeedbackContext';
+import { useSession } from '@/features/session/SessionContext';
+import { PhoneVerification } from '@/features/verification/PhoneVerification';
 import { colors, fonts, radius } from '@/theme';
 import { newId } from '@/utils/id';
+import { formatPhone, isValidPhone, onlyDigits } from '@/utils/format';
 import { pickImage } from '@/utils/pickImage';
 
 const MAX_COMMENT = 500;
@@ -18,6 +21,10 @@ const SERVICES = [...designs.map((d) => ({ id: d.name, label: d.name })), { id: 
 export default function NovaAvaliacaoScreen() {
   const insets = useSafeAreaInsets();
   const { addFeedback } = useFeedback();
+  const { remote, role } = useSession();
+  // Com servidor, só publica quem confirmou o WhatsApp (evita avaliações falsas); o nome pode continuar anônimo.
+  const needsLogin = remote && role === 'visitante';
+  const [loginPhone, setLoginPhone] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [rating, setRating] = useState(0);
   const [service, setService] = useState<string | null>(null);
@@ -31,12 +38,13 @@ export default function NovaAvaliacaoScreen() {
     rating: rating === 0 ? 'Escolha de 1 a 5 estrelas.' : null,
     name: !anonymous && name.trim().length < 2 ? 'Digite seu nome ou escolha publicar como anônima.' : null,
   };
-  const valid = !errors.rating && !errors.name;
+  const loginError = needsLogin ? 'Confirme seu WhatsApp para publicar.' : null;
+  const valid = !errors.rating && !errors.name && !loginError;
 
   async function choosePhoto(fromCamera: boolean) {
     const asset = await pickImage(fromCamera);
     if (!asset) return;
-    setPhotoUri(await persistPhoto(asset, 'avaliacoes'));
+    setPhotoUri(await storePhoto(asset, 'avaliacoes'));
   }
 
   function submit() {
@@ -115,6 +123,20 @@ export default function NovaAvaliacaoScreen() {
           helper={`${comment.length}/${MAX_COMMENT}`}
         />
 
+        {needsLogin && (
+          <>
+            <SectionTitle hint="Para evitar avaliações falsas. Seu número não aparece na avaliação.">Confirme seu WhatsApp</SectionTitle>
+            <Field
+              label="WhatsApp"
+              value={loginPhone}
+              onChangeText={(t) => setLoginPhone(formatPhone(t))}
+              placeholder="(11) 98765-4321"
+              keyboardType="phone-pad"
+            />
+            {isValidPhone(loginPhone) && <PhoneVerification phone={onlyDigits(loginPhone)} verified={false} onVerified={() => undefined} />}
+          </>
+        )}
+
         <SectionTitle>Como quer aparecer?</SectionTitle>
         <View style={styles.segment}>
           {[
@@ -149,6 +171,7 @@ export default function NovaAvaliacaoScreen() {
           </View>
         )}
 
+        {submitted && loginError && <Text style={styles.error}>{loginError}</Text>}
         <Button label="Publicar avaliação" icon="send" onPress={submit} disabled={saving} style={{ marginTop: 22 }} />
       </ScrollView>
     </KeyboardAvoidingView>

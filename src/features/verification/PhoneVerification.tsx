@@ -9,6 +9,7 @@ import { CODE_LENGTH, checkCode, requestCode, RESEND_SECONDS, type CheckResult }
 
 const MESSAGES: Record<Exclude<CheckResult, 'ok'>, string> = {
   wrong: 'Código incorreto. Confira e tente de novo.',
+  invalid: 'Código incorreto ou expirado. Confira ou peça um novo.',
   expired: 'O código expirou. Peça um novo.',
   blocked: 'Muitas tentativas. Peça um novo código.',
 };
@@ -50,9 +51,13 @@ export function PhoneVerification({
   const awaiting = sentTo === phone;
 
   async function send() {
-    const { testCode: generated } = await requestCode(phone);
+    const { testCode: generated, error: sendError } = await requestCode(phone);
+    if (sendError) {
+      setMessage(sendError);
+      return;
+    }
     setSentTo(phone);
-    setTestCode(generated);
+    setTestCode(generated ?? null);
     setCode('');
     setMessage(null);
     setWait(RESEND_SECONDS);
@@ -65,7 +70,7 @@ export function PhoneVerification({
       onVerified();
     } else {
       setMessage(MESSAGES[result]);
-      if (result !== 'wrong') setSentTo(null);
+      if (result === 'expired' || result === 'blocked') setSentTo(null);
     }
   }
 
@@ -122,7 +127,7 @@ export function PhoneVerification({
           </Pressable>
         </>
       )}
-      {error && !awaiting && <Text style={styles.error}>{error}</Text>}
+      {!awaiting && (message || error) && <Text style={styles.error}>{message ?? error}</Text>}
     </View>
   );
 }

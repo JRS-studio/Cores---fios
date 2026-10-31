@@ -8,6 +8,8 @@ import { useAppointments, PAYMENT_LABEL, type PaymentMethod } from '@/features/a
 import { CategoryBars, DailyBars } from '@/features/finance/charts';
 import { useFinance, type Transaction } from '@/features/finance/FinanceContext';
 import { useSettings } from '@/features/settings/SettingsContext';
+import { OwnerOnly } from '@/components/ui';
+import { useSession } from '@/features/session/SessionContext';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { daysInMonth, formatDayMonth, monthKey, monthLabel, shiftMonth, today } from '@/utils/date';
 import { brl } from '@/utils/format';
@@ -15,6 +17,11 @@ import { brl } from '@/utils/format';
 type Filter = 'todos' | 'entrada' | 'saida';
 
 export default function FinanceiroScreen() {
+  const { canManage } = useSession();
+  return canManage ? <FinanceiroScreenContent /> : <OwnerOnly title="Financeiro" />;
+}
+
+function FinanceiroScreenContent() {
   const insets = useSafeAreaInsets();
   const { lancado } = useLocalSearchParams<{ lancado?: string }>();
   const { forMonth, removeTransaction } = useFinance();

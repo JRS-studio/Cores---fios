@@ -19,13 +19,14 @@ const ICONS: Record<string, [IconName, IconName]> = {
 // O Provador Virtual é o diferencial do app, por isso ganha um botão central em destaque.
 const FEATURED = 'provador';
 
-export function TabBar({ state, descriptors, emitter, navigateToTab }: BottomTabBarProps) {
+export function TabBar({ state, descriptors, emitter, navigateToTab, hidden = [] }: BottomTabBarProps & { hidden?: string[] }) {
   const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 12) }]}>
       <View style={styles.bar}>
         {state.routes.map((route, index) => {
+          if (hidden.includes(route.name)) return null;
           const focused = state.index === index;
           const label = descriptors[route.key].options.title ?? route.name;
           const [activeIcon, idleIcon] = ICONS[route.name] ?? ['ellipse', 'ellipse-outline'];

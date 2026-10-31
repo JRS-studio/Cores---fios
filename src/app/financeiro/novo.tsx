@@ -3,15 +3,21 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, Chips, Field, ScreenHeader, SectionTitle } from '@/components/ui';
+import { Button, Chips, Field, ScreenHeader, SectionTitle, OwnerOnly } from '@/components/ui';
 import { PAYMENT_LABEL, type PaymentMethod } from '@/features/agenda/AppointmentsContext';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, useFinance, type TransactionType } from '@/features/finance/FinanceContext';
+import { useSession } from '@/features/session/SessionContext';
 import { colors, fonts, radius } from '@/theme';
 import { newId } from '@/utils/id';
 import { brToIso, isoToBr, today } from '@/utils/date';
 import { formatDate } from '@/utils/format';
 
 export default function NovoLancamentoScreen() {
+  const { canManage } = useSession();
+  return canManage ? <NovoLancamentoScreenContent /> : <OwnerOnly title="Novo lançamento" />;
+}
+
+function NovoLancamentoScreenContent() {
   const insets = useSafeAreaInsets();
   const { addTransaction } = useFinance();
   const [type, setType] = useState<TransactionType>('saida');

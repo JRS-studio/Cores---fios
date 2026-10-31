@@ -1,9 +1,9 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
 import { deletePhoto } from '@/data/photoStorage';
-import { loadJson, saveJson, STORAGE_KEYS } from '@/data/storage';
+import { STORAGE_KEYS } from '@/data/storage';
+import { useCollection, type RemoteTable } from '@/data/useCollection';
 
-const KEY = STORAGE_KEYS.feedbacks;
 
 export type Feedback = {
   id: string;
@@ -16,6 +16,8 @@ export type Feedback = {
   service?: string;
 };
 
+const REMOTE: RemoteTable<Feedback> = { table: 'feedbacks', toRow: (f) => ({ id: f.id, data: f }) };
+
 type FeedbackApi = {
   ready: boolean;
   feedbacks: Feedback[];
@@ -27,21 +29,9 @@ type FeedbackApi = {
 const FeedbackContext = createContext<FeedbackApi | null>(null);
 
 export function FeedbackProvider({ children }: { children: ReactNode }) {
-  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    loadJson<Feedback[]>(KEY, []).then((data) => {
-      setFeedbacks(data);
-      setReady(true);
-    });
-  }, []);
+  const [feedbacks, commit, ready] = useCollection<Feedback>(STORAGE_KEYS.feedbacks, REMOTE);
 
   const api = useMemo<FeedbackApi>(() => {
-    const commit = (next: Feedback[]) => {
-      setFeedbacks(next);
-      saveJson(KEY, next);
-    };
     return {
       ready,
       feedbacks,
@@ -53,7 +43,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
         commit(feedbacks.filter((f) => f.id !== id));
       },
     };
-  }, [feedbacks, ready]);
+  }, [feedbacks, commit, ready]);
 
   return <FeedbackContext.Provider value={api}>{children}</FeedbackContext.Provider>;
 }

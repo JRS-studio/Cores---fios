@@ -1,6 +1,8 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from 'react';
 
 import { STORAGE_KEYS } from '@/data/storage';
+import { supabase } from '@/data/supabase';
+import { reportSyncError } from '@/data/syncStatus';
 import { usePersisted } from '@/data/usePersisted';
 
 export type Settings = {
@@ -29,7 +31,35 @@ const SettingsContext = createContext<SettingsApi | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [stored, commit, ready] = usePersisted<Settings>(STORAGE_KEYS.settings, DEFAULT_SETTINGS);
-  const api = useMemo(() => ({ settings: { ...DEFAULT_SETTINGS, ...stored }, ready, saveSettings: commit }), [stored, ready, commit]);
+
+  // Com servidor, os ajustes ficam numa linha única, lida por todas e alterada só pela profissional.
+  useEffect(() => {
+    if (!supabase) return;
+    const db = supabase;
+    const fetchSettings = async () => {
+      const { data, error } = await db.from('settings').select('data').eq('id', 1).maybeSingle();
+      if (error) reportSyncError(error);
+      else if (data) commit(data.data as Settings);
+    };
+    fetchSettings();
+    const channel = db
+      .channel('sync-settings')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, fetchSettings)
+      .subscribe();
+    return () => {
+      db.removeChannel(channel);
+    };
+  }, [commit]);
+
+  const saveSettings = useCallback(
+    (next: Settings) => {
+      commit(next);
+      supabase?.from('settings').upsert({ id: 1, data: next }).then(({ error }) => error && reportSyncError(error));
+    },
+    [commit],
+  );
+
+  const api = useMemo(() => ({ settings: { ...DEFAULT_SETTINGS, ...stored }, ready, saveSettings }), [stored, ready, saveSettings]);
   return <SettingsContext.Provider value={api}>{children}</SettingsContext.Provider>;
 }
 

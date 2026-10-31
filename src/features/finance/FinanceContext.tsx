@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
 import { STORAGE_KEYS } from '@/data/storage';
-import { usePersisted } from '@/data/usePersisted';
+import { useCollection, type RemoteTable } from '@/data/useCollection';
 import type { PaymentMethod } from '@/features/agenda/AppointmentsContext';
 
 export type TransactionType = 'entrada' | 'saida';
@@ -21,6 +21,8 @@ export type Transaction = {
 export const INCOME_CATEGORIES = ['Atendimento', 'Venda de produto', 'Outros'];
 export const EXPENSE_CATEGORIES = ['Materiais', 'Aluguel', 'Contas', 'Transporte', 'Marketing', 'Outros'];
 
+const REMOTE: RemoteTable<Transaction> = { table: 'transactions', toRow: (t) => ({ id: t.id, data: t }) };
+
 type FinanceApi = {
   ready: boolean;
   transactions: Transaction[];
@@ -32,7 +34,7 @@ type FinanceApi = {
 const FinanceContext = createContext<FinanceApi | null>(null);
 
 export function FinanceProvider({ children }: { children: ReactNode }) {
-  const [transactions, commit, ready] = usePersisted<Transaction[]>(STORAGE_KEYS.transactions, []);
+  const [transactions, commit, ready] = useCollection<Transaction>(STORAGE_KEYS.transactions, REMOTE);
 
   const api = useMemo<FinanceApi>(
     () => ({

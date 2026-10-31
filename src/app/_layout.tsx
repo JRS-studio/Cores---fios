@@ -13,10 +13,12 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { SyncBanner } from '@/components/SyncBanner';
 import { AppointmentsProvider } from '@/features/agenda/AppointmentsContext';
 import { ClientsProvider } from '@/features/clients/ClientsContext';
 import { FeedbackProvider } from '@/features/feedback/FeedbackContext';
 import { FinanceProvider } from '@/features/finance/FinanceContext';
+import { SessionProvider } from '@/features/session/SessionContext';
 import { SettingsProvider } from '@/features/settings/SettingsContext';
 import { colors } from '@/theme';
 
@@ -39,18 +41,21 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <SettingsProvider>
-        <ClientsProvider>
-          <AppointmentsProvider>
-            <FinanceProvider>
-              <FeedbackProvider>
-                <StatusBar style="dark" />
-                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }} />
-              </FeedbackProvider>
-            </FinanceProvider>
-          </AppointmentsProvider>
-        </ClientsProvider>
-      </SettingsProvider>
+      <SessionProvider>
+        <SettingsProvider>
+          <ClientsProvider>
+            <AppointmentsProvider>
+              <FinanceProvider>
+                <FeedbackProvider>
+                  <StatusBar style="dark" />
+                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }} />
+                  <SyncBanner />
+                </FeedbackProvider>
+              </FinanceProvider>
+            </AppointmentsProvider>
+          </ClientsProvider>
+        </SettingsProvider>
+      </SessionProvider>
     </SafeAreaProvider>
   );
 }

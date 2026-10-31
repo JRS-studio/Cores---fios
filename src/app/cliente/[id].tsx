@@ -11,6 +11,7 @@ import { LEVELS, LOYALTY, levelFor, nextLevel } from '@/data/loyalty';
 import { useAppointments } from '@/features/agenda/AppointmentsContext';
 import { StatusChip } from '@/features/agenda/components';
 import { useClients } from '@/features/clients/ClientsContext';
+import { useSession } from '@/features/session/SessionContext';
 import { CONTACT_CHANNELS, LENGTHS, type Client } from '@/features/clients/types';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { formatDayMonth } from '@/utils/date';
@@ -27,6 +28,7 @@ export default function ClienteScreen() {
   const { id, novo } = useLocalSearchParams<{ id: string; novo?: string }>();
   const { ready, getClient, registerVisit, addReferralBonus, redeemReward, removeClient } = useClients();
   const { appointments } = useAppointments();
+  const { canManage, role, signOut } = useSession();
   const [confirmDelete, setConfirmDelete] = useState(false);
   // Aviso da última ação nesta tela; ao voltar de uma edição (novo parâmetro), vale o aviso da edição.
   const [action, setAction] = useState<{ message: string; novo?: string } | null>(null);
@@ -117,7 +119,7 @@ export default function ClienteScreen() {
         </View>
       )}
 
-      {premium && (
+      {premium && canManage && (
         <Section title="Área da profissional">
           <Text style={styles.muted}>Use depois de cada atendimento para atualizar o cartão da cliente.</Text>
           <View style={styles.proActions}>
@@ -231,6 +233,8 @@ export default function ClienteScreen() {
                 variant="danger"
                 onPress={() => {
                   removeClient(client.id);
+                  // A cliente que apaga o próprio cadastro também sai da conta.
+                  if (role === 'cliente') signOut();
                   router.replace('/clientes');
                 }}
                 style={{ flex: 1 }}

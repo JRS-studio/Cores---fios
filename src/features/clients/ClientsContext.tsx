@@ -1,10 +1,15 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
 import { LOYALTY, levelFor } from '@/data/loyalty';
-import { loadJson, saveJson, STORAGE_KEYS } from '@/data/storage';
+import { STORAGE_KEYS } from '@/data/storage';
+import { toAuthPhone } from '@/data/supabase';
+import { useCollection, type RemoteTable } from '@/data/useCollection';
 import type { Client } from './types';
 
-const KEY = STORAGE_KEYS.clients;
+const REMOTE: RemoteTable<Client> = {
+  table: 'clients',
+  toRow: (c) => ({ id: c.id, phone: toAuthPhone(c.phone), data: c }),
+};
 
 type ClientsApi = {
   ready: boolean;
@@ -30,23 +35,11 @@ const withoutDocuments = (c: Client & { cpf?: string }): Client => {
 };
 
 export function ClientsProvider({ children }: { children: ReactNode }) {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    loadJson<Client[]>(KEY, []).then((data) => {
-      const clean = data.map(withoutDocuments);
-      setClients(clean);
-      if (data.some((c) => 'cpf' in c)) saveJson(KEY, clean);
-      setReady(true);
-    });
-  }, []);
+  const [stored, commit, ready] = useCollection<Client>(STORAGE_KEYS.clients, REMOTE);
+  // Cadastros antigos com CPF são limpos ao ler; o próximo salvamento já grava sem ele.
+  const clients = useMemo(() => stored.map(withoutDocuments), [stored]);
 
   const api = useMemo<ClientsApi>(() => {
-    const commit = (next: Client[]) => {
-      setClients(next);
-      saveJson(KEY, next);
-    };
     const update = (id: string, fn: (c: Client) => Client) => commit(clients.map((c) => (c.id === id ? fn(c) : c)));
 
     return {
@@ -86,7 +79,7 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
           };
         }),
     };
-  }, [clients, ready]);
+  }, [clients, commit, ready]);
 
   return <ClientsContext.Provider value={api}>{children}</ClientsContext.Provider>;
 }

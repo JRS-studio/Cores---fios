@@ -10,6 +10,7 @@ import { useAppointments, PAYMENT_LABEL, type PaymentMethod } from '@/features/a
 import { endTime, StatusChip } from '@/features/agenda/components';
 import { useClients } from '@/features/clients/ClientsContext';
 import { useFinance } from '@/features/finance/FinanceContext';
+import { useSession } from '@/features/session/SessionContext';
 import { useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { newId } from '@/utils/id';
@@ -28,6 +29,8 @@ export default function AgendamentoScreen() {
   const { getClient, registerVisit } = useClients();
   const { addTransaction } = useFinance();
   const { settings } = useSettings();
+  // A cliente só remarca ou cancela; concluir, cobrar, confirmar e marcar falta são da profissional.
+  const { canManage } = useSession();
   const [action, setAction] = useState<{ message: string; novo?: string } | null>(null);
   const [paying, setPaying] = useState(false);
   const [method, setMethod] = useState<PaymentMethod>('pix');
@@ -159,41 +162,52 @@ export default function AgendamentoScreen() {
             </View>
           ) : (
             <>
-              <Button label="Concluir atendimento" icon="checkmark-done" onPress={() => setPaying(true)} />
-              {a.status === 'agendado' && (
-                <Button
-                  label="Marcar como confirmado"
-                  icon="checkmark-circle-outline"
-                  variant="secondary"
-                  onPress={() => {
-                    updateStatus(a.id, 'confirmado');
-                    say(`Presença de ${firstName} confirmada.`);
-                  }}
-                />
+              {canManage && (
+                <>
+                  <Button label="Concluir atendimento" icon="checkmark-done" onPress={() => setPaying(true)} />
+                  {a.status === 'agendado' && (
+                    <Button
+                      label="Marcar como confirmado"
+                      icon="checkmark-circle-outline"
+                      variant="secondary"
+                      onPress={() => {
+                        updateStatus(a.id, 'confirmado');
+                        say(`Presença de ${firstName} confirmada.`);
+                      }}
+                    />
+                  )}
+                  <Button
+                    label={a.status === 'agendado' ? 'Pedir confirmação no WhatsApp' : 'Enviar lembrete no WhatsApp'}
+                    icon="logo-whatsapp"
+                    variant="secondary"
+                    onPress={() =>
+                      whatsapp(
+                        `Oi, ${firstName}! Aqui é a ${settings.professionalName}, do ${settings.studioName}. ` +
+                          `Seu horário de ${a.serviceName.toLowerCase()} está marcado para ${when}. ` +
+                          (a.status === 'agendado' ? 'Pode confirmar, por favor? 💅' : 'Te espero! 💅'),
+                      )
+                    }
+                  />
+                </>
               )}
               <Button
-                label={a.status === 'agendado' ? 'Pedir confirmação no WhatsApp' : 'Enviar lembrete no WhatsApp'}
-                icon="logo-whatsapp"
+                label="Remarcar"
+                icon="calendar-outline"
                 variant="secondary"
-                onPress={() =>
-                  whatsapp(
-                    `Oi, ${firstName}! Aqui é a ${settings.professionalName}, do ${settings.studioName}. ` +
-                      `Seu horário de ${a.serviceName.toLowerCase()} está marcado para ${when}. ` +
-                      (a.status === 'agendado' ? 'Pode confirmar, por favor? 💅' : 'Te espero! 💅'),
-                  )
-                }
+                onPress={() => router.push({ pathname: '/agendamento/novo', params: { id: a.id } })}
               />
-              <Button label="Remarcar" icon="calendar-outline" variant="secondary" onPress={() => router.push({ pathname: '/agendamento/novo', params: { id: a.id } })} />
               <View style={styles.inlineActions}>
-                <Pressable
-                  onPress={() => {
-                    updateStatus(a.id, 'faltou');
-                    say(`${firstName} marcada como falta.`);
-                  }}
-                  hitSlop={6}
-                >
-                  <Text style={styles.subtle}>Marcar falta</Text>
-                </Pressable>
+                {canManage && (
+                  <Pressable
+                    onPress={() => {
+                      updateStatus(a.id, 'faltou');
+                      say(`${firstName} marcada como falta.`);
+                    }}
+                    hitSlop={6}
+                  >
+                    <Text style={styles.subtle}>Marcar falta</Text>
+                  </Pressable>
+                )}
                 <Pressable onPress={() => setConfirm('cancelar')} hitSlop={6}>
                   <Text style={[styles.subtle, { color: colors.danger }]}>Cancelar horário</Text>
                 </Pressable>
@@ -205,29 +219,49 @@ export default function AgendamentoScreen() {
 
       {a.status === 'concluido' && (
         <View style={styles.actions}>
-          <Button label="Pedir avaliação" icon="star-outline" onPress={() => router.push('/avaliacoes/nova')} />
           <Button
-            label="Enviar agradecimento no WhatsApp"
-            icon="logo-whatsapp"
-            variant="secondary"
-            onPress={() =>
-              whatsapp(`Obrigada pela visita, ${firstName}! Se puder, deixe sua avaliação com a foto das unhas no app do ${settings.studioName}. 💕`)
-            }
+            label={canManage ? 'Pedir avaliação' : 'Avaliar meu atendimento'}
+            icon="star-outline"
+            onPress={() => router.push('/avaliacoes/nova')}
           />
+          {canManage && (
+            <Button
+              label="Enviar agradecimento no WhatsApp"
+              icon="logo-whatsapp"
+              variant="secondary"
+              onPress={() =>
+                whatsapp(
+                  `Obrigada pela visita, ${firstName}! Se puder, deixe sua avaliação com a foto das unhas no app do ${settings.studioName}. 💕`,
+                )
+              }
+            />
+          )}
         </View>
       )}
 
       {(a.status === 'cancelado' || a.status === 'faltou') && (
         <View style={styles.actions}>
-          <Button label="Remarcar" icon="calendar-outline" onPress={() => router.push({ pathname: '/agendamento/novo', params: { id: a.id } })} />
-          <Button label="Excluir da agenda" icon="trash-outline" variant="danger" onPress={() => setConfirm('excluir')} />
+          {canManage ? (
+            <>
+              <Button
+                label="Remarcar"
+                icon="calendar-outline"
+                onPress={() => router.push({ pathname: '/agendamento/novo', params: { id: a.id } })}
+              />
+              <Button label="Excluir da agenda" icon="trash-outline" variant="danger" onPress={() => setConfirm('excluir')} />
+            </>
+          ) : (
+            <Button label="Agendar de novo" icon="calendar-outline" onPress={() => router.push('/agendamento/novo')} />
+          )}
         </View>
       )}
 
       {confirm && (
         <View style={styles.confirm}>
           <Text style={styles.confirmText}>
-            {confirm === 'cancelar' ? `Cancelar o horário de ${firstName}? O horário fica livre na agenda.` : 'Excluir este agendamento de vez?'}
+            {confirm === 'cancelar'
+              ? `Cancelar o horário de ${firstName}? O horário fica livre na agenda.`
+              : 'Excluir este agendamento de vez?'}
           </Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <Button label="Voltar" variant="secondary" onPress={() => setConfirm(null)} style={{ flex: 1 }} />

@@ -1,7 +1,8 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
 import { STORAGE_KEYS } from '@/data/storage';
-import { usePersisted } from '@/data/usePersisted';
+import { supabase, toAuthPhone } from '@/data/supabase';
+import { useCollection, type RemoteTable } from '@/data/useCollection';
 import type { Settings } from '@/features/settings/SettingsContext';
 import { today, toMinutes, toTime, weekdayOf } from '@/utils/date';
 
@@ -54,14 +55,40 @@ type AppointmentsApi = {
   updateStatus: (id: string, status: AppointmentStatus, extra?: Partial<Appointment>) => void;
   removeAppointment: (id: string) => void;
   availableSlots: (date: string, duration: number, settings: Settings, ignoreId?: string) => string[];
+  // Com servidor: busca os horários ocupados do dia (de todas as clientes, sem dados de quem marcou).
+  loadBusy: (date: string) => Promise<void>;
 };
 
 const AppointmentsContext = createContext<AppointmentsApi | null>(null);
 
+const REMOTE: RemoteTable<Appointment> = {
+  table: 'appointments',
+  toRow: (a) => ({
+    id: a.id,
+    client_phone: toAuthPhone(a.clientPhone),
+    status: a.status,
+    starts_at: `${a.date} ${a.time}`,
+    ends_at: `${a.date} ${toTime(toMinutes(a.time) + a.duration)}`,
+    data: a,
+  }),
+};
+
 const byTime = (a: Appointment, b: Appointment) => (a.date + a.time).localeCompare(b.date + b.time);
 
 export function AppointmentsProvider({ children }: { children: ReactNode }) {
-  const [appointments, commit, ready] = usePersisted<Appointment[]>(STORAGE_KEYS.appointments, []);
+  const [appointments, commit, ready] = useCollection<Appointment>(STORAGE_KEYS.appointments, REMOTE);
+  const [remoteBusy, setRemoteBusy] = useState<Record<string, [number, number][]>>({});
+
+  const loadBusy = useCallback(async (date: string) => {
+    if (!supabase) return;
+    const { data, error } = await supabase.rpc('busy_slots', { day: date });
+    if (error || !data) return;
+    const minutes = (ts: string) => toMinutes(ts.slice(11, 16));
+    setRemoteBusy((prev) => ({
+      ...prev,
+      [date]: (data as { starts_at: string; ends_at: string }[]).map((b) => [minutes(b.starts_at), minutes(b.ends_at)]),
+    }));
+  }, []);
 
   const api = useMemo<AppointmentsApi>(
     () => ({
@@ -80,9 +107,17 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         if (!settings.workDays.includes(weekdayOf(date))) return [];
         const open = toMinutes(settings.openTime);
         const close = toMinutes(settings.closeTime);
-        const busy = appointments
-          .filter((a) => a.date === date && a.id !== ignoreId && isActive(a))
-          .map((a) => [toMinutes(a.time), toMinutes(a.time) + a.duration]);
+        const ignored = appointments.find((a) => a.id === ignoreId);
+        const ignoredRange = ignored ? [toMinutes(ignored.time), toMinutes(ignored.time) + ignored.duration] : null;
+        const busy = [
+          ...appointments
+            .filter((a) => a.date === date && a.id !== ignoreId && isActive(a))
+            .map((a) => [toMinutes(a.time), toMinutes(a.time) + a.duration]),
+          // Do servidor vem também o próprio horário que está sendo remarcado: ele não conta como ocupado.
+          ...(remoteBusy[date] ?? []).filter(
+            ([s, e]) => !(ignored?.date === date && ignoredRange && s === ignoredRange[0] && e === ignoredRange[1]),
+          ),
+        ];
         const now = new Date();
         const nowMinutes = date === today() ? now.getHours() * 60 + now.getMinutes() : -1;
         const slots: string[] = [];
@@ -94,8 +129,9 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         }
         return slots;
       },
+      loadBusy,
     }),
-    [appointments, commit, ready],
+    [appointments, commit, ready, remoteBusy, loadBusy],
   );
 
   return <AppointmentsContext.Provider value={api}>{children}</AppointmentsContext.Provider>;

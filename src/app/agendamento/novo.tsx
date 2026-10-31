@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,6 +11,7 @@ import { serviceById, services, tryOnDuration } from '@/data/services';
 import { useAppointments, type Appointment } from '@/features/agenda/AppointmentsContext';
 import { DateStrip, endTime } from '@/features/agenda/components';
 import { useClients } from '@/features/clients/ClientsContext';
+import { useSession } from '@/features/session/SessionContext';
 import { useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
 import { newId } from '@/utils/id';
@@ -22,9 +23,13 @@ const TRY_ON = 'provador';
 export default function NovoAgendamentoScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ data?: string; servico?: string; valor?: string; id?: string; cliente?: string }>();
-  const { getAppointment, saveAppointment, availableSlots } = useAppointments();
+  const { getAppointment, saveAppointment, availableSlots, loadBusy } = useAppointments();
   const { clients, getClient, findByPhone, saveClient } = useClients();
   const { settings } = useSettings();
+  const { canManage, phone: sessionPhone } = useSession();
+  // A cliente agenda só para si mesma: o cadastro dela é encontrado pelo WhatsApp do login.
+  const clientMode = !canManage;
+  const me = clientMode && sessionPhone ? findByPhone(sessionPhone) : undefined;
   const editing = params.id ? getAppointment(params.id) : undefined;
 
   const [clientId, setClientId] = useState<string | undefined>(editing?.clientId ?? params.cliente);
@@ -41,11 +46,18 @@ export default function NovoAgendamentoScreen() {
   const [notes, setNotes] = useState(editing?.notes ?? '');
   const [tried, setTried] = useState(false);
 
-  const client = clientId ? getClient(clientId) : undefined;
+  const isWalkIn = !clientMode && walkIn;
+  const selectedId = clientMode ? me?.id : clientId;
+  const client = selectedId ? getClient(selectedId) : undefined;
   const service = serviceById(serviceId);
   const serviceName = serviceId === TRY_ON ? (editing?.serviceId ? '' : editing?.serviceName ?? tryOnName ?? '') : service?.name ?? '';
   const duration = serviceId === TRY_ON ? (editing && !editing.serviceId ? editing.duration : tryOnDuration(serviceName)) : service?.duration ?? 60;
   const slots = availableSlots(date, duration, settings, editing?.id);
+
+  // Com servidor, os horários das outras clientes vêm só como "ocupado".
+  useEffect(() => {
+    loadBusy(date);
+  }, [date, loadBusy]);
   const birthday = client?.plan === 'premium' && client.birthDate ? parseDate(client.birthDate) : null;
   const birthdayMonth = !!birthday && birthday.getMonth() === new Date(date + 'T12:00').getMonth();
 
@@ -59,7 +71,7 @@ export default function NovoAgendamentoScreen() {
     phone: !isValidPhone(phone) ? 'Digite um WhatsApp válido com DDD.' : null,
   };
   const errors = {
-    client: walkIn ? (walkInErrors.name ?? walkInErrors.phone) : !client ? 'Escolha a cliente.' : null,
+    client: isWalkIn ? (walkInErrors.name ?? walkInErrors.phone) : !client ? 'Escolha a cliente.' : null,
     service: !serviceName ? 'Escolha o serviço.' : null,
     price: !(Number(price.replace(',', '.')) >= 0) || price.trim() === '' ? 'Informe o valor.' : null,
     time: !time || !slots.includes(time) ? 'Escolha um horário livre.' : null,
@@ -76,10 +88,10 @@ export default function NovoAgendamentoScreen() {
   function submit() {
     setTried(true);
     if (!valid || !time) return;
-    let finalClientId = walkIn ? undefined : clientId;
+    let finalClientId = isWalkIn ? undefined : selectedId;
     let clientName = client?.name ?? name.trim();
     let clientPhone = client?.phone ?? onlyDigits(phone);
-    if (walkIn) {
+    if (isWalkIn) {
       // Se o WhatsApp já é de uma cliente cadastrada, liga o agendamento a ela.
       const existing = findByPhone(onlyDigits(phone));
       if (existing) {
@@ -112,12 +124,34 @@ export default function NovoAgendamentoScreen() {
       duration,
       date,
       time,
-      // Remarcar devolve o horário para "agendado".
-      status: editing && editing.status !== 'confirmado' ? 'agendado' : (editing?.status ?? 'agendado'),
+      // Remarcar devolve para "agendado"; a cliente sempre marca como "agendado" e a profissional confirma.
+      status: clientMode || (editing && editing.status !== 'confirmado') ? 'agendado' : (editing?.status ?? 'agendado'),
       notes: notes.trim() || undefined,
     };
     saveAppointment(appointment);
     router.dismissTo({ pathname: '/agendamento/[id]', params: { id: appointment.id, novo: editing ? 'remarcado' : 'criado' } });
+  }
+
+  if (clientMode && !me) {
+    return (
+      <View style={[styles.screen, styles.gutter, { paddingTop: insets.top + 12 }]}>
+        <ScreenHeader title="Agendar" />
+        <Text style={styles.summary}>
+          {sessionPhone
+            ? 'Falta só o seu cadastro para escolher o horário.'
+            : 'Para agendar, entre com seu WhatsApp. Sem senha e sem documentos.'}
+        </Text>
+        <View style={{ gap: 10, marginTop: 16 }}>
+          {!sessionPhone && <Button label="Entrar com WhatsApp" icon="log-in-outline" onPress={() => router.push('/entrar')} />}
+          <Button
+            label="Fazer cadastro rápido"
+            icon="flash-outline"
+            variant={sessionPhone ? 'primary' : 'secondary'}
+            onPress={() => router.push({ pathname: '/cadastro', params: { tipo: 'rapido' } })}
+          />
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -132,7 +166,7 @@ export default function NovoAgendamentoScreen() {
 
           {/* Cliente */}
           <SectionTitle>Cliente</SectionTitle>
-          {clients.length > 0 && (
+          {!clientMode && clients.length > 0 && (
             <View style={styles.segment}>
               {[
                 { id: false, label: 'Cadastrada' },
@@ -145,7 +179,7 @@ export default function NovoAgendamentoScreen() {
             </View>
           )}
 
-          {!walkIn && client ? (
+          {!isWalkIn && client ? (
             <View style={styles.selectedClient}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{initials(client.name)}</Text>
@@ -156,11 +190,13 @@ export default function NovoAgendamentoScreen() {
                   {formatPhone(client.phone)} · {client.plan === 'premium' ? 'Premium' : 'Cadastro rápido'}
                 </Text>
               </View>
-              <Pressable onPress={() => setClientId(undefined)} hitSlop={8}>
-                <Text style={styles.link}>Trocar</Text>
-              </Pressable>
+              {!clientMode && (
+                <Pressable onPress={() => setClientId(undefined)} hitSlop={8}>
+                  <Text style={styles.link}>Trocar</Text>
+                </Pressable>
+              )}
             </View>
-          ) : !walkIn ? (
+          ) : !isWalkIn ? (
             <>
               <TextInput
                 value={query}
@@ -190,7 +226,7 @@ export default function NovoAgendamentoScreen() {
               </CheckRow>
             </View>
           )}
-          {tried && !walkIn && errors.client && <Text style={styles.error}>{errors.client}</Text>}
+          {tried && !isWalkIn && errors.client && <Text style={styles.error}>{errors.client}</Text>}
 
           {client?.allergies?.length ? (
             <View style={styles.alert}>

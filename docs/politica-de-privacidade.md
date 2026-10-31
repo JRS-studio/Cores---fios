@@ -29,7 +29,9 @@ Alergias e condições de saúde são dados sensíveis (art. 11 da LGPD). Só fi
 
 ## Onde ficam e com quem compartilhamos
 
-Os dados ficam guardados no aparelho em que foram registrados. Não vendemos nem repassamos seus dados a terceiros. As mensagens de WhatsApp são abertas no seu próprio aplicativo de WhatsApp.
+Os dados ficam no servidor do app (Supabase), protegidos por regras de acesso: cada cliente vê só os próprios dados e só a profissional vê os de todas. O código de acesso é enviado pelo WhatsApp por um provedor de mensagens (Twilio). Não vendemos nem repassamos seus dados a terceiros. As mensagens de lembrete são abertas no seu próprio aplicativo de WhatsApp.
+
+_Se o studio usar o app sem servidor, os dados ficam só no aparelho em que foram registrados._
 
 ## Permissões do celular
 

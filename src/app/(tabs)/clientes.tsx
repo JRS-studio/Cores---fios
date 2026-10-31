@@ -7,10 +7,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LOYALTY } from '@/data/loyalty';
 import { useClients } from '@/features/clients/ClientsContext';
+import { MyAccount } from '@/features/session/MyAccount';
+import { useSession } from '@/features/session/SessionContext';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { formatPhone, initials, onlyDigits } from '@/utils/format';
 
 export default function ClientesScreen() {
+  const { canManage } = useSession();
+  // Para a cliente, esta aba é a conta dela; a lista de clientes é só da profissional.
+  return canManage ? <ClientList /> : <MyAccount />;
+}
+
+function ClientList() {
   const insets = useSafeAreaInsets();
   const { clients, ready } = useClients();
   const [query, setQuery] = useState('');

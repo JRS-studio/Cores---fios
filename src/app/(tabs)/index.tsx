@@ -9,8 +9,10 @@ import { SectionHeader } from '@/components/SectionHeader';
 import { Stars } from '@/components/ui';
 import { trendingPolishes } from '@/data/mock';
 import { isActive, useAppointments } from '@/features/agenda/AppointmentsContext';
+import { useClients } from '@/features/clients/ClientsContext';
 import { useFeedback } from '@/features/feedback/FeedbackContext';
 import { useFinance } from '@/features/finance/FinanceContext';
+import { useSession } from '@/features/session/SessionContext';
 import { useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { addDays, formatDayMonth, monthKey, today, toMinutes } from '@/utils/date';
@@ -23,7 +25,17 @@ function greeting() {
   return 'Boa noite';
 }
 
-const QUICK_ACTIONS: { icon: keyof typeof Ionicons.glyphMap; label: string; href: Href }[] = [
+type QuickAction = { icon: keyof typeof Ionicons.glyphMap; label: string; href: Href };
+
+// Atalhos da cliente (com servidor, quando quem usa o app não é a profissional).
+const CLIENT_ACTIONS: QuickAction[] = [
+  { icon: 'add-circle-outline', label: 'Agendar\nhorário', href: '/agendamento/novo' },
+  { icon: 'color-palette-outline', label: 'Provar\ncores', href: '/provador' },
+  { icon: 'star-outline', label: 'Avaliar\natendimento', href: '/avaliacoes/nova' },
+  { icon: 'person-outline', label: 'Minha\nconta', href: '/clientes' },
+];
+
+const QUICK_ACTIONS: QuickAction[] = [
   { icon: 'add-circle-outline', label: 'Novo\nagendamento', href: '/agendamento/novo' },
   { icon: 'cash-outline', label: 'Lançar\ndespesa', href: '/financeiro/novo' },
   { icon: 'person-add-outline', label: 'Nova\ncliente', href: { pathname: '/cadastro', params: { tipo: 'rapido' } } },
@@ -37,6 +49,11 @@ export default function HomeScreen() {
   const { feedbacks, average } = useFeedback();
   const latest = feedbacks[0];
   const { settings } = useSettings();
+  const { canManage, phone } = useSession();
+  const { findByPhone } = useClients();
+  // A profissional vê o próprio nome; a cliente, o dela (ou boas-vindas, antes de entrar).
+  const me = !canManage && phone ? findByPhone(phone) : undefined;
+  const displayName = canManage ? settings.professionalName : (me?.name.split(' ')[0] ?? 'Bem-vinda');
   const { appointments } = useAppointments();
   const { transactions } = useFinance();
 
@@ -70,8 +87,8 @@ export default function HomeScreen() {
       {/* Cabeçalho */}
       <View style={[styles.header, styles.gutter]}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>{greeting()},</Text>
-          <Text style={styles.name}>{settings.professionalName}</Text>
+          <Text style={styles.greeting}>{canManage || me ? `${greeting()},` : `${greeting()}!`}</Text>
+          <Text style={styles.name}>{displayName}</Text>
           <Text style={styles.studio}>{settings.studioName}</Text>
         </View>
         <Pressable
@@ -84,7 +101,7 @@ export default function HomeScreen() {
         </Pressable>
         <Pressable onPress={() => router.push('/ajustes')} accessibilityLabel="Ajustes">
           <LinearGradient colors={[colors.roseGoldLight, colors.roseGold]} style={styles.avatar}>
-            <Text style={styles.avatarText}>{settings.professionalName[0]?.toUpperCase()}</Text>
+            <Text style={styles.avatarText}>{displayName[0]?.toUpperCase()}</Text>
           </LinearGradient>
         </Pressable>
       </View>
@@ -126,57 +143,59 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
-      {/* Resumo do dia */}
-      <View style={[styles.section, styles.gutter]}>
-        <SectionHeader title="Resumo de hoje" />
-        <View style={styles.revenueCard}>
-          <View style={styles.revenueTop}>
-            <View>
-              <Text style={styles.cardLabel}>Faturamento de hoje</Text>
-              <Text style={styles.revenueValue}>{brl(todayIncome)}</Text>
+      {/* Resumo do dia (só para a profissional) */}
+      {canManage && (
+        <View style={[styles.section, styles.gutter]}>
+          <SectionHeader title="Resumo de hoje" />
+          <View style={styles.revenueCard}>
+            <View style={styles.revenueTop}>
+              <View>
+                <Text style={styles.cardLabel}>Faturamento de hoje</Text>
+                <Text style={styles.revenueValue}>{brl(todayIncome)}</Text>
+              </View>
+              <Pressable style={styles.trend} onPress={() => router.navigate('/financeiro')}>
+                <Text style={styles.trendText}>Mês: {brl(monthIncome)}</Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.success} />
+              </Pressable>
             </View>
-            <Pressable style={styles.trend} onPress={() => router.navigate('/financeiro')}>
-              <Text style={styles.trendText}>Mês: {brl(monthIncome)}</Text>
-              <Ionicons name="chevron-forward" size={14} color={colors.success} />
-            </Pressable>
+            <View style={styles.progressTrack}>
+              <LinearGradient
+                colors={[colors.roseGold, colors.wine]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.progressFill, { width: `${goalProgress * 100}%` }]}
+              />
+            </View>
+            <Text style={styles.progressText}>
+              {Math.round(goalProgress * 100)}% da meta do mês de {brl(settings.monthlyGoal)}
+            </Text>
           </View>
-          <View style={styles.progressTrack}>
-            <LinearGradient
-              colors={[colors.roseGold, colors.wine]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.progressFill, { width: `${goalProgress * 100}%` }]}
-            />
-          </View>
-          <Text style={styles.progressText}>
-            {Math.round(goalProgress * 100)}% da meta do mês de {brl(settings.monthlyGoal)}
-          </Text>
-        </View>
 
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Ionicons name="calendar-outline" size={20} color={colors.wine} />
-            <Text style={styles.statValue}>{todayCount}</Text>
-            <Text style={styles.cardLabel} numberOfLines={1}>Hoje</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="star-outline" size={20} color={colors.wine} />
-            <Text style={styles.statValue}>{feedbacks.length ? average.toFixed(1).replace('.', ',') : '–'}</Text>
-            <Text style={styles.cardLabel} numberOfLines={1}>Avaliação</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="time-outline" size={20} color={colors.wine} />
-            <Text style={styles.statValue}>{nextToday?.time ?? '–'}</Text>
-            <Text style={styles.cardLabel} numberOfLines={1}>Próxima</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <Ionicons name="calendar-outline" size={20} color={colors.wine} />
+              <Text style={styles.statValue}>{todayCount}</Text>
+              <Text style={styles.cardLabel} numberOfLines={1}>Hoje</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Ionicons name="star-outline" size={20} color={colors.wine} />
+              <Text style={styles.statValue}>{feedbacks.length ? average.toFixed(1).replace('.', ',') : '–'}</Text>
+              <Text style={styles.cardLabel} numberOfLines={1}>Avaliação</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Ionicons name="time-outline" size={20} color={colors.wine} />
+              <Text style={styles.statValue}>{nextToday?.time ?? '–'}</Text>
+              <Text style={styles.cardLabel} numberOfLines={1}>Próxima</Text>
+            </View>
           </View>
         </View>
-      </View>
+      )}
 
       {/* Acesso rápido */}
       <View style={[styles.section, styles.gutter]}>
         <SectionHeader title="Acesso rápido" />
         <View style={styles.quickRow}>
-          {QUICK_ACTIONS.map((action) => (
+          {(canManage ? QUICK_ACTIONS : CLIENT_ACTIONS).map((action) => (
             <Pressable key={action.label} style={styles.quickItem} onPress={() => router.navigate(action.href)}>
               <View style={styles.quickIcon}>
                 <Ionicons name={action.icon} size={24} color={colors.plum} />
@@ -189,7 +208,11 @@ export default function HomeScreen() {
 
       {/* Próximos horários */}
       <View style={[styles.section, styles.gutter]}>
-        <SectionHeader title="Próximos horários" action="Ver agenda" onAction={() => router.navigate('/agenda')} />
+        <SectionHeader
+          title={canManage ? 'Próximos horários' : 'Seus próximos horários'}
+          action="Ver agenda"
+          onAction={() => router.navigate('/agenda')}
+        />
         <View style={styles.listCard}>
           {upcoming.slice(0, 4).map((item, i) => (
             <Pressable

@@ -21,6 +21,7 @@ import {
 } from '@/features/clients/types';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { newId } from '@/utils/id';
+import { useSession } from '@/features/session/SessionContext';
 import { PhoneVerification } from '@/features/verification/PhoneVerification';
 import { formatDate, formatPhone, isValidBirthDate, isValidEmail, isValidPhone, onlyDigits } from '@/utils/format';
 
@@ -33,6 +34,9 @@ export default function CadastroScreen() {
   const params = useLocalSearchParams<{ tipo?: Plan; id?: string }>();
   const { getClient, findByPhone, saveClient } = useClients();
   const existing = params.id ? getClient(params.id) : undefined;
+  const { role, phone: sessionPhone } = useSession();
+  // A profissional cadastra a cliente sem código: confirmar no celular dela trocaria o login da profissional.
+  const byProfessional = role === 'profissional';
   const plan: Plan = params.tipo === 'premium' ? 'premium' : 'rapido';
   const premium = plan === 'premium';
 
@@ -40,7 +44,7 @@ export default function CadastroScreen() {
   const [tried, setTried] = useState(false);
   const [form, setForm] = useState(() => ({
     name: existing?.name ?? '',
-    phone: existing ? formatPhone(existing.phone) : '',
+    phone: existing ? formatPhone(existing.phone) : role === 'cliente' && sessionPhone ? formatPhone(sessionPhone) : '',
     email: existing?.email ?? '',
     birthDate: existing?.birthDate ?? '',
     address: existing?.address ?? '',
@@ -70,7 +74,11 @@ export default function CadastroScreen() {
   // O WhatsApp é a identificação da cliente: vale como verificado só o número confirmado por código.
   const [verifiedPhone, setVerifiedPhone] = useState<string | null>(existing?.phoneVerified ? existing.phone : null);
   const phoneDigits = onlyDigits(form.phone);
-  const phoneVerified = verifiedPhone === phoneDigits;
+  // A cliente que já entrou pelo código do WhatsApp tem o número confirmado.
+  const phoneVerified = verifiedPhone === phoneDigits || (role === 'cliente' && sessionPhone === phoneDigits);
+  // Cadastro feito antes pela profissional com este WhatsApp: a cliente completa o mesmo, sem duplicar nem perder selos.
+  const ownExisting = !existing && role === 'cliente' && phoneVerified ? findByPhone(phoneDigits) : undefined;
+  const target = existing ?? ownExisting;
 
   const hasHealthData = form.allergies.length > 0 || form.healthConditions.length > 0 || form.healthNotes.trim().length > 0;
   const duplicate = findByPhone(onlyDigits(form.phone));
@@ -79,13 +87,12 @@ export default function CadastroScreen() {
     name: form.name.trim().length < 2 ? 'Digite seu nome.' : null,
     phone: !isValidPhone(form.phone)
       ? 'Digite um celular com DDD, ex.: (11) 98765-4321.'
-      : duplicate && duplicate.id !== existing?.id
+      : duplicate && duplicate.id !== target?.id
         ? 'Já existe um cadastro com este WhatsApp.'
         : null,
-    verification: !phoneVerified ? 'Confirme seu WhatsApp com o código para continuar.' : null,
+    verification: !byProfessional && !phoneVerified ? 'Confirme seu WhatsApp com o código para continuar.' : null,
     email: premium && form.email.trim() && !isValidEmail(form.email) ? 'Confira o e-mail ou deixe em branco.' : null,
-    birthDate:
-      premium && form.birthDate && !isValidBirthDate(form.birthDate) ? 'Use o formato DD/MM/AAAA ou deixe em branco.' : null,
+    birthDate: premium && form.birthDate && !isValidBirthDate(form.birthDate) ? 'Use o formato DD/MM/AAAA ou deixe em branco.' : null,
     healthConsent: hasHealthData && !form.healthConsent ? 'Para salvar a ficha de saúde, autorize o registro.' : null,
     privacyConsent: !form.privacyConsent ? 'É preciso concordar para concluir o cadastro.' : null,
   };
@@ -113,16 +120,16 @@ export default function CadastroScreen() {
   }
 
   function finish() {
-    const wasPremium = existing?.plan === 'premium';
-    const prevLoyalty = existing?.loyalty ?? { stamps: 0, totalVisits: 0, rewardsRedeemed: 0 };
+    const wasPremium = target?.plan === 'premium';
+    const prevLoyalty = target?.loyalty ?? { stamps: 0, totalVisits: 0, rewardsRedeemed: 0 };
     const base: Client = {
-      ...(existing ?? {}),
-      id: existing?.id ?? newId(),
-      createdAt: existing?.createdAt ?? new Date().toISOString(),
+      ...(target ?? {}),
+      id: target?.id ?? newId(),
+      createdAt: target?.createdAt ?? new Date().toISOString(),
       plan,
       name: form.name.trim(),
       phone: phoneDigits,
-      phoneVerified: true,
+      phoneVerified: byProfessional ? (target?.phoneVerified ?? false) : true,
       privacyConsent: true,
       remindersConsent: form.remindersConsent,
     };
@@ -149,7 +156,10 @@ export default function CadastroScreen() {
       : base;
     saveClient(client);
     // Se o perfil já estava aberto (edição ou upgrade), volta para ele em vez de empilhar outro.
-    router.dismissTo({ pathname: '/cliente/[id]', params: { id: client.id, novo: existing ? (wasPremium || !premium ? 'editado' : 'premium') : plan } });
+    router.dismissTo({
+      pathname: '/cliente/[id]',
+      params: { id: client.id, novo: target ? (wasPremium || !premium ? 'editado' : 'premium') : plan },
+    });
   }
 
   return (
@@ -199,13 +209,19 @@ export default function CadastroScreen() {
               error={showError('phone')}
               helper="Seu WhatsApp é sua identificação no studio. Não pedimos documentos."
             />
-            {!errors.phone && (
-              <PhoneVerification
-                phone={phoneDigits}
-                verified={phoneVerified}
-                onVerified={() => setVerifiedPhone(phoneDigits)}
-                error={showError('verification')}
-              />
+            {byProfessional ? (
+              <Text style={styles.stepIntro}>
+                Você está cadastrando a cliente: ela confirma o WhatsApp quando entrar no app com o próprio celular.
+              </Text>
+            ) : (
+              !errors.phone && (
+                <PhoneVerification
+                  phone={phoneDigits}
+                  verified={phoneVerified}
+                  onVerified={() => setVerifiedPhone(phoneDigits)}
+                  error={showError('verification')}
+                />
+              )
             )}
             {premium && (
               <>
@@ -247,7 +263,11 @@ export default function CadastroScreen() {
             )}
             {!premium && (
               <View style={{ marginTop: 6, gap: 6 }}>
-                <PrivacyConsent checked={form.privacyConsent} onToggle={() => set('privacyConsent', !form.privacyConsent)} error={showError('privacyConsent')} />
+                <PrivacyConsent
+                  checked={form.privacyConsent}
+                  onToggle={() => set('privacyConsent', !form.privacyConsent)}
+                  error={showError('privacyConsent')}
+                />
                 <CheckRow checked={form.remindersConsent} onToggle={() => set('remindersConsent', !form.remindersConsent)}>
                   Quero receber lembretes dos meus horários pelo WhatsApp.
                 </CheckRow>
@@ -331,7 +351,11 @@ export default function CadastroScreen() {
             <SectionTitle hint="Marque o que se aplica.">Alergias</SectionTitle>
             <Chips options={toOptions(ALLERGIES)} selected={form.allergies} onToggle={(id) => toggleIn('allergies', id)} />
             <SectionTitle hint="Marque o que se aplica.">Condições de saúde</SectionTitle>
-            <Chips options={toOptions(HEALTH_CONDITIONS)} selected={form.healthConditions} onToggle={(id) => toggleIn('healthConditions', id)} />
+            <Chips
+              options={toOptions(HEALTH_CONDITIONS)}
+              selected={form.healthConditions}
+              onToggle={(id) => toggleIn('healthConditions', id)}
+            />
             <View style={{ marginTop: 16 }}>
               <Field
                 label="Observações"
@@ -349,8 +373,8 @@ export default function CadastroScreen() {
                 onToggle={() => set('healthConsent', !form.healthConsent)}
                 error={showError('healthConsent')}
               >
-                Autorizo o registro destas informações de saúde para a segurança do meu atendimento. Posso pedir para
-                apagá-las a qualquer momento.
+                Autorizo o registro destas informações de saúde para a segurança do meu atendimento. Posso pedir para apagá-las a qualquer
+                momento.
               </CheckRow>
             ) : (
               <Text style={styles.stepIntro}>Nada a informar? É só avançar.</Text>
@@ -372,7 +396,11 @@ export default function CadastroScreen() {
               ))}
             </LinearGradient>
             <View style={{ marginTop: 18, gap: 6 }}>
-              <PrivacyConsent checked={form.privacyConsent} onToggle={() => set('privacyConsent', !form.privacyConsent)} error={showError('privacyConsent')} />
+              <PrivacyConsent
+                checked={form.privacyConsent}
+                onToggle={() => set('privacyConsent', !form.privacyConsent)}
+                error={showError('privacyConsent')}
+              />
               <CheckRow checked={form.remindersConsent} onToggle={() => set('remindersConsent', !form.remindersConsent)}>
                 Quero receber lembretes de horário e novidades do studio pelo WhatsApp.
               </CheckRow>
@@ -410,8 +438,7 @@ function PrivacyConsent({ checked, onToggle, error }: { checked: boolean; onTogg
   return (
     <View>
       <CheckRow checked={checked} onToggle={onToggle} error={error}>
-        Concordo com o uso dos meus dados para agendamentos e contato, conforme a LGPD. Posso pedir a exclusão a qualquer
-        momento.
+        Concordo com o uso dos meus dados para agendamentos e contato, conforme a LGPD. Posso pedir a exclusão a qualquer momento.
       </CheckRow>
       <Pressable onPress={() => router.push('/privacidade')} hitSlop={6} style={styles.policyLink}>
         <Text style={styles.policyLinkText}>Ler a política de privacidade</Text>

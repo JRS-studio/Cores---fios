@@ -112,10 +112,18 @@ Antes de publicar:
 - Hospedar `docs/politica-de-privacidade.md` (com o nome e o WhatsApp do studio) e informar a URL nas lojas.
 - Identificadores do app: `com.coresefios.app` (iOS e Android), em `app.json`.
 
-## O que falta para uso com várias clientes
+## Servidor online (Supabase)
 
-- **Servidor (ex.: Supabase ou Firebase):** hoje os dados ficam no aparelho onde foram registrados. Com um servidor, a cliente agenda e avalia pelo celular dela e a profissional vê tudo no dela.
-- **Envio real do código pelo WhatsApp:** a verificação já está pronta nas telas; falta o servidor chamar a API do WhatsApp Business (ou SMS) em `src/features/verification/whatsappCode.ts`.
+Sem configuração, o app funciona só no aparelho. Com o Supabase ligado (passo a passo em [`supabase/README.md`](supabase/README.md)):
+
+- **Profissional** entra com e-mail e senha e vê tudo: agenda completa, clientes, financeiro e ajustes.
+- **Cliente** entra só com o WhatsApp, recebendo o código de verdade (Twilio pelo Supabase Auth). Vê e marca só os próprios horários, edita o próprio cadastro e publica avaliações. As abas mudam: sem Financeiro, e "Clientes" vira "Conta".
+- **Sem login**: vê avaliações e pode se cadastrar.
+- As regras ficam no banco (Row Level Security, em `supabase/schema.sql`), testadas com `npm run test:db`. O banco recusa horários sobrepostos, inclusive de duas clientes ao mesmo tempo.
+- Os dados ficam em cache no aparelho e se atualizam em tempo real entre os celulares; as fotos das avaliações vão para o Storage do Supabase.
+
+## Próximos passos
+
 - **Provador Virtual:** detecção automática das unhas na foto (hoje a marcação é por toque).
 
 ## Estrutura
@@ -132,6 +140,7 @@ src/
     financeiro/novo.tsx # novo lançamento
     ajustes.tsx        # ajustes do studio
     privacidade.tsx    # política de privacidade (LGPD)
+    entrar.tsx         # login da profissional e da cliente
   components/          # TabBar, Nail (miniatura de unha), SectionHeader, ui (campos, botões, estrelas)
   features/nails/      # desenho do esmalte em SVG: formatos, designs e acabamento
   features/tryon/      # Provador Virtual: área da foto, mão de exemplo, introdução
@@ -142,6 +151,10 @@ src/
   features/finance/    # lançamentos e gráficos do financeiro
   features/settings/   # ajustes do studio
   features/verification/ # código de verificação do WhatsApp
+  features/session/    # login (profissional, cliente) e conta da cliente
+  data/supabase.ts     # conexão com o servidor (opcional)
+  data/useCollection.ts # dados no aparelho + sincronização com o Supabase
+supabase/              # banco: esquema, regras de acesso, testes e passo a passo
   features/clients/    # cadastro de clientes (tipos e armazenamento)
   features/feedback/   # avaliações (armazenamento)
   data/mock.ts         # cores em destaque na página inicial

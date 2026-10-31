@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, ScreenHeader, Stars } from '@/components/ui';
 import { useFeedback, type Feedback } from '@/features/feedback/FeedbackContext';
+import { useSession } from '@/features/session/SessionContext';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { formatShortDate } from '@/utils/format';
 
@@ -14,6 +15,7 @@ type Filter = 'todas' | 'foto' | '5';
 export default function AvaliacoesScreen() {
   const insets = useSafeAreaInsets();
   const { feedbacks, average, removeFeedback } = useFeedback();
+  const { canManage } = useSession();
   const { publicada } = useLocalSearchParams<{ publicada?: string }>();
   const [filter, setFilter] = useState<Filter>('todas');
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -57,7 +59,12 @@ export default function AvaliacoesScreen() {
         </View>
       </View>
 
-      <Button label="Deixar minha avaliação" icon="create-outline" onPress={() => router.push('/avaliacoes/nova')} style={{ marginTop: 16 }} />
+      <Button
+        label="Deixar minha avaliação"
+        icon="create-outline"
+        onPress={() => router.push('/avaliacoes/nova')}
+        style={{ marginTop: 16 }}
+      />
 
       {feedbacks.length > 0 && (
         <View style={styles.filters}>
@@ -82,8 +89,8 @@ export default function AvaliacoesScreen() {
           </View>
           <Text style={styles.emptyTitle}>Ainda não há avaliações</Text>
           <Text style={styles.emptyText}>
-            Depois do atendimento, a cliente envia a foto das unhas prontas, dá de 1 a 5 estrelas e deixa um comentário,
-            com o nome dela ou de forma anônima.
+            Depois do atendimento, a cliente envia a foto das unhas prontas, dá de 1 a 5 estrelas e deixa um comentário, com o nome dela ou
+            de forma anônima.
           </Text>
         </View>
       ) : visible.length === 0 ? (
@@ -94,6 +101,7 @@ export default function AvaliacoesScreen() {
             key={f.id}
             feedback={f}
             confirming={confirmId === f.id}
+            canRemove={canManage}
             onAskRemove={() => setConfirmId(f.id)}
             onCancel={() => setConfirmId(null)}
             onRemove={() => {
@@ -109,12 +117,14 @@ export default function AvaliacoesScreen() {
 
 function FeedbackCard({
   feedback: f,
+  canRemove,
   confirming,
   onAskRemove,
   onCancel,
   onRemove,
 }: {
   feedback: Feedback;
+  canRemove: boolean;
   confirming: boolean;
   onAskRemove: () => void;
   onCancel: () => void;
@@ -156,9 +166,11 @@ function FeedbackCard({
             </Pressable>
           </View>
         ) : (
-          <Pressable onPress={onAskRemove} hitSlop={6} style={styles.removeLink}>
-            <Text style={styles.removeText}>Remover</Text>
-          </Pressable>
+          canRemove && (
+            <Pressable onPress={onAskRemove} hitSlop={6} style={styles.removeLink}>
+              <Text style={styles.removeText}>Remover</Text>
+            </Pressable>
+          )
         )}
       </View>
     </View>

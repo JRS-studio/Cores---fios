@@ -46,3 +46,4 @@ tools/pagina-de-teste/local/
 
 # Chaves do servidor (copie de .env.example)
 .env
+dist-pages/

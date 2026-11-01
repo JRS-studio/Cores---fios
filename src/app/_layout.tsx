@@ -18,6 +18,7 @@ import { AppointmentsProvider } from '@/features/agenda/AppointmentsContext';
 import { CashbackProvider } from '@/features/cashback/CashbackContext';
 import { ClientsProvider } from '@/features/clients/ClientsContext';
 import { FeedbackProvider } from '@/features/feedback/FeedbackContext';
+import { CommentsProvider } from '@/features/feed/CommentsContext';
 import { LikesProvider } from '@/features/feed/LikesContext';
 import { PostsProvider } from '@/features/feed/PostsContext';
 import { FinanceProvider } from '@/features/finance/FinanceContext';
@@ -56,13 +57,15 @@ export default function RootLayout() {
                 <FinanceProvider>
                   <FeedbackProvider>
                     <PostsProvider>
-                      <LikesProvider>
-                        <StatusBar style="dark" />
-                        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }} />
-                        <SyncBanner />
-                        <ThemeSync />
-                        <BiometricLock />
-                      </LikesProvider>
+                      <CommentsProvider>
+                        <LikesProvider>
+                          <StatusBar style="dark" />
+                          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }} />
+                          <SyncBanner />
+                          <ThemeSync />
+                          <BiometricLock />
+                        </LikesProvider>
+                      </CommentsProvider>
                     </PostsProvider>
                   </FeedbackProvider>
                 </FinanceProvider>

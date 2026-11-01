@@ -9,6 +9,7 @@ import { isActive, useAppointments } from '@/features/agenda/AppointmentsContext
 import { useClients } from '@/features/clients/ClientsContext';
 import { useFeedback } from '@/features/feedback/FeedbackContext';
 import { PostCard, ReviewCard, StudioAvatar, type FeedItem } from '@/features/feed/FeedCards';
+import { useComments } from '@/features/feed/CommentsContext';
 import { usePosts } from '@/features/feed/PostsContext';
 import { useFinance } from '@/features/finance/FinanceContext';
 import { useSession } from '@/features/session/SessionContext';
@@ -52,6 +53,7 @@ export default function HomeScreen() {
   const { canManage, phone } = useSession();
   const { feedbacks, pending, average, removeFeedback } = useFeedback();
   const { posts, removePost } = usePosts();
+  const pendingComments = useComments().pending;
   const [filter, setFilter] = useState<Filter>('tudo');
 
   const feed = useMemo<FeedItem[]>(() => {
@@ -82,6 +84,15 @@ export default function HomeScreen() {
           <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.wine} />
           <Text style={styles.toApproveText}>
             {pending.length === 1 ? '1 avaliação esperando' : `${pending.length} avaliações esperando`} sua aprovação para aparecer no feed
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.wine} />
+        </Pressable>
+      )}
+      {canManage && pendingComments.length > 0 && (
+        <Pressable style={styles.toApprove} onPress={() => router.push('/comentarios')} accessibilityRole="button">
+          <Ionicons name="chatbubbles-outline" size={20} color={colors.wine} />
+          <Text style={styles.toApproveText}>
+            {pendingComments.length === 1 ? '1 comentário esperando' : `${pendingComments.length} comentários esperando`} sua aprovação
           </Text>
           <Ionicons name="chevron-forward" size={18} color={colors.wine} />
         </Pressable>

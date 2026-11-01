@@ -318,4 +318,32 @@ await test('cashback: só a profissional lança; cada cliente vê só o próprio
   assert.ok(await fails('anon', `insert into cashback (id, client_phone, data) values ('cb4', '5511987654321', '{}')`));
 });
 
+await test('comentários: quem entrou comenta, só aparece para todas depois de aprovado; autora ou profissional apaga', async () => {
+  await as(owner, `insert into posts (id, data) values ('pc1', '{}')`);
+  const visitor = { sub: DEVICE_A }; // login anônimo de quem só visita
+  await as(visitor, `insert into comments (id, post_id, data) values ('cm1', 'pc1', '{"text":"Lindo!","approved":false}')`);
+  assert.ok(await fails('anon', `insert into comments (id, post_id, data) values ('cm2', 'pc1', '{"approved":false}')`));
+  assert.ok(await fails(ana, `insert into comments (id, post_id, approved, data) values ('cm3', 'pc1', true, '{"approved":true}')`));
+  assert.ok(await fails(ana, `insert into comments (id, post_id, data) values ('cm4', 'pc1', '{"text":"x"}')`));
+  // Esperando aprovação: só a autora e a profissional veem.
+  assert.equal((await rows('anon', 'select * from comments')).length, 0);
+  assert.equal((await rows(ana, 'select * from comments')).length, 0);
+  assert.equal((await rows(visitor, 'select * from comments')).length, 1);
+  assert.equal((await rows(owner, 'select * from comments')).length, 1);
+  await as(visitor, `update comments set approved = true where id = 'cm1'`);
+  assert.equal((await rows('anon', 'select * from comments')).length, 0);
+  await as(owner, `update comments set approved = true, data = '{"text":"Lindo!","approved":true}' where id = 'cm1'`);
+  assert.equal((await rows('anon', 'select * from comments')).length, 1);
+  // Outra pessoa não apaga; a autora apaga o dela.
+  await as(ana, `delete from comments where id = 'cm1'`);
+  assert.equal((await rows('anon', 'select * from comments')).length, 1);
+  await as(visitor, `delete from comments where id = 'cm1'`);
+  assert.equal((await rows('anon', 'select * from comments')).length, 0);
+  // A profissional comenta já aprovado, e apagar a publicação apaga os comentários.
+  await as(owner, `insert into comments (id, post_id, approved, data) values ('cm5', 'pc1', true, '{"approved":true}')`);
+  assert.equal((await rows('anon', 'select * from comments')).length, 1);
+  await as(owner, `delete from posts where id = 'pc1'`);
+  assert.equal((await rows(owner, 'select * from comments')).length, 0);
+});
+
 console.log(`\n${passed} testes passaram.`);

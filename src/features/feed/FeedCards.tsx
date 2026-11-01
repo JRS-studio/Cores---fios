@@ -10,6 +10,7 @@ import { WEB_URL } from '@/features/session/ClientLink';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { timeAgo } from '@/utils/date';
 import { openExternal } from '@/utils/openExternal';
+import { useComments } from './CommentsContext';
 import { useLikes } from './LikesContext';
 import { postKindLabel, type Post } from './PostsContext';
 
@@ -167,10 +168,13 @@ function Card({ header, children }: { header: ReactNode; children: ReactNode }) 
   );
 }
 
+const openComments = (id: string) => router.push({ pathname: '/publicacao/[id]', params: { id } });
+
 type PostCardProps = { post: Post; studioName: string; canManage: boolean; onRemove: () => void };
 
 export const PostCard = memo(function PostCard({ post, studioName, canManage, onRemove }: PostCardProps) {
   const { likedByMe, toggle } = useLikes();
+  const comments = useComments().approvedFor(post.id);
   const kind = postKindLabel(post.kind);
   const hasPhotos = post.photos.length > 0;
 
@@ -208,6 +212,16 @@ export const PostCard = memo(function PostCard({ post, studioName, canManage, on
 
       <View style={styles.actions}>
         <LikeButton itemId={post.id} />
+        <Pressable
+          onPress={() => openComments(post.id)}
+          hitSlop={8}
+          style={styles.action}
+          accessibilityRole="button"
+          accessibilityLabel={comments.length ? `Comentários (${comments.length})` : 'Comentar'}
+        >
+          <Ionicons name="chatbubble-outline" size={23} color={colors.ink} />
+          {comments.length > 0 && <Text style={styles.actionCount}>{comments.length}</Text>}
+        </Pressable>
         <Pressable onPress={() => shareText(`${studioName}: ${post.caption}`)} hitSlop={8} style={styles.action} accessibilityLabel="Compartilhar">
           <Ionicons name="paper-plane-outline" size={23} color={colors.ink} />
         </Pressable>
@@ -219,10 +233,29 @@ export const PostCard = memo(function PostCard({ post, studioName, canManage, on
           </Pressable>
         )}
       </View>
-      {hasPhotos && (
+      {(hasPhotos || comments.length > 0) && (
         <View style={styles.body}>
-          <Caption author={studioName} text={post.caption} />
+          {hasPhotos && <Caption author={studioName} text={post.caption} />}
+          {comments.length > 2 && (
+            <Pressable onPress={() => openComments(post.id)} hitSlop={4}>
+              <Text style={styles.more}>Ver os {comments.length} comentários</Text>
+            </Pressable>
+          )}
+          {comments.slice(-2).map((c) => (
+            <Text key={c.id} style={styles.commentLine} numberOfLines={2}>
+              <Text style={styles.captionAuthor}>{c.name} </Text>
+              {c.text}
+            </Text>
+          ))}
+          <Pressable onPress={() => openComments(post.id)} hitSlop={4}>
+            <Text style={styles.addComment}>Adicione um comentário…</Text>
+          </Pressable>
         </View>
+      )}
+      {!hasPhotos && comments.length === 0 && (
+        <Pressable onPress={() => openComments(post.id)} hitSlop={4} style={styles.body}>
+          <Text style={styles.addComment}>Adicione um comentário…</Text>
+        </Pressable>
       )}
     </Card>
   );
@@ -334,6 +367,8 @@ const styles = StyleSheet.create({
   },
   bookText: { fontFamily: fonts.semibold, fontSize: 12, color: colors.white },
   body: { paddingHorizontal: 14, paddingBottom: 14, gap: 8 },
+  commentLine: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.ink },
+  addComment: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
   caption: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.ink },
   captionAuthor: { fontFamily: fonts.semibold },
   more: { fontFamily: fonts.medium, fontSize: 13, color: colors.muted, marginTop: 2 },

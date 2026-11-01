@@ -157,7 +157,7 @@ Sem configuração, o app funciona só no aparelho. Com o Supabase ligado (passo
 
 ## Próximos passos
 
-- Comentários nas publicações.
+- Respostas a comentários específicos.
 
 ## Estrutura
 

@@ -101,3 +101,9 @@ Toda avaliação de cliente (nota, comentário e foto) só aparece no feed, na n
 
 1. **SQL Editor**: cole [`atualizacao-aprovacao.sql`](atualizacao-aprovacao.sql) e clique em **Run**.
 
+## Comentários nas publicações
+
+Qualquer pessoa comenta nas publicações do feed (quem só visita informa o nome). O comentário só aparece para todas depois que a profissional aprova (aviso na tela inicial ou em cada publicação). A profissional comenta como o studio, já aprovado. Quem escreveu pode apagar o próprio comentário.
+
+1. **SQL Editor**: cole [`atualizacao-comentarios.sql`](atualizacao-comentarios.sql) e clique em **Run**.
+

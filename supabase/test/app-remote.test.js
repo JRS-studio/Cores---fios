@@ -11,7 +11,7 @@ const assert = require('assert/strict');
 const { chromium } = require('playwright');
 
 const API_PORT = 54329;
-const db = { clients: [], appointments: [], transactions: [], feedbacks: [], settings: [], posts: [], likes: [], push_subscriptions: [], cashback: [] };
+const db = { clients: [], appointments: [], transactions: [], feedbacks: [], settings: [], posts: [], likes: [], push_subscriptions: [], cashback: [], comments: [] };
 // Chave pública de envio (VAPID) válida, para o navegador aceitar a inscrição.
 const VAPID = require('crypto').createECDH('prime256v1');
 VAPID.generateKeys();
@@ -91,13 +91,13 @@ const api = http.createServer((req, res) => {
     // Imita as regras de acesso do schema.sql no que o teste usa.
     const visible = (row) =>
       session?.owner || ['settings', 'posts', 'likes'].includes(table) ||
-      (table === 'feedbacks' && (row.approved || row.author_id === session?.user.id)) ||
+      (['feedbacks', 'comments'].includes(table) && (row.approved || row.author_id === session?.user.id)) ||
       (table === 'clients' && row.phone === myPhone) || (['appointments', 'cashback'].includes(table) && row.client_phone === myPhone);
     if (req.method === 'GET') return send(200, db[table].filter(visible).map((r) => ({ data: r.data })));
     if (req.method === 'POST') {
       for (const row of [].concat(body)) {
         if (['transactions', 'posts', 'cashback'].includes(table) && !session?.owner) return send(403, { code: '42501', message: 'rls' });
-        if (table === 'feedbacks') {
+        if (table === 'feedbacks' || table === 'comments') {
           if (!session) return send(403, { code: '42501', message: 'rls' });
           // Só a profissional publica ou aprova; a cliente envia esperando aprovação.
           if (!session.owner && (row.approved || row.data.approved !== false)) return send(403, { code: '42501', message: 'rls' });
@@ -114,7 +114,7 @@ const api = http.createServer((req, res) => {
     if (req.method === 'DELETE') {
       // ?id=in.("a","b"): curtida só a dona apaga; o resto, só a profissional.
       const ids = (url.searchParams.get('id') ?? '').replace(/^in\.\(|\)$/g, '').split(',').map((v) => v.replace(/"/g, ''));
-      const allowed = (r) => (table === 'likes' ? r.user_id === session?.user.id : session?.owner);
+      const allowed = (r) => (['likes', 'comments'].includes(table) && r.user_id === session?.user.id) || (table === 'comments' && r.author_id === session?.user.id) || session?.owner;
       db[table] = db[table].filter((r) => !(ids.includes(r.id) && allowed(r)));
       return send(204);
     }
@@ -517,6 +517,51 @@ const site = http.createServer((req, res) =>
     await visit.locator('#root').getByText('Amei o atendimento, unhas perfeitas!').first().waitFor();
     await visit.close();
     await cli.close();
+  });
+
+  await test('comentário na publicação só aparece depois que a profissional aprova', async () => {
+    const home = `http://localhost:${site.address().port}/`;
+    const vis = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const V = vis.locator('#root');
+    await vis.goto(home, { waitUntil: 'networkidle' });
+    await vis.waitForTimeout(1500);
+    await V.getByRole('button', { name: 'Comentar' }).first().click();
+    await vis.waitForTimeout(800);
+    await V.getByText('Ainda não há comentários', { exact: false }).waitFor();
+    await V.getByLabel('Seu nome').fill('Carla');
+    await V.getByLabel('Comentário').fill('Que promoção boa! Tem horário sábado?');
+    await V.getByRole('button', { name: 'Comentar' }).click();
+    await vis.waitForTimeout(1200);
+    await V.getByText(/aparece para todas depois que Jhenifer aprovar/).first().waitFor();
+    await V.getByText(/Aguardando aprovação/).first().waitFor();
+    await vis.screenshot({ path: path.join(shots, '14-comentario-enviado.png') });
+    const row = db.comments[0];
+    assert.equal(row.approved, false);
+    assert.equal(row.post_id, db.posts[0].id);
+
+    // Outra pessoa ainda não vê.
+    const other = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await other.goto(home, { waitUntil: 'networkidle' });
+    await other.waitForTimeout(1500);
+    assert.equal(await other.locator('#root').getByText('Que promoção boa! Tem horário sábado?').count(), 0);
+
+    // A profissional aprova pelo aviso da tela inicial.
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(1500);
+    await R.getByText(/1 comentário esperando sua aprovação/).click();
+    await wait(800);
+    await shot('15-comentario-aprovar');
+    await R.getByRole('button', { name: 'Aprovar' }).click();
+    await wait(1200);
+    assert.equal(db.comments[0].approved, true);
+
+    await other.goto(home, { waitUntil: 'networkidle' });
+    await other.waitForTimeout(1500);
+    await other.locator('#root').getByText('Que promoção boa! Tem horário sábado?').first().waitFor();
+    await other.locator('#root').getByRole('button', { name: 'Comentários (1)' }).first().waitFor();
+    await other.screenshot({ path: path.join(shots, '16-comentario-no-feed.png') });
+    await other.close();
+    await vis.close();
   });
 
   await test('profissional ativa a biometria; o app abre travado e só entra com rosto/digital', async () => {

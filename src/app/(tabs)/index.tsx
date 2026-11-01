@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, type Href } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -148,12 +148,32 @@ function TopBar() {
   const toConfirm = canManage
     ? appointments.filter((a) => a.status === 'agendado' && a.date >= todayIso).length
     : 0;
+  // Na tela inicial, só a marca: "Studio Cores & Fios" vira "Cores & Fios", com o "&" em dourado.
+  const brandName = settings.studioName.replace(/^studio\s+/i, '').trim();
+  const brandParts = brandName.split(/\s*&\s*/).flatMap((p, i) => (i ? ['&', p] : [p]));
 
   return (
     <View style={styles.topBar}>
-      <Text style={styles.logo} numberOfLines={1}>
-        {settings.studioName}
-      </Text>
+      <View style={styles.brand} accessibilityRole="header" accessibilityLabel={brandName}>
+        <View style={styles.brandRow}>
+          <MaterialCommunityIcons name="crown-outline" size={16} color={colors.roseGold} style={styles.crown} />
+          <Text style={styles.brandName} numberOfLines={1}>
+            {brandParts.map((part, i) =>
+              part === '&' ? (
+                <Text key={i} style={styles.brandAmp}>
+                  {' & '}
+                </Text>
+              ) : (
+                <Text key={i}>{part}</Text>
+              ),
+            )}
+          </Text>
+        </View>
+        <LinearGradient colors={[colors.roseGold, 'rgba(201,162,126,0)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.brandLine} />
+        <Text style={styles.brandTagline} numberOfLines={1}>
+          MANICURE & CABELEIREIRA
+        </Text>
+      </View>
       <Pressable
         style={styles.iconButton}
         onPress={() => router.navigate('/agenda')}
@@ -186,11 +206,16 @@ function Profile({ postsCount, reviewsCount, average }: { postsCount: number; re
 
   // Cliente logada vê o próprio perfil (inicial, nome e números dela); quem visita e a profissional veem o do studio.
   const mine = me ? appointments.filter((a) => a.clientPhone === me.phone) : [];
-  const stats: { value: string; label: string; star?: boolean }[] = me
+  const stats: { value: string; label: string; star?: boolean; onPress?: () => void; a11y?: string }[] = me
     ? [
         { value: String(mine.filter((a) => a.status === 'concluido').length), label: 'atendimentos' },
         { value: String(mine.filter((a) => isActive(a) && a.status !== 'concluido' && a.date >= today()).length), label: 'marcados' },
-        { value: brl(balanceOf(me.phone)), label: 'cashback' },
+        {
+          value: brl(balanceOf(me.phone)),
+          label: 'cashback',
+          onPress: () => router.navigate('/clientes'),
+          a11y: `Seu cashback: ${brl(balanceOf(me.phone))}`,
+        },
       ]
     : [
         { value: String(postsCount), label: 'publicações' },
@@ -212,13 +237,20 @@ function Profile({ postsCount, reviewsCount, average }: { postsCount: number; re
         )}
         <View style={styles.stats}>
           {stats.map((s) => (
-            <View key={s.label} style={styles.stat}>
+            <Pressable
+              key={s.label}
+              style={styles.stat}
+              onPress={s.onPress}
+              disabled={!s.onPress}
+              accessibilityRole={s.onPress ? 'button' : undefined}
+              accessibilityLabel={s.a11y}
+            >
               <View style={styles.statValueRow}>
                 {s.star && <Ionicons name="star" size={13} color="#E0A526" />}
-                <Text style={styles.statValue}>{s.value}</Text>
+                <Text style={[styles.statValue, s.onPress && styles.statValueLink]}>{s.value}</Text>
               </View>
               <Text style={styles.statLabel}>{s.label}</Text>
-            </View>
+            </Pressable>
           ))}
         </View>
       </View>
@@ -424,9 +456,24 @@ function EmptyFeed({ filter }: { filter: Filter }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
 
-  topBar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, marginBottom: 14 },
-  logo: { flex: 1, fontFamily: fonts.displayItalic, fontSize: 24, color: colors.plum },
-  iconButton: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  topBar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginBottom: 18 },
+  brand: { flex: 1 },
+  brandRow: { flexDirection: 'row', alignItems: 'center' },
+  crown: { marginRight: 6, marginTop: 2 },
+  brandName: { fontFamily: fonts.displayItalic, fontSize: 29, color: colors.plum, letterSpacing: 0.3 },
+  brandAmp: { fontFamily: fonts.displayItalic, color: colors.roseGold },
+  brandLine: { height: 1, width: '78%', marginTop: 4, marginBottom: 4 },
+  brandTagline: { fontFamily: fonts.medium, fontSize: 9, letterSpacing: 3, color: colors.roseGold },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.roseGoldLight,
+  },
   badge: {
     position: 'absolute',
     top: 4,
@@ -449,6 +496,7 @@ const styles = StyleSheet.create({
   stat: { alignItems: 'center' },
   statValueRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   statValue: { fontFamily: fonts.semibold, fontSize: 18, color: colors.ink },
+  statValueLink: { color: colors.wine },
   statLabel: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
   meRing: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center' },
   meAvatar: {

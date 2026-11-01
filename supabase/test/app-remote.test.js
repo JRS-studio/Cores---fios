@@ -369,6 +369,7 @@ const site = http.createServer((req, res) =>
     await cli.waitForTimeout(1500);
     // Na tela inicial: o saldo no lugar do convite "Seja Premium".
     await C.getByRole('button', { name: /Seu cashback: R\$\s?10,70/ }).waitFor();
+    assert.equal(await C.getByText('SEU CASHBACK').count(), 0, 'sem o cartão grande de cashback');
     assert.equal(await C.getByRole('button', { name: 'Seja Premium' }).count(), 0);
     // O topo mostra o perfil da cliente logada: inicial e nome dela, não os do studio.
     await C.getByLabel('Foto de perfil de Paula Lima').waitFor();

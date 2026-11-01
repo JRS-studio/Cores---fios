@@ -20,7 +20,7 @@ OUT = ROOT / "dist-teste"
 # Fontes que o app usa de fato; vão embutidas no HTML (a página não pode buscar arquivos externos).
 FONTS = [
     "Poppins_400Regular.", "Poppins_500Medium.", "Poppins_600SemiBold.",
-    "PlayfairDisplay_600SemiBold.", "PlayfairDisplay_600SemiBold_Italic.", "/Ionicons.",
+    "PlayfairDisplay_600SemiBold.", "PlayfairDisplay_600SemiBold_Italic.", "/Ionicons.", "/MaterialCommunityIcons.",
 ]
 
 

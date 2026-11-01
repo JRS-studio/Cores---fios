@@ -9,13 +9,12 @@ import { useClients } from '@/features/clients/ClientsContext';
 import { useSession } from '@/features/session/SessionContext';
 import { useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
-import { brl } from '@/utils/format';
 
-// Tela inicial da cliente: o saldo do cashback (Premium) ou o convite "Seja Premium".
+// Tela inicial: convite "Seja Premium" para quem ainda não é (o saldo da Premium fica no topo do perfil).
 export function PremiumHomeCard() {
   const { canManage, phone } = useSession();
   const { findByPhone } = useClients();
-  const { balanceOf, reservedOf } = useCashback();
+  const { balanceOf } = useCashback();
   const { settings } = useSettings();
   if (canManage) return null;
 
@@ -23,32 +22,8 @@ export function PremiumHomeCard() {
   const { cashbackPercent, birthdayDiscount } = settings.loyalty;
   const balance = me ? balanceOf(me.phone) : 0;
 
-  if (me && (me.plan === 'premium' || balance > 0)) {
-    const reserved = Math.min(reservedOf(me.phone), balance);
-    return (
-      <Pressable onPress={() => router.navigate('/clientes')} accessibilityRole="button" accessibilityLabel={`Seu cashback: ${brl(balance)}`}>
-        <LinearGradient colors={[colors.wine, colors.plum]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
-          <View style={styles.icon}>
-            <Ionicons name="wallet-outline" size={22} color={colors.roseGoldLight} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.eyebrow}>SEU CASHBACK</Text>
-            <Text style={styles.balance}>{brl(balance)}</Text>
-            <Text style={styles.info}>
-              {reserved > 0
-                ? `${brl(reserved)} separado para horário marcado`
-                : balance > 0
-                  ? 'Use no próximo agendamento'
-                  : cashbackPercent > 0
-                    ? `${formatPercent(cashbackPercent)} de volta em todo atendimento`
-                    : 'Cliente Premium'}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.roseGoldLight} />
-        </LinearGradient>
-      </Pressable>
-    );
-  }
+  // Premium (ou com saldo): o cashback aparece só no topo do perfil.
+  if (me && (me.plan === 'premium' || balance > 0)) return null;
 
   const perks = [
     cashbackPercent > 0 ? `${formatPercent(cashbackPercent)} de cashback em todo atendimento` : null,

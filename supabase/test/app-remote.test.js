@@ -897,6 +897,49 @@ const site = http.createServer((req, res) =>
     await shot('23-avulsa-sem-whatsapp');
   });
 
+  await test('intervalo de 0 min: horários colados, o próximo começa quando o anterior termina', async () => {
+    const home = `http://localhost:${site.address().port}/`;
+    const d = new Date();
+    do d.setDate(d.getDate() + 1); while (d.getDay() === 0 || d.getDay() === 6);
+    const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    db.settings = [{ id: 1, data: {
+      openTime: '06:00', closeTime: '10:00', slotStep: 0, workDays: [1, 2, 3, 4, 5, 6], breaks: [], blocks: [], clientSlots: {},
+      services: [
+        { id: 'pedicure', name: 'Pedicure', price: 30, active: true, duration: 60 },
+        { id: 'manicure', name: 'Manicure tradicional', price: 30, active: true, duration: 40 },
+      ],
+    } }];
+    // Já existe uma manicure das 6:00 às 6:40 nesse dia.
+    db.appointments.push({ id: 'colado-1', client_phone: '', status: 'confirmado', starts_at: `${day} 06:00`, ends_at: `${day} 06:40`,
+      data: { id: 'colado-1', createdAt: new Date().toISOString(), clientName: 'Primeira', clientPhone: '', serviceName: 'Manicure tradicional', price: 30, duration: 40, date: day, time: '06:00', status: 'confirmado' } });
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(2000);
+    // Ajustes mostra a opção 0 min marcada e a explicação.
+    await R.getByLabel('Ajustes').first().click();
+    await wait(800);
+    await R.getByText('0 min', { exact: true }).waitFor();
+    await R.getByText(/Horários colados/).waitFor();
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(1500);
+    await R.getByText('Agendar', { exact: true }).first().click();
+    await wait(800);
+    await R.getByText('Nova / avulsa').click();
+    await R.getByLabel('Nome', { exact: true }).fill('Segunda');
+    await R.getByText('Pedicure', { exact: true }).last().click();
+    await R.getByRole('button', { name: new RegExp(`^(seg|ter|qua|qui|sex) ${d.getDate()}$`) }).first().click();
+    await wait(600);
+    for (const t of ['06:40', '07:40', '08:40']) await R.getByText(t, { exact: true }).last().waitFor();
+    for (const t of ['06:00', '07:00', '06:15']) assert.equal(await R.getByText(t, { exact: true }).count(), 0, `não oferece ${t}`);
+    await shot('26-intervalo-0-min');
+    await R.getByText('06:40', { exact: true }).last().click();
+    await R.getByText('Confirmar agendamento').click();
+    await wait(1500);
+    const appt = db.appointments.find((a) => a.data.clientName === 'Segunda');
+    assert.match(appt.starts_at, / 06:40$/);
+    assert.match(appt.ends_at, / 07:40$/);
+    db.settings = [];
+  });
+
   await test('profissional ativa a biometria; o app abre travado e só entra com rosto/digital', async () => {
     // Leitor de biometria simulado do Chrome (como o Face ID ou a digital do celular).
     const cdp = await p.context().newCDPSession(p);

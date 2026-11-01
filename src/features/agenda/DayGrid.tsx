@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { isActive, type Appointment } from '@/features/agenda/AppointmentsContext';
 import { AppointmentCard } from '@/features/agenda/components';
-import { unavailableOn, useSettings, type Block } from '@/features/settings/SettingsContext';
+import { gridStep, unavailableOn, useSettings, type Block } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
 import { addDays, today, toMinutes, toTime } from '@/utils/date';
 import { newId } from '@/utils/id';
@@ -20,7 +20,7 @@ export const keepRecent = (blocks: Block[]) => blocks.filter((b) => b.date >= ad
 // O dia inteiro da profissional, do primeiro ao último horário: atendimentos, pausas, bloqueios e horários livres.
 export function DayGrid({ date, appointments, allergyFor }: { date: string; appointments: Appointment[]; allergyFor: (a: Appointment) => boolean }) {
   const { settings, saveSettings } = useSettings();
-  const step = settings.slotStep;
+  const step = gridStep(settings);
   const appts = appointments
     .filter(isActive)
     .map((a) => ({ start: toMinutes(a.time), end: toMinutes(a.time) + a.duration, appt: a }))

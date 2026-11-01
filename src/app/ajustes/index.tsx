@@ -198,10 +198,15 @@ export default function AjustesScreen() {
             {tried && errors.workDays && <Text style={styles.error}>{errors.workDays}</Text>}
             <Text style={styles.label}>Intervalo entre horários</Text>
             <Chips
-              options={[15, 30, 60].map((m) => ({ id: String(m), label: `${m} min` }))}
+              options={[0, 15, 30, 60].map((m) => ({ id: String(m), label: `${m} min` }))}
               selected={[String(form.slotStep)]}
               onToggle={(id) => set('slotStep', Number(id))}
             />
+            <Text style={styles.hint}>
+              {form.slotStep === 0
+                ? 'Horários colados: o próximo atendimento começa assim que o anterior termina, sem espaço entre eles.'
+                : `Os horários aparecem de ${form.slotStep} em ${form.slotStep} minutos.`}
+            </Text>
 
             <Button
               label={saved ? 'Ajustes salvos' : 'Salvar ajustes'}
@@ -254,6 +259,7 @@ export default function AjustesScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
   label: { fontFamily: fonts.medium, fontSize: 13, color: colors.ink, marginTop: 12, marginBottom: 8 },
+  hint: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.muted, marginTop: 6 },
   error: { fontFamily: fonts.medium, fontSize: 12, color: colors.danger, marginTop: 6 },
   menu: { backgroundColor: colors.white, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, marginBottom: 8 },
   menuRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 15 },

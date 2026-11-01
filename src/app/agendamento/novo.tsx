@@ -13,7 +13,7 @@ import { newBookingWhatsApp } from '@/features/agenda/whatsapp';
 import { roundCents, useCashback } from '@/features/cashback/CashbackContext';
 import { useClients } from '@/features/clients/ClientsContext';
 import { useSession } from '@/features/session/SessionContext';
-import { releasedSlots, serviceIn, useSettings } from '@/features/settings/SettingsContext';
+import { isReleasedTime, releasedSlots, serviceIn, useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
 import { newId } from '@/utils/id';
 import { formatLongDate, today } from '@/utils/date';
@@ -62,7 +62,7 @@ export default function NovoAgendamentoScreen() {
   const duration = serviceId === CUSTOM ? (custom?.duration ?? 60) : (service?.duration ?? 60);
   // A cliente só vê os horários que a profissional liberou para aquele dia da semana.
   const released = clientMode ? releasedSlots(settings, date) : null;
-  const slots = availableSlots(date, duration, settings, editing?.id).filter((t) => !released || released.includes(t));
+  const slots = availableSlots(date, duration, settings, editing?.id).filter((t) => !released || isReleasedTime(settings, released, t));
 
   // Com servidor, os horários das outras clientes vêm só como "ocupado".
   useEffect(() => {

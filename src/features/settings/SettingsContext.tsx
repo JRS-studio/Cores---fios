@@ -6,7 +6,7 @@ import { reportSyncError } from '@/data/syncStatus';
 import { usePersisted } from '@/data/usePersisted';
 import { DEFAULT_EXTRA_BENEFITS, DEFAULT_LOYALTY, migrateLoyalty, premiumBenefits, withoutOldBenefits, type LoyaltyRules } from '@/data/loyalty';
 import { DEFAULT_SERVICES, type Service } from '@/data/services';
-import { toMinutes, weekdayOf } from '@/utils/date';
+import { toMinutes, toTime, weekdayOf } from '@/utils/date';
 
 export type Settings = {
   professionalName: string;
@@ -15,7 +15,7 @@ export type Settings = {
   openTime: string; // HH:MM
   closeTime: string; // HH:MM
   workDays: number[]; // 0 = domingo
-  slotStep: number; // minutos entre horários oferecidos
+  slotStep: number; // minutos entre horários oferecidos (0 = horários colados: o próximo começa quando o anterior termina)
   services: Service[];
   // Horários que a cliente pode escolher, por dia da semana ('0' = domingo). Dia sem lista: todos os livres.
   clientSlots: Record<string, string[]>;
@@ -128,6 +128,18 @@ export function usePremiumBenefits() {
 export const serviceIn = (settings: Settings, id?: string) => settings.services.find((s) => s.id === id);
 
 // Horários liberados para a cliente naquele dia (null = todos os livres).
+// Passo da grade de horários das telas de ajuste e da agenda do dia (com 0 min, a grade usa 15 min).
+export const gridStep = (settings: Settings) => (settings.slotStep > 0 ? settings.slotStep : 15);
+
+// O horário está entre os liberados para as clientes? Com horários colados (0 min), o início pode cair
+// fora da grade (ex.: 7:40): vale o bloco da grade em que ele começa (7:30).
+export function isReleasedTime(settings: Settings, released: string[], time: string) {
+  if (released.includes(time)) return true;
+  if (settings.slotStep > 0) return false;
+  const step = gridStep(settings);
+  return released.includes(toTime(Math.floor(toMinutes(time) / step) * step));
+}
+
 export function releasedSlots(settings: Settings, date: string): string[] | null {
   return settings.clientSlots[String(weekdayOf(date))] ?? null;
 }

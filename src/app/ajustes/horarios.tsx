@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Chips, Field, OwnerOnly, ScreenHeader, SectionTitle } from '@/components/ui';
 import { useSession } from '@/features/session/SessionContext';
-import { useSettings, type BreakRule } from '@/features/settings/SettingsContext';
+import { gridStep, useSettings, type BreakRule } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
 import { WEEKDAYS, WEEKDAYS_SHORT, toMinutes, toTime } from '@/utils/date';
 import { newId } from '@/utils/id';
@@ -41,7 +41,7 @@ function HorariosContent() {
 
   // Todos os inícios possíveis no horário de funcionamento.
   const all: string[] = [];
-  for (let m = toMinutes(settings.openTime); m < toMinutes(settings.closeTime); m += settings.slotStep) all.push(toTime(m));
+  for (let m = toMinutes(settings.openTime); m < toMinutes(settings.closeTime); m += gridStep(settings)) all.push(toTime(m));
 
   const custom = slots[day];
   const isOn = (t: string) => !custom || custom.includes(t);

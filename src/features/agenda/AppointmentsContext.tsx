@@ -143,11 +143,31 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         const now = new Date();
         const nowMinutes = date === today() ? now.getHours() * 60 + now.getMinutes() : -1;
         const slots: string[] = [];
-        for (let start = open; start + duration <= close; start += settings.slotStep) {
-          const end = start + duration;
-          if (start <= nowMinutes) continue;
-          if (busy.some(([s, e]) => start < e && end > s)) continue;
+        if (settings.slotStep > 0) {
+          for (let start = open; start + duration <= close; start += settings.slotStep) {
+            const end = start + duration;
+            if (start <= nowMinutes) continue;
+            if (busy.some(([s, e]) => start < e && end > s)) continue;
+            slots.push(toTime(start));
+          }
+          return slots;
+        }
+        // 0 min (horários colados): cada horário começa quando o anterior termina; se esbarra num
+        // atendimento, pausa ou bloqueio, o próximo começa logo depois dele.
+        const length = Math.max(duration, 5);
+        let start = open;
+        while (start + length <= close) {
+          if (start <= nowMinutes) {
+            start = Math.ceil((nowMinutes + 1) / 5) * 5;
+            continue;
+          }
+          const clash = busy.find(([s, e]) => start < e && start + length > s);
+          if (clash) {
+            start = clash[1];
+            continue;
+          }
           slots.push(toTime(start));
+          start += length;
         }
         return slots;
       },

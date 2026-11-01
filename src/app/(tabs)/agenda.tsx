@@ -13,8 +13,13 @@ import { useSession } from '@/features/session/SessionContext';
 import { useClients } from '@/features/clients/ClientsContext';
 import { isDayBlocked, useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
-import { addDays, formatDayMonth, formatLongDate, monthKey, shiftMonth, today, weekdayOf } from '@/utils/date';
+import { addDays, formatDayMonth, formatLongDate, MONTHS, monthKey, shiftMonth, today, weekdayOf } from '@/utils/date';
 import { brl } from '@/utils/format';
+
+const monthName = (key: string) => {
+  const name = MONTHS[Number(key.slice(5, 7)) - 1];
+  return name[0].toUpperCase() + name.slice(1);
+};
 
 export default function AgendaScreen() {
   const insets = useSafeAreaInsets();
@@ -24,7 +29,8 @@ export default function AgendaScreen() {
   const { canManage } = useSession();
   const [date, setDate] = useState(today());
   const [view, setView] = useState<'grade' | 'lista'>('grade');
-  // Como a agenda é organizada: a semana atual (faixa de dias), o mês atual ou o próximo mês (calendário).
+  // Como a agenda é organizada: a semana atual (faixa de dias), o mês atual ou o mês seguinte (calendário),
+  // com os botões pelo nome do mês (ex.: Semana, Novembro, Dezembro).
   const [period, setPeriod] = useState<'semana' | 'mes' | 'proximo'>('semana');
   const todayIso = today();
   const thisMonth = monthKey(todayIso);
@@ -115,8 +121,8 @@ export default function AgendaScreen() {
         {(
           [
             ['semana', 'Semana'],
-            ['mes', 'Mês'],
-            ['proximo', 'Próximo mês'],
+            ['mes', monthName(thisMonth)],
+            ['proximo', monthName(nextMonth)],
           ] as const
         ).map(([id, label]) => (
           <Pressable

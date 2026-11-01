@@ -954,7 +954,7 @@ const site = http.createServer((req, res) =>
     db.settings = [];
   });
 
-  await test('agenda organizada em semana, mês e próximo mês', async () => {
+  await test('agenda organizada em Semana e nos meses pelo nome (ex.: Novembro, Dezembro)', async () => {
     const home = `http://localhost:${site.address().port}/`;
     const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
     const now = new Date();
@@ -972,11 +972,13 @@ const site = http.createServer((req, res) =>
     await R.getByRole('tab', { name: 'Semana' }).waitFor();
     assert.equal(await R.getByRole('button', { name: /^(dom|seg|ter|qua|qui|sex|sáb) \d+/ }).count(), 7);
     // Mês: o calendário do mês atual.
-    await R.getByRole('tab', { name: 'Mês', exact: true }).click();
+    const cap = (m) => m[0].toUpperCase() + m.slice(1);
+    assert.equal(await R.getByRole('tab', { name: 'Próximo mês' }).count(), 0, 'sem o botão "Próximo mês"');
+    await R.getByRole('tab', { name: cap(esteMes), exact: true }).click();
     await wait(400);
     await R.getByLabel(`Calendário de ${esteMes}`).waitFor();
     // Próximo mês: o calendário do mês seguinte, com o horário do dia 15.
-    await R.getByRole('tab', { name: 'Próximo mês' }).click();
+    await R.getByRole('tab', { name: cap(proximo), exact: true }).click();
     await wait(400);
     await R.getByLabel(`Calendário de ${proximo}`).waitFor();
     await R.getByLabel(new RegExp(`^15 de ${proximo}, 1 horário`)).click();

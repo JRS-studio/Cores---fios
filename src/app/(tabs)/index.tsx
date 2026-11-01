@@ -9,6 +9,7 @@ import { isActive, useAppointments } from '@/features/agenda/AppointmentsContext
 import { useClients } from '@/features/clients/ClientsContext';
 import { useFeedback } from '@/features/feedback/FeedbackContext';
 import { PostCard, ReviewCard, StudioAvatar, type FeedItem } from '@/features/feed/FeedCards';
+import { useCashback } from '@/features/cashback/CashbackContext';
 import { useComments } from '@/features/feed/CommentsContext';
 import { usePosts } from '@/features/feed/PostsContext';
 import { useFinance } from '@/features/finance/FinanceContext';
@@ -180,17 +181,35 @@ function Profile({ postsCount, reviewsCount, average }: { postsCount: number; re
   const { canManage, phone } = useSession();
   const { findByPhone } = useClients();
   const me = !canManage && phone ? findByPhone(phone) : undefined;
+  const { appointments } = useAppointments();
+  const { balanceOf } = useCashback();
 
-  const stats = [
-    { value: String(postsCount), label: 'publicações' },
-    { value: String(reviewsCount), label: 'avaliações' },
-    { value: reviewsCount ? average.toFixed(1).replace('.', ',') : '–', label: 'nota', star: true },
-  ];
+  // Cliente logada vê o próprio perfil (inicial, nome e números dela); quem visita e a profissional veem o do studio.
+  const mine = me ? appointments.filter((a) => a.clientPhone === me.phone) : [];
+  const stats: { value: string; label: string; star?: boolean }[] = me
+    ? [
+        { value: String(mine.filter((a) => a.status === 'concluido').length), label: 'atendimentos' },
+        { value: String(mine.filter((a) => isActive(a) && a.status !== 'concluido' && a.date >= today()).length), label: 'marcados' },
+        { value: brl(balanceOf(me.phone)), label: 'cashback' },
+      ]
+    : [
+        { value: String(postsCount), label: 'publicações' },
+        { value: String(reviewsCount), label: 'avaliações' },
+        { value: reviewsCount ? average.toFixed(1).replace('.', ',') : '–', label: 'nota', star: true },
+      ];
 
   return (
     <View style={styles.profile}>
       <View style={styles.profileTop}>
-        <StudioAvatar name={settings.studioName} size={74} />
+        {me ? (
+          <LinearGradient colors={[colors.roseGold, colors.wine]} style={styles.meRing}>
+            <View style={styles.meAvatar} accessibilityLabel={`Foto de perfil de ${me.name}`}>
+              <Text style={styles.meInitial}>{me.name.trim()[0]?.toUpperCase()}</Text>
+            </View>
+          </LinearGradient>
+        ) : (
+          <StudioAvatar name={settings.studioName} size={74} />
+        )}
         <View style={styles.stats}>
           {stats.map((s) => (
             <View key={s.label} style={styles.stat}>
@@ -203,12 +222,12 @@ function Profile({ postsCount, reviewsCount, average }: { postsCount: number; re
           ))}
         </View>
       </View>
-      <Text style={styles.profileName}>{settings.professionalName}</Text>
+      <Text style={styles.profileName}>{me ? me.name : settings.professionalName}</Text>
       <Text style={styles.profileBio}>
         {canManage
           ? 'Seu perfil como as clientes veem. Publique seus trabalhos e novidades.'
           : me
-            ? `Que bom te ver, ${me.name.split(' ')[0]}! Confira as novidades e os trabalhos do studio.`
+            ? `Que bom te ver, ${me.name.split(' ')[0]}! Confira as novidades e os trabalhos do ${settings.studioName}.`
             : 'Manicure e nail designer. Veja os trabalhos, as avaliações das clientes e agende seu horário.'}
       </Text>
       <View style={styles.profileButtons}>
@@ -431,6 +450,18 @@ const styles = StyleSheet.create({
   statValueRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   statValue: { fontFamily: fonts.semibold, fontSize: 18, color: colors.ink },
   statLabel: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
+  meRing: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center' },
+  meAvatar: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    backgroundColor: colors.plum,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
+  meInitial: { fontFamily: fonts.display, fontSize: 32, color: colors.roseGoldLight },
   profileName: { fontFamily: fonts.semibold, fontSize: 15, color: colors.ink, marginTop: 10 },
   profileBio: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.ink, marginTop: 2 },
   profileButtons: { flexDirection: 'row', gap: 8, marginTop: 12 },

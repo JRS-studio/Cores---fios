@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui';
 import type { Comment } from '@/features/feed/CommentsContext';
+import { STUDIO_LOGO } from '@/features/feed/FeedCards';
 import { colors, fonts, radius } from '@/theme';
 import { timeAgo } from '@/utils/date';
 
@@ -33,9 +34,13 @@ export function CommentRow({
   return (
     <View style={[reply ? styles.reply : styles.comment, !c.approved && styles.commentPending]}>
       <View style={styles.commentTop}>
-        <View style={[styles.avatar, c.fromStudio && styles.avatarStudio]}>
-          <Text style={[styles.avatarText, c.fromStudio && { color: colors.roseGoldLight }]}>{c.name.trim()[0]?.toUpperCase()}</Text>
-        </View>
+        {c.fromStudio ? (
+          <Image source={STUDIO_LOGO} style={styles.avatar} accessibilityLabel={`Logo do ${c.name}`} />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{c.name.trim()[0]?.toUpperCase()}</Text>
+          </View>
+        )}
         <View style={{ flex: 1 }}>
           <Text style={styles.commentText}>
             <Text style={styles.author}>{c.name} </Text>
@@ -90,7 +95,6 @@ const styles = StyleSheet.create({
   commentPending: { borderWidth: 1, borderColor: colors.roseGold, backgroundColor: colors.blush },
   commentTop: { flexDirection: 'row', gap: 10 },
   avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
-  avatarStudio: { backgroundColor: colors.plum },
   avatarText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.wine },
   commentText: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.ink },
   author: { fontFamily: fonts.semibold, color: colors.ink },

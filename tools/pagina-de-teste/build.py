@@ -53,6 +53,12 @@ def inline_bundle(web: Path) -> str:
         if any(name in rel for name in FONTS) and f'"{rel}"' in js:
             data = base64.b64encode(path.read_bytes()).decode()
             js = js.replace(f'"{rel}"', f'"data:font/ttf;base64,{data}"')
+    # Imagens do próprio app (ex.: logo do studio) também vão dentro do arquivo.
+    for path in web.glob("assets/assets/**/*.png"):
+        rel = "/" + path.relative_to(web).as_posix()
+        if f'"{rel}"' in js:
+            data = base64.b64encode(path.read_bytes()).decode()
+            js = js.replace(f'"{rel}"', f'"data:image/png;base64,{data}"')
     return js.replace("</script", "<\\/script")
 
 

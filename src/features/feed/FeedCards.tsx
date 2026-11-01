@@ -28,12 +28,17 @@ async function shareText(text: string) {
   }
 }
 
+// Logo do studio (a mesma imagem do ícone do app), usado como foto do perfil.
+export const STUDIO_LOGO = require('../../../assets/logo-avatar.png');
+
 export function StudioAvatar({ name, size = 40 }: { name: string; size?: number }) {
   return (
     <LinearGradient colors={[colors.roseGold, colors.wine]} style={[styles.ring, { width: size + 6, height: size + 6, borderRadius: (size + 6) / 2 }]}>
-      <View style={[styles.studioAvatar, { width: size, height: size, borderRadius: size / 2 }]}>
-        <Text style={[styles.studioAvatarText, { fontSize: size * 0.42 }]}>{name.replace(/^studio\s+/i, '').trim()[0]?.toUpperCase()}</Text>
-      </View>
+      <Image
+        source={STUDIO_LOGO}
+        style={[styles.studioAvatar, { width: size, height: size, borderRadius: size / 2 }]}
+        accessibilityLabel={`Logo do ${name}`}
+      />
     </LinearGradient>
   );
 }
@@ -322,7 +327,6 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
   ring: { alignItems: 'center', justifyContent: 'center' },
   studioAvatar: { backgroundColor: colors.plum, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.white },
-  studioAvatarText: { fontFamily: fonts.display, color: colors.roseGoldLight },
   personAvatar: {
     width: 38,
     height: 38,

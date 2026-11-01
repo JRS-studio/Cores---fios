@@ -31,8 +31,12 @@ export default function ComentariosScreen() {
   const [tried, setTried] = useState(false);
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
   const post = posts.find((p) => p.id === id);
-  const comments = visibleFor(id);
+  const visible = visibleFor(id);
+  const comments = visible.filter((c) => !c.replyTo);
+  const repliesTo = (commentId: string) => visible.filter((c) => c.replyTo === commentId);
 
   if (!post) {
     return (
@@ -62,6 +66,17 @@ export default function ComentariosScreen() {
     setText('');
     setTried(false);
     setNotice(canManage ? 'Comentário publicado.' : `Comentário enviado! Ele aparece para todas depois que ${settings.professionalName} aprovar.`);
+  }
+
+  async function sendReply(commentId: string) {
+    if (replyText.trim().length < 2 || sending) return;
+    setSending(true);
+    const ok = await addComment(post!.id, replyText, settings.studioName, commentId);
+    setSending(false);
+    if (ok) {
+      setReplyText('');
+      setReplyingTo(null);
+    }
   }
 
   const kind = postKindLabel(post.kind);
@@ -95,7 +110,38 @@ export default function ComentariosScreen() {
               canRemove={canRemove(c)}
               onApprove={() => approveComment(c.id)}
               onRemove={() => removeComment(c.id)}
-            />
+              onReply={canManage && c.approved && !c.fromStudio ? () => setReplyingTo(replyingTo === c.id ? null : c.id) : undefined}
+            >
+              {repliesTo(c.id).map((r) => (
+                <CommentRow
+                  key={r.id}
+                  comment={r}
+                  reply
+                  canApprove={false}
+                  canRemove={canRemove(r)}
+                  onApprove={() => undefined}
+                  onRemove={() => removeComment(r.id)}
+                />
+              ))}
+              {replyingTo === c.id && (
+                <View style={styles.replyBox}>
+                  <Field
+                    label={`Sua resposta para ${c.name}`}
+                    value={replyText}
+                    onChangeText={setReplyText}
+                    placeholder="Sua resposta"
+                    multiline
+                    maxLength={MAX_COMMENT}
+                  />
+                  <Button
+                    label={sending ? 'Enviando…' : 'Enviar resposta'}
+                    icon="send"
+                    onPress={() => sendReply(c.id)}
+                    disabled={sending || replyText.trim().length < 2}
+                  />
+                </View>
+              )}
+            </CommentRow>
           ))
         )}
 
@@ -142,6 +188,7 @@ const styles = StyleSheet.create({
   post: { backgroundColor: colors.white, borderRadius: radius.md, padding: 14, marginBottom: 14 },
   postText: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.ink },
   author: { fontFamily: fonts.semibold, color: colors.ink },
+  replyBox: { marginLeft: 20, gap: 4 },
   form: { marginTop: 14, gap: 4 },
   notice: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#E6F3EC', borderRadius: radius.sm, padding: 12, marginBottom: 10 },
   noticeText: { flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.success },

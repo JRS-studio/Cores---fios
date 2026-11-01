@@ -157,7 +157,7 @@ Sem configuração, o app funciona só no aparelho. Com o Supabase ligado (passo
 
 ## Próximos passos
 
-- Respostas a comentários específicos.
+- Avisar a cliente quando a profissional responder o comentário dela.
 
 ## Estrutura
 

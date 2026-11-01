@@ -242,7 +242,8 @@ export const PostCard = memo(function PostCard({ post, studioName, canManage, on
             </Pressable>
           )}
           {comments.slice(-2).map((c) => (
-            <Text key={c.id} style={styles.commentLine} numberOfLines={2}>
+            <Text key={c.id} style={[styles.commentLine, !!c.replyTo && styles.replyLine]} numberOfLines={2}>
+              {c.replyTo ? '↳ ' : ''}
               <Text style={styles.captionAuthor}>{c.name} </Text>
               {c.text}
             </Text>
@@ -368,6 +369,7 @@ const styles = StyleSheet.create({
   bookText: { fontFamily: fonts.semibold, fontSize: 12, color: colors.white },
   body: { paddingHorizontal: 14, paddingBottom: 14, gap: 8 },
   commentLine: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.ink },
+  replyLine: { paddingLeft: 14 },
   addComment: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
   caption: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.ink },
   captionAuthor: { fontFamily: fonts.semibold },

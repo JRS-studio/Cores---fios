@@ -555,10 +555,25 @@ const site = http.createServer((req, res) =>
     await wait(1200);
     assert.equal(db.comments[0].approved, true);
 
+    // A profissional responde: a resposta aparece na hora, já aprovada, embaixo do comentário.
+    await R.getByLabel('Voltar').last().click();
+    await wait(800);
+    await R.getByRole('button', { name: /^Comentários \(1\)/ }).first().click();
+    await wait(800);
+    await R.getByRole('button', { name: 'Responder Carla' }).click();
+    await R.getByLabel('Sua resposta para Carla').fill('Tem sim, Carla! Sábado às 10h está livre.');
+    await R.getByRole('button', { name: 'Enviar resposta' }).click();
+    await wait(1200);
+    await shot('17-resposta');
+    const reply = db.comments.find((r) => r.data.replyTo === row.id);
+    assert.equal(reply.approved, true);
+    assert.equal(reply.data.fromStudio, true);
+
     await other.goto(home, { waitUntil: 'networkidle' });
     await other.waitForTimeout(1500);
     await other.locator('#root').getByText('Que promoção boa! Tem horário sábado?').first().waitFor();
-    await other.locator('#root').getByRole('button', { name: 'Comentários (1)' }).first().waitFor();
+    await other.locator('#root').getByText('Tem sim, Carla! Sábado às 10h está livre.').first().waitFor();
+    await other.locator('#root').getByRole('button', { name: 'Comentários (2)' }).first().waitFor();
     await other.screenshot({ path: path.join(shots, '16-comentario-no-feed.png') });
     await other.close();
     await vis.close();

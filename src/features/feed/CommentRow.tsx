@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui';
@@ -13,16 +13,25 @@ export function CommentRow({
   canRemove,
   onApprove,
   onRemove,
+  onReply,
+  reply,
+  children,
 }: {
   comment: Comment;
   canApprove: boolean;
   canRemove: boolean;
   onApprove: () => void;
   onRemove: () => void;
+  // A profissional responde (só em comentários já aprovados).
+  onReply?: () => void;
+  // Resposta mostrada dentro do comentário, recuada.
+  reply?: boolean;
+  // Respostas e caixa de resposta, abaixo do comentário.
+  children?: ReactNode;
 }) {
   const [confirming, setConfirming] = useState(false);
   return (
-    <View style={[styles.comment, !c.approved && styles.commentPending]}>
+    <View style={[reply ? styles.reply : styles.comment, !c.approved && styles.commentPending]}>
       <View style={styles.commentTop}>
         <View style={[styles.avatar, c.fromStudio && styles.avatarStudio]}>
           <Text style={[styles.avatarText, c.fromStudio && { color: colors.roseGoldLight }]}>{c.name.trim()[0]?.toUpperCase()}</Text>
@@ -54,18 +63,30 @@ export function CommentRow({
           <Button label="Recusar" icon="close-circle-outline" variant="secondary" onPress={() => setConfirming(true)} style={{ flex: 1 }} />
         </View>
       ) : (
-        canRemove && (
-          <Pressable onPress={() => setConfirming(true)} hitSlop={6} style={{ alignSelf: 'flex-end' }}>
-            <Text style={styles.link}>Apagar</Text>
-          </Pressable>
+        (onReply || canRemove) && (
+          <View style={styles.links}>
+            {onReply && (
+              <Pressable onPress={onReply} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Responder ${c.name}`}>
+                <Text style={styles.link}>Responder</Text>
+              </Pressable>
+            )}
+            {canRemove && (
+              <Pressable onPress={() => setConfirming(true)} hitSlop={6}>
+                <Text style={styles.link}>Apagar</Text>
+              </Pressable>
+            )}
+          </View>
         )
       )}
+      {children}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   comment: { backgroundColor: colors.white, borderRadius: radius.md, padding: 12, marginBottom: 10, gap: 10 },
+  reply: { backgroundColor: colors.cream, borderRadius: radius.sm, padding: 10, gap: 8, marginLeft: 20 },
+  links: { flexDirection: 'row', justifyContent: 'flex-end', gap: 18 },
   commentPending: { borderWidth: 1, borderColor: colors.roseGold, backgroundColor: colors.blush },
   commentTop: { flexDirection: 'row', gap: 10 },
   avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },

@@ -16,6 +16,8 @@ export type Comment = {
   authorId?: string;
   fromStudio?: boolean;
   approved: boolean;
+  // Resposta da profissional a um comentário (id do comentário respondido).
+  replyTo?: string;
 };
 
 export const MAX_COMMENT = 300;
@@ -34,7 +36,7 @@ type CommentsApi = {
   visibleFor: (postId: string) => Comment[];
   // Todos os que esperam aprovação (a profissional vê todos; a cliente, só os dela).
   pending: Comment[];
-  addComment: (postId: string, text: string, name: string) => Promise<boolean>;
+  addComment: (postId: string, text: string, name: string, replyTo?: string) => Promise<boolean>;
   approveComment: (id: string) => void;
   removeComment: (id: string) => void;
   // Quem pode apagar: a profissional ou quem escreveu.
@@ -54,7 +56,7 @@ export function CommentsProvider({ children }: { children: ReactNode }) {
       approvedFor: (postId) => all.filter((c) => c.postId === postId && c.approved).sort(byDate),
       visibleFor: (postId) => all.filter((c) => c.postId === postId && canSee(c)).sort(byDate),
       pending: all.filter((c) => !c.approved && (canManage || mine(c))).sort(byDate),
-      addComment: async (postId, text, name) => {
+      addComment: async (postId, text, name, replyTo) => {
         const me = userId ?? (await ensureUser());
         if (!me) return false;
         return commit([
@@ -69,11 +71,13 @@ export function CommentsProvider({ children }: { children: ReactNode }) {
             fromStudio: canManage || undefined,
             // O que a profissional escreve já sai aprovado; o resto espera a aprovação dela.
             approved: canManage,
+            replyTo,
           },
         ]);
       },
       approveComment: (id) => commit(all.map((c) => (c.id === id ? { ...c, approved: true } : c))),
-      removeComment: (id) => commit(all.filter((c) => c.id !== id)),
+      // Apagar um comentário apaga também as respostas dele.
+      removeComment: (id) => commit(all.filter((c) => c.id !== id && c.replyTo !== id)),
       canRemove: (c) => canManage || mine(c),
     };
   }, [all, commit, canManage, userId, ensureUser]);

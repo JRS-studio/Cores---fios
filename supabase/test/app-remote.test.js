@@ -954,6 +954,39 @@ const site = http.createServer((req, res) =>
     db.settings = [];
   });
 
+  await test('agenda organizada em semana, mês e próximo mês', async () => {
+    const home = `http://localhost:${site.address().port}/`;
+    const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+    const now = new Date();
+    const [esteMes, proximo] = [0, 1].map((k) => MESES[(now.getMonth() + k) % 12]);
+    // Um horário no dia 15 do próximo mês, para aparecer no calendário.
+    const y = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear();
+    const day15 = `${y}-${String(((now.getMonth() + 1) % 12) + 1).padStart(2, '0')}-15`;
+    db.appointments.push({ id: 'mes-15', client_phone: '', status: 'confirmado', starts_at: `${day15} 10:00`, ends_at: `${day15} 11:00`,
+      data: { id: 'mes-15', createdAt: new Date().toISOString(), clientName: 'Cliente do dia 15', clientPhone: '', serviceName: 'Pedicure', price: 30, duration: 60, date: day15, time: '10:00', status: 'confirmado' } });
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(1500);
+    await R.getByRole('button', { name: 'Agenda' }).last().click();
+    await wait(800);
+    // Semana: os 7 dias da semana atual.
+    await R.getByRole('tab', { name: 'Semana' }).waitFor();
+    assert.equal(await R.getByRole('button', { name: /^(dom|seg|ter|qua|qui|sex|sáb) \d+/ }).count(), 7);
+    // Mês: o calendário do mês atual.
+    await R.getByRole('tab', { name: 'Mês', exact: true }).click();
+    await wait(400);
+    await R.getByLabel(`Calendário de ${esteMes}`).waitFor();
+    // Próximo mês: o calendário do mês seguinte, com o horário do dia 15.
+    await R.getByRole('tab', { name: 'Próximo mês' }).click();
+    await wait(400);
+    await R.getByLabel(`Calendário de ${proximo}`).waitFor();
+    await R.getByLabel(new RegExp(`^15 de ${proximo}, 1 horário`)).click();
+    await wait(500);
+    await R.getByText(new RegExp(`15 de ${proximo}$`)).first().waitFor();
+    await R.getByText('Cliente do dia 15', { exact: false }).first().waitFor();
+    await shot('28-agenda-proximo-mes');
+    db.appointments = db.appointments.filter((a) => a.id !== 'mes-15');
+  });
+
   await test('profissional ativa a biometria; o app abre travado e só entra com rosto/digital', async () => {
     // Leitor de biometria simulado do Chrome (como o Face ID ou a digital do celular).
     const cdp = await p.context().newCDPSession(p);

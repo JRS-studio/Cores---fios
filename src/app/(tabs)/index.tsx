@@ -19,6 +19,7 @@ import { formatDayMonth, today, toMinutes } from '@/utils/date';
 import { brl, formatPhone } from '@/utils/format';
 import { openExternal } from '@/utils/openExternal';
 import { RemindersCard } from '@/features/reminders/RemindersCard';
+import { PremiumHomeCard } from '@/features/cashback/PremiumHomeCard';
 import { InstallCard } from '@/features/install/InstallCard';
 
 type Shortcut = { icon: keyof typeof Ionicons.glyphMap; label: string; a11y?: string; href: Href };
@@ -99,6 +100,7 @@ export default function HomeScreen() {
       )}
       <InstallCard />
       {canManage ? <TodayCard /> : phone ? <NextAppointment /> : null}
+      <PremiumHomeCard />
       {!canManage && (
         <View style={styles.reminders}>
           <RemindersCard compact />

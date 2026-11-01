@@ -161,6 +161,8 @@ const site = http.createServer((req, res) =>
     await R.getByLabel(/Instagram do studio/).waitFor();
     assert.equal(await R.getByText('horários hoje').count(), 0);
     assert.equal(await R.getByLabel('Financeiro', { exact: true }).count(), 0);
+    await R.getByText('Seja Premium', { exact: true }).waitFor();
+    await R.getByRole('button', { name: 'Seja Premium' }).waitFor();
     await R.getByLabel('Conta', { exact: true }).waitFor();
     await shot('01-visitante');
   });
@@ -365,6 +367,10 @@ const site = http.createServer((req, res) =>
     await cli.waitForTimeout(1500);
     await cli.goto(home, { waitUntil: 'networkidle' });
     await cli.waitForTimeout(1500);
+    // Na tela inicial: o saldo no lugar do convite "Seja Premium".
+    await C.getByRole('button', { name: /Seu cashback: R\$\s?10,70/ }).waitFor();
+    assert.equal(await C.getByRole('button', { name: 'Seja Premium' }).count(), 0);
+    await cli.screenshot({ path: path.join(shots, '18-cashback-inicio.png') });
     await C.getByLabel('Conta', { exact: true }).last().click();
     await cli.waitForTimeout(800);
     await C.getByLabel(/Saldo de cashback: R\$\s?10,70/).waitFor();
@@ -387,7 +393,7 @@ const site = http.createServer((req, res) =>
     await cli.waitForTimeout(1500);
     await C.getByLabel('Conta', { exact: true }).last().click();
     await cli.waitForTimeout(800);
-    await C.getByText(/R\$\s?10,70 separado para horário marcado/).waitFor();
+    await C.getByText(/R\$\s?10,70 separado para horário marcado/).filter({ visible: true }).first().waitFor();
     // A cliente não consegue lançar cashback para si.
     const before = db.cashback.length;
     const status = await cli.evaluate(async ([url]) => {

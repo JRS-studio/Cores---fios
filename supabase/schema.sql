@@ -155,10 +155,12 @@ create policy "cliente vê os próprios horários" on appointments for select us
 drop policy if exists "cliente marca horário" on appointments;
 create policy "cliente marca horário" on appointments for insert
   with check (client_phone = current_phone() and status = 'agendado');
+-- A cliente só remarca (o horário volta a "a confirmar"); cancelar é só com a profissional
+-- (no app, a cliente pede o cancelamento pelo WhatsApp).
 drop policy if exists "cliente remarca ou cancela" on appointments;
 create policy "cliente remarca ou cancela" on appointments for update
   using (client_phone = current_phone() and status in ('agendado', 'confirmado'))
-  with check (client_phone = current_phone() and status in ('agendado', 'cancelado'));
+  with check (client_phone = current_phone() and status = 'agendado');
 
 drop policy if exists "profissional: financeiro" on transactions;
 create policy "profissional: financeiro" on transactions for all using (is_owner()) with check (is_owner());

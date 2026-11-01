@@ -598,7 +598,7 @@ const site = http.createServer((req, res) =>
     await vis.close();
   });
 
-  await test('cliente cancela horário confirmado: libera a agenda, avisa a profissional e abre o WhatsApp dela', async () => {
+  await test('cliente pede o cancelamento pelo WhatsApp; só a profissional cancela e libera o horário', async () => {
     const home = `http://localhost:${site.address().port}/`;
     db.settings = [{ id: 1, data: { whatsapp: '11999990000' } }];
     const cli = await browser.newPage({ viewport: { width: 390, height: 844 } });
@@ -637,25 +637,35 @@ const site = http.createServer((req, res) =>
     // Abre o horário pelo cartão "próximo horário" da tela inicial.
     await C.getByText(/às 11:00 · Pedicure/).first().click();
     await cli.waitForTimeout(800);
-    await C.getByText('Cancelar horário', { exact: true }).first().click();
-    await C.getByText(/recebe o aviso; o WhatsApp dela abre com a mensagem pronta/).waitFor();
+    assert.equal(await C.getByText('Cancelar horário', { exact: true }).count(), 0, 'a cliente não cancela sozinha');
     // Sem internet para o WhatsApp aqui: responde a página do wa.me com algo simples.
     await cli.context().route('https://wa.me/**', (r) => r.fulfill({ contentType: 'text/html', body: 'WhatsApp' }));
     const whats = cli.context().waitForEvent('page');
-    await C.getByRole('button', { name: 'Cancelar horário' }).click();
+    await C.getByRole('button', { name: 'Pedir cancelamento' }).click();
     const wa = await whats;
     await wa.waitForLoadState().catch(() => {});
     const url = decodeURIComponent(wa.url());
     assert.match(url, /wa\.me\/5511999990000/);
-    assert.match(url, /Cancelei pelo app meu horário de Pedicure/);
+    assert.match(url, /Gostaria de cancelar meu horário de Pedicure/);
     await wa.close();
-    await C.getByText(/Horário cancelado\. O horário ficou livre e Jhenifer foi avisada\./).waitFor();
-    await cli.screenshot({ path: path.join(shots, '19-cancelado.png') });
+    await C.getByText(/O horário continua marcado até Jhenifer cancelar/).waitFor();
+    await cli.screenshot({ path: path.join(shots, '19-pedido-cancelamento.png') });
+    assert.equal(db.appointments.find((a) => a.id === appt.id).status, 'confirmado', 'o horário continua marcado');
+
+    // A profissional cancela: aí o horário fica livre.
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(1500);
+    await R.getByRole('button', { name: 'Clientes' }).last().click();
+    await wait(800);
+    await R.getByText('Lia Souza').first().click();
+    await wait(800);
+    await R.getByText('Pedicure', { exact: false }).last().click();
+    await wait(800);
+    await R.getByText('Cancelar horário', { exact: true }).first().click();
+    await R.getByRole('button', { name: 'Cancelar horário' }).click();
+    await wait(1200);
     const row = db.appointments.find((a) => a.id === appt.id);
     assert.equal(row.status, 'cancelado');
-    // O horário volta a ficar livre para outras pessoas.
-    const day = row.starts_at.slice(0, 10);
-    assert.equal(db.appointments.filter((a) => a.starts_at.startsWith(day) && a.status !== 'cancelado' && a.starts_at.endsWith('11:00')).length, 0);
     db.settings = [];
     await cli.close();
   });

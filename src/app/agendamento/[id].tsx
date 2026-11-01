@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Chips, Field, ScreenHeader } from '@/components/ui';
 import { useAppointments, PAYMENT_LABEL, type PaymentMethod } from '@/features/agenda/AppointmentsContext';
 import { endTime, StatusChip } from '@/features/agenda/components';
-import { cancelWhatsApp, newBookingWhatsApp } from '@/features/agenda/whatsapp';
+import { cancelRequestWhatsApp, newBookingWhatsApp } from '@/features/agenda/whatsapp';
 import { cashbackFor, roundCents, useCashback, type CashbackEntry } from '@/features/cashback/CashbackContext';
 import { useClients } from '@/features/clients/ClientsContext';
 import { useFinance } from '@/features/finance/FinanceContext';
@@ -285,9 +285,25 @@ export default function AgendamentoScreen() {
                     <Text style={styles.subtle}>Marcar falta</Text>
                   </Pressable>
                 )}
-                <Pressable onPress={() => setConfirm('cancelar')} hitSlop={6}>
-                  <Text style={[styles.subtle, { color: colors.danger }]}>Cancelar horário</Text>
-                </Pressable>
+                {canManage ? (
+                  <Pressable onPress={() => setConfirm('cancelar')} hitSlop={6}>
+                    <Text style={[styles.subtle, { color: colors.danger }]}>Cancelar horário</Text>
+                  </Pressable>
+                ) : (
+                  // Só a profissional cancela: a cliente pede pelo WhatsApp e o horário continua marcado até lá.
+                  <Pressable
+                    onPress={() => {
+                      if (settings.whatsapp) {
+                        openExternal(cancelRequestWhatsApp(settings.whatsapp, a, settings.professionalName));
+                        say(`Pedido de cancelamento enviado pelo WhatsApp. O horário continua marcado até ${settings.professionalName} cancelar.`);
+                      } else say(`Para cancelar, fale com ${settings.professionalName}.`);
+                    }}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                  >
+                    <Text style={[styles.subtle, { color: colors.danger }]}>Pedir cancelamento</Text>
+                  </Pressable>
+                )}
               </View>
             </>
           )}
@@ -337,9 +353,7 @@ export default function AgendamentoScreen() {
         <View style={styles.confirm}>
           <Text style={styles.confirmText}>
             {confirm === 'cancelar'
-              ? canManage
-                ? `Cancelar o horário de ${firstName}? O horário fica livre na agenda.`
-                : `Cancelar seu horário de ${when}? O horário fica livre na agenda e ${settings.professionalName} recebe o aviso${settings.whatsapp ? '; o WhatsApp dela abre com a mensagem pronta' : ''}.`
+              ? `Cancelar o horário de ${firstName}? O horário fica livre na agenda.`
               : 'Excluir este agendamento de vez?'}
           </Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -351,12 +365,7 @@ export default function AgendamentoScreen() {
                 if (confirm === 'cancelar') {
                   updateStatus(a.id, 'cancelado');
                   setConfirm(null);
-                  if (canManage) say('Horário cancelado.');
-                  else {
-                    // A profissional recebe a notificação no celular; o WhatsApp abre com a mensagem pronta.
-                    say(`Horário cancelado. O horário ficou livre e ${settings.professionalName} foi avisada.`);
-                    if (settings.whatsapp) openExternal(cancelWhatsApp(settings.whatsapp, a, settings.professionalName));
-                  }
+                  say('Horário cancelado.');
                 } else {
                   removeAppointment(a.id);
                   router.back();

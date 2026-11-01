@@ -16,33 +16,22 @@ const TEXT: Partial<Record<ReminderState, string>> = {
   error: 'Não foi possível ativar agora. Confira a internet e tente de novo.',
 };
 
-// Para a profissional: aviso no celular quando uma cliente cancela pelo app.
-const OWNER_TEXT: Partial<Record<ReminderState, string>> = {
-  ...TEXT,
-  off: 'Receba uma notificação no celular quando uma cliente cancelar um horário pelo app.',
-  on: 'Avisos ativados: você recebe uma notificação quando uma cliente cancelar.',
-  install:
-    'No iPhone, os avisos chegam só pelo app na Tela de Início: toque em Compartilhar › Adicionar à Tela de Início, abra o app por lá e ative aqui.',
-  denied: 'As notificações deste site estão bloqueadas no navegador. Libere nas configurações do site para receber os avisos.',
-};
-
-// Cliente logada: lembretes 1 hora antes (vão para o número dela). Profissional: avisos de cancelamento.
+// Só para a cliente logada (os lembretes vão para o número dela).
 export function RemindersCard({ compact }: { compact?: boolean }) {
   const { role } = useSession();
-  const owner = role === 'profissional';
   const [state, setState] = useState<ReminderState | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (role === 'cliente' || role === 'profissional') getReminderState().then(setState);
+    if (role === 'cliente') getReminderState().then(setState);
   }, [role]);
 
-  if ((role !== 'cliente' && !owner) || !state || state === 'unsupported') return null;
+  if (role !== 'cliente' || !state || state === 'unsupported') return null;
   if (compact && state === 'on') return null;
 
   async function toggle() {
     setBusy(true);
-    setState(state === 'on' ? await disableReminders() : await enableReminders(owner));
+    setState(state === 'on' ? await disableReminders() : await enableReminders());
     setBusy(false);
   }
 
@@ -51,12 +40,12 @@ export function RemindersCard({ compact }: { compact?: boolean }) {
     <View style={[styles.box, state === 'on' && styles.boxOn]}>
       <Ionicons name={state === 'on' ? 'notifications' : 'notifications-outline'} size={20} color={state === 'on' ? colors.success : colors.wine} />
       <View style={{ flex: 1, gap: 6 }}>
-        <Text style={styles.title}>{owner ? 'Aviso de cancelamento' : 'Lembrete 1 hora antes'}</Text>
-        <Text style={styles.text}>{(owner ? OWNER_TEXT : TEXT)[state]}</Text>
+        <Text style={styles.title}>Lembrete 1 hora antes</Text>
+        <Text style={styles.text}>{TEXT[state]}</Text>
         {canToggle && (
           <Pressable onPress={toggle} disabled={busy} style={[styles.button, state === 'on' && styles.buttonOff]} accessibilityRole="button">
             <Text style={[styles.buttonText, state === 'on' && { color: colors.plum }]}>
-              {busy ? 'Aguarde…' : state === 'on' ? (owner ? 'Desativar avisos' : 'Desativar lembretes') : owner ? 'Ativar avisos' : 'Ativar lembretes'}
+              {busy ? 'Aguarde…' : state === 'on' ? 'Desativar lembretes' : 'Ativar lembretes'}
             </Text>
           </Pressable>
         )}

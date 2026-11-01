@@ -18,6 +18,7 @@ import { formatDayMonth, today, toMinutes } from '@/utils/date';
 import { brl, formatPhone } from '@/utils/format';
 import { openExternal } from '@/utils/openExternal';
 import { RemindersCard } from '@/features/reminders/RemindersCard';
+import { InstallCard } from '@/features/install/InstallCard';
 
 type Shortcut = { icon: keyof typeof Ionicons.glyphMap; label: string; a11y?: string; href: Href };
 
@@ -76,6 +77,7 @@ export default function HomeScreen() {
       <TopBar />
       <Profile postsCount={posts.length} reviewsCount={feedbacks.length} average={average} />
       <Shortcuts />
+      <InstallCard />
       {canManage ? <TodayCard /> : phone ? <NextAppointment /> : null}
       {!canManage && (
         <View style={styles.reminders}>

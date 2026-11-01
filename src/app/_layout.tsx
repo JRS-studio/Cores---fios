@@ -20,6 +20,8 @@ import { FeedbackProvider } from '@/features/feedback/FeedbackContext';
 import { LikesProvider } from '@/features/feed/LikesContext';
 import { PostsProvider } from '@/features/feed/PostsContext';
 import { FinanceProvider } from '@/features/finance/FinanceContext';
+// Escuta o aviso de instalação do navegador desde o início (botão "Instalar app").
+import '@/features/install/install';
 import { BiometricLock } from '@/features/session/BiometricLock';
 import { SessionProvider } from '@/features/session/SessionContext';
 import { SettingsProvider } from '@/features/settings/SettingsContext';

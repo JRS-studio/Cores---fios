@@ -384,13 +384,17 @@ const site = http.createServer((req, res) =>
     await C.getByText('Agendar horário').last().click();
     await cli.waitForTimeout(800);
     await C.getByText('Manicure tradicional', { exact: true }).last().click();
-    await C.getByRole('checkbox', { name: /Usar cashback de R\$\s?10,70/ }).click();
-    await C.getByText(/Desconta R\$\s?10,70: a pagar R\$\s?24,30/).waitFor();
     await C.getByRole('button', { name: /^(seg|ter|qua|qui|sex) \d+$/ }).nth(2).click();
     await cli.waitForTimeout(500);
     await C.getByText('14:00', { exact: true }).last().click();
-    await cli.screenshot({ path: path.join(shots, '09-cashback-agendar.png') });
+    // Sem ter marcado o cashback, o app pergunta ao confirmar.
     await C.getByText('Confirmar agendamento').click();
+    await cli.waitForTimeout(600);
+    const ask = cli.getByText(/Você tem R\$\s?10,70 de cashback/);
+    await ask.waitFor();
+    await cli.getByText(/fica R\$\s?24,30 em vez de R\$\s?35/).waitFor();
+    await cli.screenshot({ path: path.join(shots, '09-cashback-agendar.png') });
+    await cli.getByRole('button', { name: /Usar R\$\s?10,70 de cashback/ }).click();
     await cli.waitForTimeout(1200);
     const booked = db.appointments.at(-1);
     assert.equal(booked.data.cashbackUse, 10.7);
@@ -461,6 +465,9 @@ const site = http.createServer((req, res) =>
     await R.getByText('16:00', { exact: true }).last().click();
     await shot('13-aniversario');
     await R.getByText('Confirmar agendamento').click();
+    await wait(600);
+    await p.getByText(/Paula tem R\$\s?0,24 de cashback/).waitFor();
+    await p.getByRole('button', { name: 'Agora não, guardar o saldo' }).click();
     await wait(1200);
     const appt = db.appointments.at(-1).data;
     assert.equal(appt.price, 59.5);

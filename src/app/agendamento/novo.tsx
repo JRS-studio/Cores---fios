@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, CheckRow, Field, ScreenHeader, SectionTitle } from '@/components/ui';
@@ -48,6 +48,8 @@ export default function NovoAgendamentoScreen() {
   const [time, setTime] = useState<string | undefined>(editing?.time ?? params.hora);
   const [notes, setNotes] = useState(editing?.notes ?? '');
   const [useCashbackBalance, setUseCashbackBalance] = useState(!!editing?.cashbackUse);
+  // Com saldo e sem ter marcado, o app pergunta antes de confirmar.
+  const [askCashback, setAskCashback] = useState(false);
   const [tried, setTried] = useState(false);
 
   const isWalkIn = !clientMode && walkIn;
@@ -75,7 +77,8 @@ export default function NovoAgendamentoScreen() {
   const birthdayDiscount = birthdayMonth ? LOYALTY.birthdayDiscount : 0;
   const fullPrice = Number(price.replace(',', '.')) || 0;
   const priceValue = birthdayDiscount > 0 ? roundCents(fullPrice * (1 - birthdayDiscount / 100)) : fullPrice;
-  const cashbackUse = useCashbackBalance && available > 0 ? roundCents(Math.min(available, priceValue)) : 0;
+  const cashbackFor = (use: boolean) => (use && available > 0 ? roundCents(Math.min(available, priceValue)) : 0);
+  const cashbackUse = cashbackFor(useCashbackBalance);
 
   const q = query.trim().toLowerCase();
   const matches = clients
@@ -104,6 +107,17 @@ export default function NovoAgendamentoScreen() {
   function submit() {
     setTried(true);
     if (!valid || !time) return;
+    if (available > 0 && priceValue > 0 && !useCashbackBalance) {
+      setAskCashback(true);
+      return;
+    }
+    save(useCashbackBalance);
+  }
+
+  function save(useBalance: boolean) {
+    setAskCashback(false);
+    if (!time) return;
+    const cashbackUse = cashbackFor(useBalance);
     let finalClientId = isWalkIn ? undefined : selectedId;
     let clientName = client?.name ?? name.trim();
     let clientPhone = client?.phone ?? onlyDigits(phone);
@@ -366,6 +380,25 @@ export default function NovoAgendamentoScreen() {
           )}
           <Button label={editing ? 'Salvar novo horário' : 'Confirmar agendamento'} icon="checkmark" onPress={submit} style={{ marginTop: 10 }} />
         </View>
+
+        <Modal visible={askCashback} transparent animationType="fade" onRequestClose={() => setAskCashback(false)}>
+          <View style={styles.askOverlay}>
+            <View style={styles.ask}>
+              <View style={styles.askIcon}>
+                <Ionicons name="wallet-outline" size={26} color={colors.wine} />
+              </View>
+              <Text style={styles.askTitle}>
+                {clientMode ? `Você tem ${brl(available)} de cashback` : `${client?.name.split(' ')[0]} tem ${brl(available)} de cashback`}
+              </Text>
+              <Text style={styles.askText}>
+                {clientMode ? 'Quer usar neste agendamento?' : 'Usar neste agendamento?'} Com o cashback, fica{' '}
+                {brl(roundCents(priceValue - cashbackFor(true)))} em vez de {brl(priceValue)}.
+              </Text>
+              <Button label={`Usar ${brl(cashbackFor(true))} de cashback`} icon="checkmark-circle-outline" onPress={() => save(true)} />
+              <Button label="Agora não, guardar o saldo" variant="secondary" onPress={() => save(false)} />
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -505,6 +538,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   cashbackOn: { borderColor: colors.wine, backgroundColor: colors.blush },
+  askOverlay: { flex: 1, backgroundColor: 'rgba(43, 18, 32, 0.5)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  ask: { width: '100%', maxWidth: 380, backgroundColor: colors.cream, borderRadius: radius.lg, padding: 22, gap: 10 },
+  askIcon: {
+    alignSelf: 'center',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.blush,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  askTitle: { fontFamily: fonts.display, fontSize: 21, color: colors.ink, textAlign: 'center' },
+  askText: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.muted, textAlign: 'center', marginBottom: 6 },
   cashbackTitle: { fontFamily: fonts.semibold, fontSize: 14, color: colors.ink },
   cashbackText: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.muted, marginTop: 2 },
   birthdayText: { flex: 1, fontFamily: fonts.semibold, fontSize: 13, color: colors.wine },

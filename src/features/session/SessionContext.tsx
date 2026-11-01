@@ -18,6 +18,8 @@ type SessionApi = {
   // Quem está usando (id do login no servidor; 'local' sem servidor). Usado nas curtidas.
   userId: string | null;
   canManage: boolean;
+  // Ninguém logado (com servidor): só vê o feed; para agendar, curtir, comentar ou avaliar, precisa entrar.
+  viewOnly: boolean;
   signInProfessional: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   // Relê o login (ex.: depois de ligar o número ao aparelho).
@@ -126,6 +128,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       role,
       phone,
       canManage: role === 'local' || role === 'profissional',
+      viewOnly: isRemote && role === 'visitante',
       signInProfessional: async (email, password) => {
         if (!supabase) return 'O app ainda não está ligado ao servidor.';
         const { error } = await supabase.auth.signInWithPassword({ email: loginToEmail(email), password });
@@ -146,7 +149,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       refresh,
       userId,
       ensureUser: async () => {
-        if (!supabase || userId) return userId;
+        // Quem não entrou não curte nem comenta (modo visualização).
+        if (!supabase || role === 'visitante') return null;
+        if (userId) return userId;
         const { data, error } = await supabase.auth.signInAnonymously();
         if (error || !data.user) return null;
         setUserId(data.user.id);

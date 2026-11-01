@@ -255,7 +255,11 @@ const like = (id, item, userId) => [
 await test('curtidas: cada pessoa curte em nome próprio, uma vez por item', async () => {
   await as(ana, ...like(`p1:${CLIENT}`, 'p1', CLIENT));
   await as(ana, ...like(`p1:${CLIENT}`, 'p1', CLIENT)); // de novo (upsert do app) não duplica
-  await as(deviceB, ...like(`p1:${DEVICE_B}`, 'p1', DEVICE_B)); // login anônimo também curte
+  await as(bia, ...like(`p1:${OTHER}`, 'p1', OTHER));
+  // Quem só visita (login anônimo sem WhatsApp) não curte: modo visualização.
+  const VISITOR = '00000000-0000-0000-0000-0000000000e1';
+  await db.exec(`insert into auth.users values ('${VISITOR}') on conflict do nothing`);
+  assert.ok(await fails({ sub: VISITOR }, ...like(`p1:${VISITOR}`, 'p1', VISITOR)));
   assert.ok(await fails('anon', ...like('p1:anon', 'p1', null)));
   // Não dá para curtir duas vezes o mesmo item com outro id.
   assert.ok(await fails(ana, ...like('p1:outro', 'p1', CLIENT)));
@@ -359,6 +363,19 @@ await test('cliente não cancela horário confirmado (pede pelo WhatsApp); a pro
   assert.equal(c1.status, 'cancelado');
   assert.equal(c1.client_cancelled_at, null);
   assert.equal((await rows('anon', `select * from busy_slots('2026-12-01')`)).length, 0, 'o horário fica livre');
+});
+
+await test('modo visualização: quem não entrou com o WhatsApp não curte, não comenta e não avalia', async () => {
+  const VISITOR = '00000000-0000-0000-0000-0000000000e2';
+  await db.exec(`insert into auth.users values ('${VISITOR}') on conflict do nothing`);
+  await as(owner, `insert into posts (id, data) values ('pv1', '{}') on conflict do nothing`);
+  const v = { sub: VISITOR };
+  assert.ok(await fails(v, `insert into likes (id, item_id, user_id, data) values ('pv1:v', 'pv1', '${VISITOR}', '{}')`));
+  assert.ok(await fails(v, `insert into comments (id, post_id, data) values ('cv1', 'pv1', '{"approved":false}')`));
+  assert.ok(await fails(v, `insert into feedbacks (id, data) values ('fv1', '{"rating":5,"approved":false}')`));
+  // A cliente com WhatsApp continua podendo; a visitante só vê.
+  await as(ana, `insert into comments (id, post_id, data) values ('cv2', 'pv1', '{"approved":false}')`);
+  assert.equal((await rows(v, 'select * from posts where id = \'pv1\'')).length, 1);
 });
 
 console.log(`\n${passed} testes passaram.`);

@@ -174,8 +174,9 @@ drop policy if exists "todos veem avaliações aprovadas" on feedbacks;
 create policy "todos veem avaliações aprovadas" on feedbacks for select
   using (approved or is_owner() or author_id = auth.uid());
 drop policy if exists "cliente publica avaliação" on feedbacks;
+-- Só quem entrou com o WhatsApp (current_phone) avalia, curte e comenta; quem só visita apenas vê.
 create policy "cliente publica avaliação" on feedbacks for insert
-  with check (auth.uid() is not null and author_id = auth.uid() and approved = false and data ->> 'approved' = 'false');
+  with check (current_phone() is not null and author_id = auth.uid() and approved = false and data ->> 'approved' = 'false');
 drop policy if exists "profissional publica avaliação" on feedbacks;
 create policy "profissional publica avaliação" on feedbacks for insert with check (is_owner());
 drop policy if exists "profissional aprova avaliação" on feedbacks;
@@ -191,7 +192,8 @@ create policy "profissional: publicações" on posts for all using (is_owner()) 
 drop policy if exists "todos veem curtidas" on likes;
 create policy "todos veem curtidas" on likes for select using (true);
 drop policy if exists "curte em nome próprio" on likes;
-create policy "curte em nome próprio" on likes for insert with check (auth.uid() is not null and user_id = auth.uid());
+create policy "curte em nome próprio" on likes for insert
+  with check (user_id = auth.uid() and (current_phone() is not null or is_owner()));
 drop policy if exists "atualiza a própria curtida" on likes;
 create policy "atualiza a própria curtida" on likes for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 drop policy if exists "descurte a própria curtida" on likes;
@@ -333,7 +335,7 @@ create policy "comentários aprovados para todas" on comments for select
   using (approved or is_owner() or author_id = auth.uid());
 drop policy if exists "quem entrou comenta" on comments;
 create policy "quem entrou comenta" on comments for insert
-  with check (auth.uid() is not null and author_id = auth.uid() and approved = false and data ->> 'approved' = 'false');
+  with check (current_phone() is not null and author_id = auth.uid() and approved = false and data ->> 'approved' = 'false');
 drop policy if exists "profissional comenta" on comments;
 create policy "profissional comenta" on comments for insert with check (is_owner());
 drop policy if exists "profissional aprova comentário" on comments;

@@ -140,7 +140,7 @@ export default function HomeScreen() {
 
 function TopBar() {
   const { settings } = useSettings();
-  const { canManage } = useSession();
+  const { canManage, viewOnly } = useSession();
   const { appointments } = useAppointments();
   const todayIso = today();
   const toConfirm = canManage
@@ -172,6 +172,13 @@ function TopBar() {
           MANICURE & CABELEIREIRA
         </Text>
       </View>
+      {viewOnly ? (
+        <Pressable style={styles.loginPill} onPress={() => router.push('/entrar')} accessibilityRole="button" accessibilityLabel="Entrar">
+          <Ionicons name="log-in-outline" size={16} color={colors.white} />
+          <Text style={styles.loginPillText}>Entrar</Text>
+        </Pressable>
+      ) : (
+      <>
       <Pressable
         style={styles.iconButton}
         onPress={() => router.navigate('/agenda')}
@@ -187,6 +194,8 @@ function TopBar() {
       <Pressable style={styles.iconButton} onPress={() => router.push('/ajustes/tema')} accessibilityLabel="Tema do app">
         <Ionicons name="color-palette-outline" size={22} color={colors.plum} />
       </Pressable>
+      </>
+      )}
       <Pressable style={styles.iconButton} onPress={() => router.push('/ajustes')} accessibilityLabel="Ajustes">
         <Ionicons name="menu-outline" size={24} color={colors.plum} />
       </Pressable>
@@ -196,8 +205,9 @@ function TopBar() {
 
 function Profile({ postsCount, reviewsCount, average }: { postsCount: number; reviewsCount: number; average: number }) {
   const { settings } = useSettings();
-  const { canManage, phone, role } = useSession();
+  const { canManage, phone, role, viewOnly } = useSession();
   const { findByPhone } = useClients();
+  const brandName = settings.studioName.replace(/^studio\s+/i, '').trim();
   const record = !canManage && phone ? findByPhone(phone) : undefined;
   // Cliente logada sem o cadastro carregado ainda: mostra o número dela (nunca o perfil do studio com o nome da profissional).
   const me = record ?? (role === 'cliente' && phone ? { name: formatPhone(phone), phone } : undefined);
@@ -258,7 +268,7 @@ function Profile({ postsCount, reviewsCount, average }: { postsCount: number; re
           ))}
         </View>
       </View>
-      <Text style={styles.profileName}>{me ? me.name : settings.professionalName}</Text>
+      <Text style={styles.profileName}>{me ? me.name : viewOnly ? brandName : settings.professionalName}</Text>
       <Text style={styles.profileBio}>
         {canManage
           ? 'Seu perfil como as clientes veem. Publique seus trabalhos e novidades.'
@@ -269,7 +279,12 @@ function Profile({ postsCount, reviewsCount, average }: { postsCount: number; re
             : 'Manicure e nail designer. Veja os trabalhos, as avaliações das clientes e agende seu horário.'}
       </Text>
       <View style={styles.profileButtons}>
-        {canManage ? (
+        {viewOnly ? (
+          <>
+            <ProfileButton icon="log-in-outline" label="Entrar" primary onPress={() => router.push('/entrar')} />
+            <ProfileButton icon="person-add-outline" label="Cadastrar" onPress={() => router.push({ pathname: '/cadastro', params: { tipo: 'rapido' } })} />
+          </>
+        ) : canManage ? (
           <>
             <ProfileButton icon="add-circle-outline" label="Publicar" primary onPress={() => router.push('/publicacao/nova')} />
             <ProfileButton icon="create-outline" label="Editar perfil" onPress={() => router.push('/ajustes')} />
@@ -337,8 +352,23 @@ function ProfileButton({ icon, label, primary, onPress }: { icon: keyof typeof I
   );
 }
 
+// Quem não entrou só vê o feed: um aviso explica e leva para entrar ou se cadastrar.
+function ViewOnlyNotice() {
+  return (
+    <Pressable style={styles.notice} onPress={() => router.push('/entrar')} accessibilityRole="button" accessibilityLabel="Entrar ou cadastrar">
+      <Ionicons name="eye-outline" size={20} color={colors.wine} />
+      <Text style={styles.noticeText}>
+        Você está só olhando. <Text style={{ fontFamily: fonts.semibold, color: colors.wine }}>Entre ou cadastre-se</Text> para agendar, curtir,
+        comentar e avaliar.
+      </Text>
+      <Ionicons name="chevron-forward" size={18} color={colors.wine} />
+    </Pressable>
+  );
+}
+
 function Shortcuts() {
-  const { canManage } = useSession();
+  const { canManage, viewOnly } = useSession();
+  if (viewOnly) return <ViewOnlyNotice />;
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shortcuts}>
       {(canManage ? OWNER_SHORTCUTS : CLIENT_SHORTCUTS).map((s) => (
@@ -416,10 +446,11 @@ function NextAppointment() {
 }
 
 function Composer() {
-  const { canManage, phone } = useSession();
+  const { canManage, phone, viewOnly } = useSession();
   const { settings } = useSettings();
   const { findByPhone } = useClients();
   const me = !canManage && phone ? findByPhone(phone) : undefined;
+  if (viewOnly) return null;
   return (
     <Pressable
       style={styles.composer}
@@ -589,6 +620,29 @@ const styles = StyleSheet.create({
   nextText: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
 
   reminders: { marginHorizontal: 12, marginTop: 12 },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 12,
+    marginTop: 4,
+    padding: 14,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.roseGoldLight,
+    backgroundColor: colors.white,
+  },
+  noticeText: { flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.ink },
+  loginPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.plum,
+  },
+  loginPillText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.white },
   toApprove: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -10,6 +10,7 @@ import { WEB_URL } from '@/features/session/ClientLink';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { timeAgo } from '@/utils/date';
 import { openExternal } from '@/utils/openExternal';
+import { useSession } from '@/features/session/SessionContext';
 import { useComments } from './CommentsContext';
 import { useLikes } from './LikesContext';
 import { postKindLabel, type Post } from './PostsContext';
@@ -111,8 +112,18 @@ function PhotoPager({ photos, onDoubleTap, label }: { photos: string[]; onDouble
 
 function LikeButton({ itemId }: { itemId: string }) {
   const { count, likedByMe, toggle } = useLikes();
+  const { viewOnly } = useSession();
   const liked = likedByMe(itemId);
   const n = count(itemId);
+  if (viewOnly) {
+    // Modo visualização: só mostra quantas curtidas tem.
+    return (
+      <View style={styles.action} accessibilityLabel={`${n} ${n === 1 ? 'curtida' : 'curtidas'}`}>
+        <Ionicons name="heart-outline" size={25} color={colors.muted} />
+        {n > 0 && <Text style={styles.actionCount}>{n}</Text>}
+      </View>
+    );
+  }
   return (
     <Pressable
       onPress={() => toggle(itemId)}
@@ -179,7 +190,9 @@ type PostCardProps = { post: Post; studioName: string; canManage: boolean; onRem
 
 export const PostCard = memo(function PostCard({ post, studioName, canManage, onRemove }: PostCardProps) {
   const { likedByMe, toggle } = useLikes();
+  const { viewOnly } = useSession();
   const comments = useComments().approvedFor(post.id);
+  const like = () => !viewOnly && !likedByMe(post.id) && toggle(post.id);
   const kind = postKindLabel(post.kind);
   const hasPhotos = post.photos.length > 0;
 
@@ -207,7 +220,7 @@ export const PostCard = memo(function PostCard({ post, studioName, canManage, on
       }
     >
       {hasPhotos ? (
-        <PhotoPager photos={post.photos} label={kind || 'Publicação'} onDoubleTap={() => !likedByMe(post.id) && toggle(post.id)} />
+        <PhotoPager photos={post.photos} label={kind || 'Publicação'} onDoubleTap={like} />
       ) : (
         <LinearGradient colors={post.kind === 'promocao' ? [colors.wine, colors.plum] : [colors.plumSoft, colors.plum]} style={styles.textPost}>
           <Ionicons name={post.kind === 'promocao' ? 'pricetag' : post.kind === 'aviso' ? 'megaphone' : 'sparkles'} size={22} color={colors.roseGoldLight} />
@@ -217,21 +230,25 @@ export const PostCard = memo(function PostCard({ post, studioName, canManage, on
 
       <View style={styles.actions}>
         <LikeButton itemId={post.id} />
-        <Pressable
-          onPress={() => openComments(post.id)}
-          hitSlop={8}
-          style={styles.action}
-          accessibilityRole="button"
-          accessibilityLabel={comments.length ? `Comentários (${comments.length})` : 'Comentar'}
-        >
-          <Ionicons name="chatbubble-outline" size={23} color={colors.ink} />
-          {comments.length > 0 && <Text style={styles.actionCount}>{comments.length}</Text>}
-        </Pressable>
-        <Pressable onPress={() => shareText(`${studioName}: ${post.caption}`)} hitSlop={8} style={styles.action} accessibilityLabel="Compartilhar">
-          <Ionicons name="paper-plane-outline" size={23} color={colors.ink} />
-        </Pressable>
+        {(!viewOnly || comments.length > 0) && (
+          <Pressable
+            onPress={() => openComments(post.id)}
+            hitSlop={8}
+            style={styles.action}
+            accessibilityRole="button"
+            accessibilityLabel={comments.length ? `Comentários (${comments.length})` : 'Comentar'}
+          >
+            <Ionicons name="chatbubble-outline" size={23} color={colors.ink} />
+            {comments.length > 0 && <Text style={styles.actionCount}>{comments.length}</Text>}
+          </Pressable>
+        )}
+        {!viewOnly && (
+          <Pressable onPress={() => shareText(`${studioName}: ${post.caption}`)} hitSlop={8} style={styles.action} accessibilityLabel="Compartilhar">
+            <Ionicons name="paper-plane-outline" size={23} color={colors.ink} />
+          </Pressable>
+        )}
         <View style={{ flex: 1 }} />
-        {!canManage && (
+        {!canManage && !viewOnly && (
           <Pressable style={styles.bookButton} onPress={() => router.push('/agendamento/novo')}>
             <Ionicons name="calendar-outline" size={15} color={colors.white} />
             <Text style={styles.bookText}>Agendar</Text>
@@ -253,12 +270,14 @@ export const PostCard = memo(function PostCard({ post, studioName, canManage, on
               {c.text}
             </Text>
           ))}
-          <Pressable onPress={() => openComments(post.id)} hitSlop={4}>
-            <Text style={styles.addComment}>Adicione um comentário…</Text>
-          </Pressable>
+          {!viewOnly && (
+            <Pressable onPress={() => openComments(post.id)} hitSlop={4}>
+              <Text style={styles.addComment}>Adicione um comentário…</Text>
+            </Pressable>
+          )}
         </View>
       )}
-      {!hasPhotos && comments.length === 0 && (
+      {!hasPhotos && comments.length === 0 && !viewOnly && (
         <Pressable onPress={() => openComments(post.id)} hitSlop={4} style={styles.body}>
           <Text style={styles.addComment}>Adicione um comentário…</Text>
         </Pressable>
@@ -271,6 +290,7 @@ type ReviewCardProps = { review: Feedback; canManage: boolean; onRemove: () => v
 
 export const ReviewCard = memo(function ReviewCard({ review: f, canManage, onRemove }: ReviewCardProps) {
   const { likedByMe, toggle } = useLikes();
+  const { viewOnly } = useSession();
   const name = f.displayName ?? 'Cliente anônima';
 
   return (
@@ -288,17 +308,19 @@ export const ReviewCard = memo(function ReviewCard({ review: f, canManage, onRem
         </>
       }
     >
-      {f.photoUri && <PhotoPager photos={[f.photoUri]} label="Resultado" onDoubleTap={() => !likedByMe(f.id) && toggle(f.id)} />}
+      {f.photoUri && <PhotoPager photos={[f.photoUri]} label="Resultado" onDoubleTap={() => !viewOnly && !likedByMe(f.id) && toggle(f.id)} />}
       <View style={styles.actions}>
         <LikeButton itemId={f.id} />
-        <Pressable
-          onPress={() => shareText(`“${f.comment || 'Amei o atendimento!'}” — ${name}, ${f.rating} ${f.rating === 1 ? 'estrela' : 'estrelas'}`)}
-          hitSlop={8}
-          style={styles.action}
-          accessibilityLabel="Compartilhar"
-        >
-          <Ionicons name="paper-plane-outline" size={23} color={colors.ink} />
-        </Pressable>
+        {!viewOnly && (
+          <Pressable
+            onPress={() => shareText(`“${f.comment || 'Amei o atendimento!'}” — ${name}, ${f.rating} ${f.rating === 1 ? 'estrela' : 'estrelas'}`)}
+            hitSlop={8}
+            style={styles.action}
+            accessibilityLabel="Compartilhar"
+          >
+            <Ionicons name="paper-plane-outline" size={23} color={colors.ink} />
+          </Pressable>
+        )}
         <View style={{ flex: 1 }} />
         {canManage && <Stars value={f.rating} size={14} />}
       </View>

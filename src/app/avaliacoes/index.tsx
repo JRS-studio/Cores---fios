@@ -17,7 +17,7 @@ export default function AvaliacoesScreen() {
   const insets = useSafeAreaInsets();
   const { feedbacks, pending, average, removeFeedback, approveFeedback } = useFeedback();
   const { settings } = useSettings();
-  const { canManage } = useSession();
+  const { canManage, viewOnly } = useSession();
   const { publicada } = useLocalSearchParams<{ publicada?: string }>();
   const [filter, setFilter] = useState<Filter>('todas');
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -94,12 +94,11 @@ export default function AvaliacoesScreen() {
         </View>
       </View>
 
-      <Button
-        label="Deixar minha avaliação"
-        icon="create-outline"
-        onPress={() => router.push('/avaliacoes/nova')}
-        style={{ marginTop: 16 }}
-      />
+      {viewOnly ? (
+        <Button label="Entre para avaliar" icon="log-in-outline" onPress={() => router.push('/entrar')} style={{ marginTop: 16 }} />
+      ) : (
+        <Button label="Deixar minha avaliação" icon="create-outline" onPress={() => router.push('/avaliacoes/nova')} style={{ marginTop: 16 }} />
+      )}
 
       {feedbacks.length > 0 && (
         <View style={styles.filters}>

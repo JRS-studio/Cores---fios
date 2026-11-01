@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,7 +20,7 @@ export default function ComentariosScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { posts, ready } = usePosts();
   const { visibleFor, addComment, approveComment, removeComment, canRemove } = useComments();
-  const { canManage, role, phone } = useSession();
+  const { canManage, role, phone, viewOnly } = useSession();
   const { settings } = useSettings();
   const { findByPhone } = useClients();
   const me = role === 'cliente' && phone ? findByPhone(phone) : undefined;
@@ -145,38 +145,42 @@ export default function ComentariosScreen() {
           ))
         )}
 
-        <View style={styles.form}>
-          {notice && (
-            <View style={styles.notice}>
-              <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-              <Text style={styles.noticeText}>{notice}</Text>
-            </View>
-          )}
-          {!knownName && (
+        {viewOnly ? (
+          <Button label="Entre para comentar" icon="log-in-outline" onPress={() => router.push('/entrar')} style={{ marginTop: 14 }} />
+        ) : (
+          <View style={styles.form}>
+            {notice && (
+              <View style={styles.notice}>
+                <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                <Text style={styles.noticeText}>{notice}</Text>
+              </View>
+            )}
+            {!knownName && (
+              <Field
+                label="Seu nome"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+                placeholder="Como quer aparecer"
+                error={tried ? errors.name : null}
+              />
+            )}
             <Field
-              label="Seu nome"
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-              placeholder="Como quer aparecer"
-              error={tried ? errors.name : null}
+              label="Comentário"
+              value={text}
+              onChangeText={(t) => {
+                setText(t);
+                setNotice(null);
+              }}
+              placeholder={canManage ? 'Responda às clientes' : 'Escreva seu comentário'}
+              multiline
+              maxLength={MAX_COMMENT}
+              error={tried ? errors.text : null}
+              helper={canManage ? undefined : `Aparece depois que ${settings.professionalName} aprovar.`}
             />
-          )}
-          <Field
-            label="Comentário"
-            value={text}
-            onChangeText={(t) => {
-              setText(t);
-              setNotice(null);
-            }}
-            placeholder={canManage ? 'Responda às clientes' : 'Escreva seu comentário'}
-            multiline
-            maxLength={MAX_COMMENT}
-            error={tried ? errors.text : null}
-            helper={canManage ? undefined : `Aparece depois que ${settings.professionalName} aprovar.`}
-          />
-          <Button label={sending ? 'Enviando…' : 'Comentar'} icon="send" onPress={send} disabled={sending} />
-        </View>
+            <Button label={sending ? 'Enviando…' : 'Comentar'} icon="send" onPress={send} disabled={sending} />
+          </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );

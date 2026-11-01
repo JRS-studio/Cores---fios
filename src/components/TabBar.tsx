@@ -16,7 +16,7 @@ const ICONS: Record<string, [IconName, IconName]> = {
 };
 
 // Botão central em destaque, como o "+" das redes sociais: não é uma aba, abre uma tela de criação.
-export type CenterAction = { label: string; onPress: () => void };
+export type CenterAction = { label: string; onPress: () => void; icon?: IconName };
 
 type Props = BottomTabBarProps & { hidden?: string[]; center?: CenterAction };
 
@@ -37,7 +37,7 @@ export function TabBar({ state, descriptors, emitter, navigateToTab, hidden = []
           return [
             <Pressable key="center" onPress={center.onPress} style={styles.item} accessibilityRole="button" accessibilityLabel={center.label}>
               <LinearGradient colors={[colors.wine, colors.plum]} style={styles.featured}>
-                <Ionicons name="add" size={30} color={colors.roseGoldLight} />
+                <Ionicons name={center.icon ?? 'add'} size={center.icon ? 26 : 30} color={colors.roseGoldLight} />
               </LinearGradient>
               <Text style={styles.label}>{center.label}</Text>
             </Pressable>,

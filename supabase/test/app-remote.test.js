@@ -158,9 +158,16 @@ const site = http.createServer((req, res) =>
   await p.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
   await wait(1500);
 
-  await test('visitante vê o perfil do studio, sem faturamento nem a aba Financeiro', async () => {
+  await test('visitante só vê: perfil do studio (sem o nome da profissional), botões Entrar e Cadastrar, sem ações', async () => {
     await R.getByText('publicações', { exact: true }).waitFor();
-    await R.getByText('Avaliar', { exact: true }).first().waitFor();
+    await R.getByText('Cores & Fios', { exact: true }).first().waitFor();
+    assert.equal(await R.getByText('Jhenifer', { exact: true }).count(), 0, 'sem o nome da profissional');
+    await R.getByRole('button', { name: 'Entrar' }).first().waitFor();
+    await R.getByRole('button', { name: 'Cadastrar' }).first().waitFor();
+    await R.getByText('Você está só olhando.', { exact: false }).waitFor();
+    // Nada de agendar, avaliar, publicar ou ver horários sem entrar.
+    for (const label of ['Avaliar', 'Horários', 'Agendar']) assert.equal(await R.getByRole('button', { name: label, exact: true }).count(), 0, label);
+    assert.equal(await R.getByText('Como ficaram suas unhas?', { exact: false }).count(), 0);
     await R.getByLabel(/Instagram do studio/).waitFor();
     assert.equal(await R.getByText('horários hoje').count(), 0);
     assert.equal(await R.getByLabel('Financeiro', { exact: true }).count(), 0);
@@ -285,9 +292,33 @@ const site = http.createServer((req, res) =>
     await shot('05-publicado');
   });
 
-  await test('visitante vê a publicação e curte sem cadastro; só a própria curtida sai', async () => {
+  await test('visitante vê a publicação mas não curte, não comenta nem compartilha; cliente curte e descurte', async () => {
+    const vis = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await vis.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
+    await vis.waitForTimeout(1500);
+    const VV = vis.locator('#root');
+    await VV.getByText('Pé e mão por R$ 60 nesta semana!').waitFor();
+    for (const label of ['Curtir', 'Comentar', 'Compartilhar']) assert.equal(await VV.getByLabel(label, { exact: true }).count(), 0, label);
+    assert.equal(await VV.getByText('Adicione um comentário…').count(), 0);
+    await vis.screenshot({ path: path.join(shots, '06-visitante-feed.png') });
+    await vis.close();
+
+    // Cliente logada curte.
     const other = await browser.newPage({ viewport: { width: 390, height: 844 } });
     const O = other.locator('#root');
+    await other.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
+    await other.waitForTimeout(1500);
+    await O.getByLabel('Conta', { exact: true }).click();
+    await other.waitForTimeout(400);
+    await O.getByText('Cadastro rápido', { exact: true }).click();
+    await other.waitForTimeout(400);
+    await O.getByLabel('Nome', { exact: true }).fill('Bia Lopes');
+    await O.getByLabel('WhatsApp', { exact: true }).fill('11922221111');
+    await O.getByText('Confirmar e entrar').click();
+    await other.waitForTimeout(1200);
+    await O.getByText(/Concordo com o uso/).click();
+    await O.getByText('Concluir cadastro').click();
+    await other.waitForTimeout(1200);
     await other.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
     await other.waitForTimeout(1500);
     await O.getByText('Pé e mão por R$ 60 nesta semana!').waitFor();
@@ -306,6 +337,21 @@ const site = http.createServer((req, res) =>
   await test('cliente escolhe o próprio tema; o padrão do studio não muda', async () => {
     const other = await browser.newPage({ viewport: { width: 390, height: 844 } });
     const O = other.locator('#root');
+    await other.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
+    await other.waitForTimeout(1500);
+    // Quem só visita não troca o tema (modo visualização); a cliente entra primeiro.
+    assert.equal(await O.getByLabel('Tema do app').count(), 0);
+    await O.getByLabel('Conta', { exact: true }).click();
+    await other.waitForTimeout(400);
+    await O.getByText('Cadastro rápido', { exact: true }).click();
+    await other.waitForTimeout(400);
+    await O.getByLabel('Nome', { exact: true }).fill('Tati Rocha');
+    await O.getByLabel('WhatsApp', { exact: true }).fill('11900009999');
+    await O.getByText('Confirmar e entrar').click();
+    await other.waitForTimeout(1200);
+    await O.getByText(/Concordo com o uso/).click();
+    await O.getByText('Concluir cadastro').click();
+    await other.waitForTimeout(1200);
     await other.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
     await other.waitForTimeout(1500);
     await O.getByLabel('Tema do app').click();
@@ -543,14 +589,28 @@ const site = http.createServer((req, res) =>
 
   await test('comentário na publicação só aparece depois que a profissional aprova', async () => {
     const home = `http://localhost:${site.address().port}/`;
+    // Quem comenta precisa ter entrado: a Carla faz o cadastro rápido.
     const vis = await browser.newPage({ viewport: { width: 390, height: 844 } });
     const V = vis.locator('#root');
+    await vis.goto(home, { waitUntil: 'networkidle' });
+    await vis.waitForTimeout(1500);
+    await V.getByLabel('Conta', { exact: true }).click();
+    await vis.waitForTimeout(400);
+    await V.getByText('Cadastro rápido', { exact: true }).click();
+    await vis.waitForTimeout(400);
+    await V.getByLabel('Nome', { exact: true }).fill('Carla Dias');
+    await V.getByLabel('WhatsApp', { exact: true }).fill('11911110000');
+    await V.getByText('Confirmar e entrar').click();
+    await vis.waitForTimeout(1200);
+    await V.getByText(/Concordo com o uso/).click();
+    await V.getByText('Concluir cadastro').click();
+    await vis.waitForTimeout(1200);
     await vis.goto(home, { waitUntil: 'networkidle' });
     await vis.waitForTimeout(1500);
     await V.getByRole('button', { name: 'Comentar' }).first().click();
     await vis.waitForTimeout(800);
     await V.getByText('Ainda não há comentários', { exact: false }).waitFor();
-    await V.getByLabel('Seu nome').fill('Carla');
+    assert.equal(await V.getByLabel('Seu nome').count(), 0, 'cliente comenta com o próprio nome');
     await V.getByLabel('Comentário').fill('Que promoção boa! Tem horário sábado?');
     await V.getByRole('button', { name: 'Comentar' }).click();
     await vis.waitForTimeout(1200);

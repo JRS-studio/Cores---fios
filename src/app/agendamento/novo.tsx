@@ -14,10 +14,10 @@ import { newBookingWhatsApp } from '@/features/agenda/whatsapp';
 import { roundCents, useCashback } from '@/features/cashback/CashbackContext';
 import { useClients } from '@/features/clients/ClientsContext';
 import { useSession } from '@/features/session/SessionContext';
-import { isReleasedTime, releasedSlots, serviceIn, useSettings } from '@/features/settings/SettingsContext';
+import { isReleasedTime, monthOpenForClients, releasedSlots, serviceIn, useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
 import { newId } from '@/utils/id';
-import { addDays, formatLongDate, lastBookableDate, monthKey, shiftMonth, today } from '@/utils/date';
+import { addDays, formatLongDate, lastBookableDate, MONTHS, monthKey, shiftMonth, today } from '@/utils/date';
 import { brl, formatPhone, initials, isValidPhone, onlyDigits, parseDate } from '@/utils/format';
 import { openExternal } from '@/utils/openExternal';
 
@@ -70,7 +70,11 @@ export default function NovoAgendamentoScreen() {
   const duration = serviceId === CUSTOM ? (custom?.duration ?? 60) : (service?.duration ?? 60);
   // A cliente só vê os horários que a profissional liberou para aquele dia da semana.
   const released = clientMode ? releasedSlots(settings, date) : null;
-  const slots = availableSlots(date, duration, settings, editing?.id).filter((t) => !released || isReleasedTime(settings, released, t));
+  // Mês seguinte ainda não liberado pela profissional: a cliente vê os dias, mas sem horários.
+  const monthClosed = clientMode && !monthOpenForClients(settings, date);
+  const slots = monthClosed
+    ? []
+    : availableSlots(date, duration, settings, editing?.id).filter((t) => !released || isReleasedTime(settings, released, t));
 
   // Com servidor, os horários das outras clientes vêm só como "ocupado".
   useEffect(() => {
@@ -368,6 +372,7 @@ export default function NovoAgendamentoScreen() {
             setTime(undefined);
           }}
           months={bookingMonths}
+          lockedMonths={clientMode ? bookingMonths.filter((m) => !monthOpenForClients(settings, `${m}-01`)) : []}
           workDays={settings.workDays}
           minDate={today()}
           maxDate={lastDate}
@@ -378,7 +383,11 @@ export default function NovoAgendamentoScreen() {
           <SectionTitle hint={serviceName ? `Duração: ${duration} min` : 'Escolha o serviço para ver os horários'}>Horário</SectionTitle>
           {slots.length === 0 ? (
             <Text style={styles.muted}>
-              {settings.workDays.includes(new Date(date + 'T12:00').getDay()) ? 'Sem horários livres neste dia.' : 'Studio fechado neste dia.'}
+              {monthClosed
+                ? `A agenda de ${MONTHS[Number(date.slice(5, 7)) - 1]} ainda não foi liberada por ${settings.professionalName}. Escolha um dia deste mês ou volte mais tarde.`
+                : settings.workDays.includes(new Date(date + 'T12:00').getDay())
+                  ? 'Sem horários livres neste dia.'
+                  : 'Studio fechado neste dia.'}
             </Text>
           ) : (
             <View style={styles.slots}>

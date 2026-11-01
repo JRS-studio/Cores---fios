@@ -13,7 +13,7 @@ import { useSession } from '@/features/session/SessionContext';
 import { useClients } from '@/features/clients/ClientsContext';
 import { isDayBlocked, useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
-import { formatDayMonth, formatLongDate, monthKey, shiftMonth, today, weekdayOf } from '@/utils/date';
+import { formatDayMonth, formatLongDate, MONTHS, monthKey, shiftMonth, today, weekdayOf } from '@/utils/date';
 import { brl } from '@/utils/format';
 
 export default function AgendaScreen() {
@@ -28,6 +28,13 @@ export default function AgendaScreen() {
   const todayIso = today();
   const thisMonth = monthKey(todayIso);
   const nextMonth = shiftMonth(thisMonth, 1);
+  const nextName = MONTHS[Number(nextMonth.slice(5, 7)) - 1].replace(/^./, (c) => c.toUpperCase());
+  const nextReleased = (settings.releasedMonths ?? []).includes(nextMonth);
+  // Libera (ou fecha de novo) o mês seguinte inteiro; meses que já passaram saem da lista.
+  const setRelease = (open: boolean) => {
+    const kept = (settings.releasedMonths ?? []).filter((m) => m > thisMonth && m !== nextMonth);
+    saveSettings({ ...settings, releasedMonths: open ? [...kept, nextMonth] : kept });
+  };
   // Pedidos das clientes que ainda esperam a confirmação da profissional.
   const toConfirm = appointments
     .filter((a) => a.status === 'agendado' && a.date >= today())
@@ -99,7 +106,40 @@ export default function AgendaScreen() {
         </View>
       )}
 
-      <DatePicker selected={date} onSelect={setDate} months={[thisMonth, nextMonth]} workDays={settings.workDays} counts={counts} minDate={todayIso} />
+      <DatePicker
+        selected={date}
+        onSelect={setDate}
+        months={[thisMonth, nextMonth]}
+        workDays={settings.workDays}
+        counts={counts}
+        minDate={todayIso}
+        lockedMonths={canManage && !nextReleased ? [nextMonth] : []}
+      />
+
+      {/* O mês seguinte só abre para as clientes quando a profissional libera (o mês inteiro, num botão). */}
+      {canManage && monthKey(date) === nextMonth && (
+        <View style={[styles.gutter, { marginTop: 14 }]}>
+          {nextReleased ? (
+            <View style={styles.released}>
+              <Ionicons name="lock-open-outline" size={18} color={colors.success} />
+              <Text style={styles.releasedText}>{nextName} liberado para as clientes agendarem.</Text>
+              <Pressable onPress={() => setRelease(false)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Fechar ${nextName}`}>
+                <Text style={styles.releasedLink}>Fechar</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.closedMonth}>
+              <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                <Ionicons name="lock-closed-outline" size={18} color="#92400E" />
+                <Text style={styles.closedMonthText}>
+                  {nextName} está fechado para as clientes: elas veem o mês, mas sem horários. Você pode agendar normalmente.
+                </Text>
+              </View>
+              <Button label={`Liberar ${nextName.toLowerCase()}`} icon="lock-open-outline" onPress={() => setRelease(true)} />
+            </View>
+          )}
+        </View>
+      )}
 
       <View style={[styles.gutter, { marginTop: 18 }]}>
         <Text style={styles.dayTitle}>{dayTitle}</Text>
@@ -201,6 +241,11 @@ const styles = StyleSheet.create({
   pendingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
   pendingText: { flex: 1, fontFamily: fonts.regular, fontSize: 12, color: '#92400E' },
   pendingLink: { fontFamily: fonts.semibold, fontSize: 12, color: '#92400E' },
+  closedMonth: { gap: 12, backgroundColor: '#FEF3E2', borderRadius: radius.md, padding: 14 },
+  closedMonthText: { flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: '#92400E' },
+  released: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#E6F3EC', borderRadius: radius.md, padding: 12 },
+  releasedText: { flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.success },
+  releasedLink: { fontFamily: fonts.semibold, fontSize: 13, color: colors.wine },
   toggle: { flexDirection: 'row', backgroundColor: colors.white, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, padding: 4, marginTop: 14 },
   toggleItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: radius.pill },
   toggleActive: { backgroundColor: colors.plum },

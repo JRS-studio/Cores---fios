@@ -710,6 +710,9 @@ const site = http.createServer((req, res) =>
     await C.getByRole('tab', { name: capitalize(proximo), exact: true }).click();
     await cli.waitForTimeout(500);
     await C.getByLabel(`Calendário de ${proximo}`).waitFor();
+    // O mês seguinte aparece, mas sem horários até a profissional liberar.
+    await C.getByText(new RegExp(`A agenda de ${proximo} ainda não foi liberada por Jhenifer`)).waitFor();
+    assert.equal(await C.getByText('09:00', { exact: true }).count(), 0, 'sem horários no mês fechado');
     assert.equal(await C.getByRole('tab', { name: capitalize(depois), exact: true }).count(), 0, 'o mês depois do próximo ainda não abriu');
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 2, 0).getDate();
     await C.getByRole('button', { name: new RegExp(`^${lastDay} de ${proximo}`) }).waitFor();
@@ -998,6 +1001,43 @@ const site = http.createServer((req, res) =>
     await wait(400);
     await R.getByLabel(`Calendário de ${proximo}`).waitFor();
     await R.getByLabel(new RegExp(`^15 de ${proximo}, 1 horário`)).click();
+    // O mês seguinte está fechado para as clientes; a profissional libera o mês inteiro num botão.
+    await R.getByText(new RegExp(`${cap(proximo)} está fechado para as clientes`)).waitFor();
+    await shot('29-mes-fechado');
+    await R.getByRole('button', { name: `Liberar ${proximo}` }).click();
+    await wait(1000);
+    await R.getByText(`${cap(proximo)} liberado para as clientes agendarem.`).waitFor();
+    const nextKey = day15.slice(0, 7);
+    assert.deepEqual(db.settings[0].data.releasedMonths, [nextKey]);
+    // A cliente passa a ver os horários de dezembro.
+    const cli = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const C = cli.locator('#root');
+    await cli.goto(home, { waitUntil: 'networkidle' });
+    await cli.waitForTimeout(1500);
+    await C.getByLabel('Conta', { exact: true }).click();
+    await cli.waitForTimeout(400);
+    await C.getByText('Cadastro rápido', { exact: true }).click();
+    await cli.waitForTimeout(400);
+    await C.getByLabel('Nome', { exact: true }).fill('Vera Lúcia');
+    await C.getByLabel('WhatsApp', { exact: true }).fill('11955554444');
+    await C.getByText('Confirmar e entrar').click();
+    await cli.waitForTimeout(1200);
+    await C.getByText(/Concordo com o uso/).click();
+    await C.getByText('Concluir cadastro').click();
+    await cli.waitForTimeout(1200);
+    await C.getByText('Agendar horário').last().click();
+    await cli.waitForTimeout(800);
+    await C.getByText('Pedicure', { exact: true }).last().click();
+    await C.getByRole('tab', { name: cap(proximo), exact: true }).click();
+    await cli.waitForTimeout(500);
+    assert.equal(await C.getByText(/ainda não foi liberada/).count(), 0);
+    assert.ok((await C.getByText(/^\d{2}:\d{2}$/).count()) > 0, 'horários de dezembro aparecem');
+    await cli.close();
+    // E pode fechar de novo.
+    await R.getByRole('button', { name: `Fechar ${cap(proximo)}` }).click();
+    await wait(800);
+    assert.deepEqual(db.settings[0].data.releasedMonths, []);
+    db.settings = [];
     await wait(500);
     await R.getByText(new RegExp(`15 de ${proximo}$`)).first().waitFor();
     await R.getByText('Cliente do dia 15', { exact: false }).first().waitFor();

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -22,6 +23,7 @@ export function DatePicker({
   minDate,
   maxDate,
   lockOutside = false,
+  lockedMonths = [],
 }: {
   selected: string;
   onSelect: (date: string) => void;
@@ -33,6 +35,8 @@ export function DatePicker({
   maxDate?: string;
   // Ao agendar: dias que já passaram ou depois do limite não podem ser escolhidos.
   lockOutside?: boolean;
+  // Meses ainda não liberados pela profissional: o botão mostra um cadeado.
+  lockedMonths?: string[];
 }) {
   const todayIso = today();
   const weekStart = addDays(todayIso, -weekdayOf(todayIso));
@@ -67,8 +71,13 @@ export function DatePicker({
               onPress={() => choose(id)}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
+              accessibilityLabel={id === 'semana' ? 'Semana' : monthName(id)}
+              accessibilityHint={lockedMonths.includes(id) ? 'Mês ainda não liberado' : undefined}
             >
-              <Text style={[styles.periodText, active && { color: colors.white }]}>{id === 'semana' ? 'Semana' : monthName(id)}</Text>
+              <View style={styles.periodLabel}>
+                {lockedMonths.includes(id) && <Ionicons name="lock-closed" size={12} color={active ? colors.white : colors.muted} />}
+                <Text style={[styles.periodText, active && { color: colors.white }]}>{id === 'semana' ? 'Semana' : monthName(id)}</Text>
+              </View>
             </Pressable>
           );
         })}
@@ -116,5 +125,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   periodActive: { backgroundColor: colors.plum, borderColor: colors.plum },
+  periodLabel: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   periodText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.plum },
 });

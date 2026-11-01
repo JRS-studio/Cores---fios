@@ -6,7 +6,7 @@ import { reportSyncError } from '@/data/syncStatus';
 import { usePersisted } from '@/data/usePersisted';
 import { DEFAULT_EXTRA_BENEFITS, DEFAULT_LOYALTY, migrateLoyalty, premiumBenefits, withoutOldBenefits, type LoyaltyRules } from '@/data/loyalty';
 import { DEFAULT_SERVICES, type Service } from '@/data/services';
-import { toMinutes, toTime, weekdayOf } from '@/utils/date';
+import { today, toMinutes, toTime, weekdayOf } from '@/utils/date';
 
 export type Settings = {
   professionalName: string;
@@ -31,6 +31,8 @@ export type Settings = {
   breaks: BreakRule[];
   // Bloqueios de um dia específico (consulta, folga…). Dia inteiro: allDay.
   blocks: Block[];
+  // Meses (AAAA-MM) além do atual que a profissional liberou para as clientes agendarem.
+  releasedMonths: string[];
 };
 
 export type BreakRule = { id: string; label: string; days: number[]; start: string; end: string };
@@ -51,6 +53,7 @@ export const DEFAULT_SETTINGS: Settings = {
   extraBenefits: DEFAULT_EXTRA_BENEFITS,
   breaks: [],
   blocks: [],
+  releasedMonths: [],
   theme: 'rose',
   instagram: 'js.cooresefios',
 };
@@ -138,6 +141,12 @@ export function isReleasedTime(settings: Settings, released: string[], time: str
   if (settings.slotStep > 0) return false;
   const step = gridStep(settings);
   return released.includes(toTime(Math.floor(toMinutes(time) / step) * step));
+}
+
+// O mês do dia está aberto para as clientes? O atual sempre; o seguinte só depois que a profissional libera.
+export function monthOpenForClients(settings: Settings, date: string) {
+  const key = date.slice(0, 7);
+  return key <= today().slice(0, 7) || (settings.releasedMonths ?? []).includes(key);
 }
 
 export function releasedSlots(settings: Settings, date: string): string[] | null {

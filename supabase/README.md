@@ -113,3 +113,10 @@ Só a profissional cancela horários. A cliente toca em **Pedir cancelamento**: 
 
 1. **SQL Editor**: cole [`atualizacao-avisos.sql`](atualizacao-avisos.sql) e clique em **Run**.
 2. Publique de novo a função `lembretes` e rode de novo [`lembretes.sql`](lembretes.sql) (envio na hora).
+
+## Liberar a agenda do mês seguinte
+
+O mês atual fica sempre aberto para as clientes. O seguinte aparece para elas, mas sem horários, até a profissional tocar em **Liberar <mês>** na Agenda (botão do mês seguinte). Ela pode fechar de novo. A profissional agenda em qualquer mês. O banco também recusa agendamento de cliente em mês não liberado.
+
+1. **SQL Editor**: cole [`atualizacao-liberar-mes.sql`](atualizacao-liberar-mes.sql) e clique em **Run**.
+

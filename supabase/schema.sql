@@ -153,15 +153,26 @@ create policy "profissional: agenda" on appointments for all using (is_owner()) 
 drop policy if exists "cliente vê os próprios horários" on appointments;
 create policy "cliente vê os próprios horários" on appointments for select using (client_phone = current_phone());
 drop policy if exists "cliente marca horário" on appointments;
--- A cliente agenda e remarca até o fim do mês seguinte (a agenda do próximo mês abre no dia 1º).
+-- Mês aberto para as clientes: o mês atual sempre; o seguinte só depois que a profissional libera
+-- (Agenda › Liberar <mês>, que grava o mês em settings.data.releasedMonths). Nunca depois do mês seguinte.
+create or replace function client_month_open(ts timestamp) returns boolean
+language sql stable security definer set search_path = public as $$
+  select ts < date_trunc('month', now() at time zone 'America/Sao_Paulo') + interval '2 months'
+    and (
+      date_trunc('month', ts) <= date_trunc('month', now() at time zone 'America/Sao_Paulo')
+      or to_char(ts, 'YYYY-MM') in (select jsonb_array_elements_text(coalesce(data -> 'releasedMonths', '[]')) from settings where id = 1)
+    );
+$$;
+
+-- A cliente agenda e remarca no mês atual e, depois de liberado pela profissional, no seguinte.
 create policy "cliente marca horário" on appointments for insert
-  with check (client_phone = current_phone() and status = 'agendado' and starts_at < date_trunc('month', now() at time zone 'America/Sao_Paulo') + interval '2 months');
+  with check (client_phone = current_phone() and status = 'agendado' and client_month_open(starts_at));
 -- A cliente só remarca (o horário volta a "a confirmar"); cancelar é só com a profissional
 -- (no app, a cliente pede o cancelamento pelo WhatsApp).
 drop policy if exists "cliente remarca ou cancela" on appointments;
 create policy "cliente remarca ou cancela" on appointments for update
   using (client_phone = current_phone() and status in ('agendado', 'confirmado'))
-  with check (client_phone = current_phone() and status = 'agendado' and starts_at < date_trunc('month', now() at time zone 'America/Sao_Paulo') + interval '2 months');
+  with check (client_phone = current_phone() and status = 'agendado' and client_month_open(starts_at));
 
 drop policy if exists "profissional: financeiro" on transactions;
 create policy "profissional: financeiro" on transactions for all using (is_owner()) with check (is_owner());

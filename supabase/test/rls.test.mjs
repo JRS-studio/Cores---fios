@@ -353,6 +353,7 @@ await test('comentários: quem entrou comenta, só aparece para todas depois de 
 });
 
 await test('cliente não cancela horário confirmado (pede pelo WhatsApp); a profissional cancela sem gerar aviso', async () => {
+  await as(owner, `update settings set data = jsonb_set(data, '{releasedMonths}', '["2026-12"]') where id = 1`); // dezembro liberado pela profissional
   await as(owner, ...appt('cx1', '5511987654321', '2026-12-01 10:00', '2026-12-01 11:00', 'confirmado'));
   assert.ok(await fails(ana, `update appointments set status = 'cancelado' where id = 'cx1'`));
   // Remarcar continua liberado (volta a "a confirmar").
@@ -389,6 +390,7 @@ await test('avisos para a profissional: pedido de horário, remarcação e pedid
   await as('service', 'delete from owner_notices');
   const notices = async () => (await rows('service', 'select kind, appointment_id from owner_notices order by id')).map((n) => `${n.kind}:${n.appointment_id}`);
   // A cliente pede um horário: aviso de agendamento. O que a profissional marca não gera aviso.
+  await as(owner, `update settings set data = jsonb_set(data, '{releasedMonths}', '["2026-12"]') where id = 1`); // dezembro liberado pela profissional
   await as(ana, ...appt('av1', '5511987654321', '2026-12-15 10:00', '2026-12-15 11:00'));
   await as(owner, ...appt('av2', '5521999998888', '2026-12-15 14:00', '2026-12-15 15:00', 'confirmado'));
   // A cliente remarca: aviso de remarcação. A profissional confirmar não gera aviso.
@@ -417,11 +419,19 @@ await test('avisos para a profissional: pedido de horário, remarcação e pedid
   assert.equal((await rows('service', 'select * from due_owner_notices()')).length, 0);
 });
 
-await test('cliente agenda até o fim do mês seguinte; a profissional, sem limite', async () => {
+await test('mês seguinte: fechado até a profissional liberar; a cliente nunca passa do fim dele; a profissional, sem limite', async () => {
   const [{ ok, fora }] = await rows('service', `select
     to_char(date_trunc('month', now() at time zone 'America/Sao_Paulo') + interval '2 months' - interval '1 day', 'YYYY-MM-DD') as ok,
     to_char(date_trunc('month', now() at time zone 'America/Sao_Paulo') + interval '2 months', 'YYYY-MM-DD') as fora`);
+  // Sem a profissional liberar, o mês seguinte fica fechado para as clientes.
+  await as(owner, `update settings set data = data - 'releasedMonths' where id = 1`);
+  assert.ok(await fails(ana, ...appt('pm0', '5511987654321', `${ok} 09:00`, `${ok} 09:30`)), 'mês seguinte ainda não liberado');
+  // A profissional libera o mês inteiro (um botão): a cliente agenda.
+  await as(owner, `update settings set data = jsonb_set(data, '{releasedMonths}', to_jsonb(array[left('${ok}', 7)])) where id = 1`);
   await as(ana, ...appt('pm1', '5511987654321', `${ok} 10:00`, `${ok} 11:00`));
+  // Só a profissional libera.
+  await as(ana, `update settings set data = jsonb_set(data, '{releasedMonths}', '[]') where id = 1`);
+  assert.equal((await rows(owner, `select data -> 'releasedMonths' as m from settings where id = 1`))[0].m.length, 1);
   assert.ok(await fails(ana, ...appt('pm2', '5511987654321', `${fora} 10:00`, `${fora} 11:00`)), 'mês depois do próximo');
   assert.ok(await fails(ana, `update appointments set starts_at = '${fora} 10:00', ends_at = '${fora} 11:00' where id = 'pm1'`), 'remarcar para fora');
   await as(owner, ...appt('pm3', '5521999998888', `${fora} 14:00`, `${fora} 15:00`, 'confirmado'));

@@ -149,6 +149,26 @@ const site = http.createServer((req, res) =>
   const shot = (n) => p.screenshot({ path: path.join(shots, `${n}.png`) });
   const wait = (ms = 500) => p.waitForTimeout(ms);
   let passed = 0;
+
+  // Escolhe o dia na tela de agendar pelo formato Semana / Novembro / Dezembro: o botão do mês e o dia no calendário.
+  const MESES_PT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const capitalize = (m) => m[0].toUpperCase() + m.slice(1);
+  async function pickDate(L, d) {
+    const mes = MESES_PT[d.getMonth()];
+    await L.getByRole('tab', { name: capitalize(mes), exact: true }).click();
+    await L.page().waitForTimeout(300);
+    await L.getByRole('button', { name: new RegExp(`^${d.getDate()} de ${mes}(,|$)`) }).first().click();
+    return d;
+  }
+  // O n-ésimo dia útil (seg a sex) a partir de amanhã (n = 0 é o primeiro).
+  async function pickWeekday(L, n) {
+    const d = new Date();
+    for (let k = -1; k < n; ) {
+      d.setDate(d.getDate() + 1);
+      if (d.getDay() !== 0 && d.getDay() !== 6) k += 1;
+    }
+    return pickDate(L, d);
+  }
   const test = async (name, fn) => {
     await fn();
     passed += 1;
@@ -220,7 +240,7 @@ const site = http.createServer((req, res) =>
     assert.equal(await R.getByText('Nova / avulsa').count(), 0);
     await R.getByText('Esmaltação em gel', { exact: true }).last().click();
     // Um dia de semana à frente, com horários livres.
-    await R.getByRole('button', { name: /^(seg|ter|qua|qui|sex) \d+$/ }).nth(1).click();
+    await pickWeekday(R, 1);
     await wait();
     await R.getByText('10:00', { exact: true }).last().click();
     await R.getByText('Confirmar agendamento').click();
@@ -433,7 +453,7 @@ const site = http.createServer((req, res) =>
     await C.getByText('Agendar horário').last().click();
     await cli.waitForTimeout(800);
     await C.getByText('Manicure tradicional', { exact: true }).last().click();
-    await C.getByRole('button', { name: /^(seg|ter|qua|qui|sex) \d+$/ }).nth(2).click();
+    await pickWeekday(C, 2);
     await cli.waitForTimeout(500);
     await C.getByText('14:00', { exact: true }).last().click();
     // Sem ter marcado o cashback, o app pergunta ao confirmar.
@@ -509,7 +529,7 @@ const site = http.createServer((req, res) =>
     await wait(800);
     await R.getByText('Esmaltação em gel', { exact: true }).last().click();
     await R.getByText(/15% de desconto aplicado\. De R\$\s?70(,00)? por R\$\s?59,50/).waitFor();
-    await R.getByRole('button', { name: new RegExp(`^(seg|ter|qua|qui|sex) ${d.getDate()}$`) }).first().click();
+    await pickDate(R, d);
     await wait(500);
     await R.getByText('16:00', { exact: true }).last().click();
     await shot('13-aniversario');
@@ -686,17 +706,15 @@ const site = http.createServer((req, res) =>
     const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
     const now = new Date();
     const [esteMes, proximo, depois] = [0, 1, 2].map((k) => MESES[(now.getMonth() + k) % 12]);
-    await C.getByLabel(`Mês de ${esteMes}`).waitFor();
-    await C.getByLabel(`Mês de ${proximo}`).click();
+    await C.getByRole('tab', { name: capitalize(esteMes), exact: true }).waitFor();
+    await C.getByRole('tab', { name: capitalize(proximo), exact: true }).click();
     await cli.waitForTimeout(500);
-    await C.getByText(new RegExp(`\\d+ de ${proximo}$`)).first().waitFor();
-    assert.equal(await C.getByLabel(`Mês de ${depois}`).count(), 0, 'o mês depois do próximo ainda não abriu');
+    await C.getByLabel(`Calendário de ${proximo}`).waitFor();
+    assert.equal(await C.getByRole('tab', { name: capitalize(depois), exact: true }).count(), 0, 'o mês depois do próximo ainda não abriu');
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 2, 0).getDate();
-    await C.getByRole('button', { name: new RegExp(`^(seg|ter|qua|qui|sex|sáb|dom) ${lastDay}(, fechado)?$`) }).last().waitFor();
+    await C.getByRole('button', { name: new RegExp(`^${lastDay} de ${proximo}`) }).waitFor();
     await cli.screenshot({ path: path.join(shots, '27-proximo-mes.png') });
-    await C.getByLabel(`Mês de ${esteMes}`).click();
-    await cli.waitForTimeout(500);
-    await C.getByRole('button', { name: /^(seg|ter|qua|qui|sex) \d+$/ }).nth(3).click();
+    await pickWeekday(C, 3);
     await cli.waitForTimeout(500);
     await C.getByText('11:00', { exact: true }).last().click();
     // O WhatsApp abre ao agendar: fecha a aba aberta.
@@ -781,7 +799,7 @@ const site = http.createServer((req, res) =>
     await R.getByLabel('Nome', { exact: true }).fill('Bruna Costa');
     await R.getByLabel('WhatsApp', { exact: true }).fill('11977776666');
     await R.getByText('Mão e pé', { exact: true }).last().click();
-    await R.getByRole('button', { name: /^(seg|ter|qua|qui|sex) \d+$/ }).nth(4).click();
+    await pickWeekday(R, 4);
     await wait(500);
     await R.getByText('09:00', { exact: true }).last().click();
     await R.getByText('Confirmar agendamento').click();
@@ -797,33 +815,32 @@ const site = http.createServer((req, res) =>
   await test('profissional: cliente nova/avulsa e troca de dia em qualquer ordem, sem a tela travar', async () => {
     const home = `http://localhost:${site.address().port}/`;
     const before = errors.length;
-    const days = () => R.getByRole('button', { name: /^(seg|ter|qua|qui|sex|sáb|dom) \d+$/ });
     await p.goto(home, { waitUntil: 'networkidle' });
     await wait(1500);
     await R.getByText('Agendar', { exact: true }).first().click();
     await wait(800);
     await R.getByText('Nova / avulsa').click();
     // Troca o dia antes de tudo, com o nome pela metade, depois de escolher o serviço e de novo.
-    await days().nth(1).click();
+    await pickWeekday(R, 1);
     await wait(300);
     await R.getByLabel('Nome', { exact: true }).fill('Dani');
-    await days().nth(2).click();
+    await pickWeekday(R, 2);
     await wait(300);
     await R.getByLabel('WhatsApp', { exact: true }).fill('1198');
-    await days().nth(3).click();
+    await pickWeekday(R, 3);
     await wait(300);
     await R.getByLabel('WhatsApp', { exact: true }).fill('11988887777');
-    await days().nth(4).click();
+    await pickWeekday(R, 4);
     await wait(300);
     await R.getByText('Pedicure', { exact: true }).last().click();
     for (let i = 1; i <= 6; i++) {
-      await days().nth(i).click();
+      await pickWeekday(R, i);
       await wait(250);
     }
     await shot('21-avulsa-trocando-dia');
     assert.equal(errors.length, before, `erros na tela: ${errors.slice(before).join(' | ')}`);
     assert.ok((await R.innerText()).includes('Novo agendamento'), 'a tela continua aberta');
-    await days().nth(2).click();
+    await pickWeekday(R, 2);
     await wait(400);
     await R.getByText('15:00', { exact: true }).last().click();
     await R.getByText('Confirmar agendamento').click();
@@ -860,7 +877,6 @@ const site = http.createServer((req, res) =>
     db.appointments.push({ id: 'teste-vazio', client_phone: '5511900000001', status: 'cancelado', starts_at: '2030-01-02 10:00', ends_at: '2030-01-02 11:00', data: {} });
     const home = `http://localhost:${site.address().port}/`;
     const before = errors.length;
-    const days = () => R.getByRole('button', { name: /^(seg|ter|qua|qui|sex|sáb|dom) \d+/ });
     await p.goto(home, { waitUntil: 'networkidle' });
     await wait(2000);
     await R.getByText('Agendar', { exact: true }).first().click();
@@ -871,7 +887,7 @@ const site = http.createServer((req, res) =>
     for (const service of ['Pedicure', 'Progressiva (apartir de:)', 'Sombrancelha']) {
       await R.getByText(service, { exact: true }).last().click();
       for (let i = 0; i <= 10; i++) {
-        await days().nth(i).click({ timeout: 5000 });
+        await pickWeekday(R, i);
         await wait(200);
       }
     }
@@ -893,7 +909,7 @@ const site = http.createServer((req, res) =>
     // WhatsApp pela metade não passa; em branco, passa.
     await R.getByLabel('WhatsApp', { exact: true }).fill('1199');
     await R.getByText('Pedicure', { exact: true }).last().click();
-    await R.getByRole('button', { name: /^(seg|ter|qua|qui|sex) \d+$/ }).nth(5).click();
+    await pickWeekday(R, 5);
     await wait(500);
     await R.getByText('16:00', { exact: true }).last().click();
     await R.getByText('Confirmar agendamento').click();
@@ -940,7 +956,7 @@ const site = http.createServer((req, res) =>
     await R.getByText('Nova / avulsa').click();
     await R.getByLabel('Nome', { exact: true }).fill('Segunda');
     await R.getByText('Pedicure', { exact: true }).last().click();
-    await R.getByRole('button', { name: new RegExp(`^(seg|ter|qua|qui|sex) ${d.getDate()}$`) }).first().click();
+    await pickDate(R, d);
     await wait(600);
     for (const t of ['06:40', '07:40', '08:40']) await R.getByText(t, { exact: true }).last().waitFor();
     for (const t of ['06:00', '07:00', '06:15']) assert.equal(await R.getByText(t, { exact: true }).count(), 0, `não oferece ${t}`);

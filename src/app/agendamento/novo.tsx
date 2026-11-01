@@ -8,7 +8,8 @@ import { Button, CheckRow, Field, ScreenHeader, SectionTitle } from '@/component
 import { shapeById } from '@/data/catalog';
 import { isServiceActive } from '@/data/services';
 import { useAppointments, type Appointment } from '@/features/agenda/AppointmentsContext';
-import { DateStrip, endTime } from '@/features/agenda/components';
+import { endTime } from '@/features/agenda/components';
+import { DatePicker } from '@/features/agenda/DatePicker';
 import { newBookingWhatsApp } from '@/features/agenda/whatsapp';
 import { roundCents, useCashback } from '@/features/cashback/CashbackContext';
 import { useClients } from '@/features/clients/ClientsContext';
@@ -16,7 +17,7 @@ import { useSession } from '@/features/session/SessionContext';
 import { isReleasedTime, releasedSlots, serviceIn, useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
 import { newId } from '@/utils/id';
-import { addDays, formatLongDate, lastBookableDate, today } from '@/utils/date';
+import { addDays, formatLongDate, lastBookableDate, monthKey, shiftMonth, today } from '@/utils/date';
 import { brl, formatPhone, initials, isValidPhone, onlyDigits, parseDate } from '@/utils/format';
 import { openExternal } from '@/utils/openExternal';
 
@@ -46,6 +47,9 @@ export default function NovoAgendamentoScreen() {
   const [price, setPrice] = useState(editing ? String(editing.fullPrice ?? editing.price) : '');
   // Clientes agendam até o fim do mês seguinte (a agenda do próximo mês abre no dia 1º); a profissional, até 6 meses.
   const lastDate = clientMode ? lastBookableDate() : addDays(today(), 180);
+  // Botões dos meses abertos (ex.: Novembro, Dezembro; a profissional vê também os seguintes).
+  const bookingMonths: string[] = [];
+  for (let m = monthKey(today()); m <= monthKey(lastDate); m = shiftMonth(m, 1)) bookingMonths.push(m);
   const [date, setDate] = useState(
     editing?.date ?? (params.data && params.data >= today() && params.data <= lastDate ? params.data : today()),
   );
@@ -357,15 +361,17 @@ export default function NovoAgendamentoScreen() {
         <View style={styles.gutter}>
           <SectionTitle hint={formatLongDate(date)}>Data</SectionTitle>
         </View>
-        <DateStrip
+        <DatePicker
           selected={date}
           onSelect={(d) => {
             setDate(d);
             setTime(undefined);
           }}
-          until={lastDate}
-          showMonths
+          months={bookingMonths}
           workDays={settings.workDays}
+          minDate={today()}
+          maxDate={lastDate}
+          lockOutside
         />
 
         <View style={styles.gutter}>

@@ -6,20 +6,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui';
 import { isActive, useAppointments } from '@/features/agenda/AppointmentsContext';
-import { AppointmentCard, DateStrip } from '@/features/agenda/components';
+import { AppointmentCard } from '@/features/agenda/components';
 import { DayGrid } from '@/features/agenda/DayGrid';
-import { MonthCalendar } from '@/features/agenda/MonthCalendar';
+import { DatePicker } from '@/features/agenda/DatePicker';
 import { useSession } from '@/features/session/SessionContext';
 import { useClients } from '@/features/clients/ClientsContext';
 import { isDayBlocked, useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
-import { addDays, formatDayMonth, formatLongDate, MONTHS, monthKey, shiftMonth, today, weekdayOf } from '@/utils/date';
+import { formatDayMonth, formatLongDate, monthKey, shiftMonth, today, weekdayOf } from '@/utils/date';
 import { brl } from '@/utils/format';
-
-const monthName = (key: string) => {
-  const name = MONTHS[Number(key.slice(5, 7)) - 1];
-  return name[0].toUpperCase() + name.slice(1);
-};
 
 export default function AgendaScreen() {
   const insets = useSafeAreaInsets();
@@ -29,23 +24,10 @@ export default function AgendaScreen() {
   const { canManage } = useSession();
   const [date, setDate] = useState(today());
   const [view, setView] = useState<'grade' | 'lista'>('grade');
-  // Como a agenda é organizada: a semana atual (faixa de dias), o mês atual ou o mês seguinte (calendário),
-  // com os botões pelo nome do mês (ex.: Semana, Novembro, Dezembro).
-  const [period, setPeriod] = useState<'semana' | 'mes' | 'proximo'>('semana');
+  // Agenda organizada em Semana e nos meses pelo nome (ex.: Semana, Novembro, Dezembro).
   const todayIso = today();
   const thisMonth = monthKey(todayIso);
   const nextMonth = shiftMonth(thisMonth, 1);
-  const weekStart = addDays(todayIso, -weekdayOf(todayIso));
-  const weekEnd = addDays(weekStart, 6);
-
-  function choosePeriod(p: typeof period) {
-    setPeriod(p);
-    // Ao trocar, o dia escolhido vai para dentro do período (hoje, ou o 1º dia de atendimento do próximo mês).
-    if (p === 'proximo') {
-      const first = Array.from({ length: 7 }, (_, i) => addDays(`${nextMonth}-01`, i)).find((d) => settings.workDays.includes(weekdayOf(d)));
-      setDate(first ?? `${nextMonth}-01`);
-    } else setDate(todayIso);
-  }
   // Pedidos das clientes que ainda esperam a confirmação da profissional.
   const toConfirm = appointments
     .filter((a) => a.status === 'agendado' && a.date >= today())
@@ -117,47 +99,7 @@ export default function AgendaScreen() {
         </View>
       )}
 
-      <View style={[styles.gutter, styles.periods]}>
-        {(
-          [
-            ['semana', 'Semana'],
-            ['mes', monthName(thisMonth)],
-            ['proximo', monthName(nextMonth)],
-          ] as const
-        ).map(([id, label]) => (
-          <Pressable
-            key={id}
-            style={[styles.period, period === id && styles.periodActive]}
-            onPress={() => choosePeriod(id)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: period === id }}
-          >
-            <Text style={[styles.periodText, period === id && { color: colors.white }]}>{label}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {period === 'semana' ? (
-        <DateStrip
-          selected={date}
-          onSelect={setDate}
-          daysBefore={weekdayOf(todayIso)}
-          until={weekEnd}
-          counts={counts}
-          workDays={settings.workDays}
-        />
-      ) : (
-        <View style={styles.gutter}>
-          <MonthCalendar
-            month={period === 'mes' ? thisMonth : nextMonth}
-            selected={date}
-            onSelect={setDate}
-            counts={counts}
-            workDays={settings.workDays}
-            minDate={todayIso}
-          />
-        </View>
-      )}
+      <DatePicker selected={date} onSelect={setDate} months={[thisMonth, nextMonth]} workDays={settings.workDays} counts={counts} minDate={todayIso} />
 
       <View style={[styles.gutter, { marginTop: 18 }]}>
         <Text style={styles.dayTitle}>{dayTitle}</Text>
@@ -259,18 +201,6 @@ const styles = StyleSheet.create({
   pendingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
   pendingText: { flex: 1, fontFamily: fonts.regular, fontSize: 12, color: '#92400E' },
   pendingLink: { fontFamily: fonts.semibold, fontSize: 12, color: '#92400E' },
-  periods: { flexDirection: 'row', gap: 8, marginBottom: 14 },
-  period: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
-  },
-  periodActive: { backgroundColor: colors.plum, borderColor: colors.plum },
-  periodText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.plum },
   toggle: { flexDirection: 'row', backgroundColor: colors.white, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, padding: 4, marginTop: 14 },
   toggleItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: radius.pill },
   toggleActive: { backgroundColor: colors.plum },

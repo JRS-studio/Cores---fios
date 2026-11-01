@@ -11,6 +11,8 @@ export function MonthCalendar({
   counts = {},
   workDays,
   minDate,
+  maxDate,
+  lockOutside = false,
 }: {
   month: string;
   selected: string;
@@ -19,6 +21,10 @@ export function MonthCalendar({
   workDays: number[];
   // Dias antes desta data aparecem apagados (já passaram).
   minDate?: string;
+  // Até este dia (depois dele, apagado).
+  maxDate?: string;
+  // Dias fora de minDate/maxDate não podem ser escolhidos (ao agendar).
+  lockOutside?: boolean;
 }) {
   const total = daysInMonth(month);
   const days = Array.from({ length: total }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`);
@@ -42,13 +48,15 @@ export function MonthCalendar({
           {cells.slice(w * 7, w * 7 + 7).map((d, i) => {
             if (!d) return <View key={`v${i}`} style={styles.cell} />;
             const active = d === selected;
-            const past = !!minDate && d < minDate;
+            const past = (!!minDate && d < minDate) || (!!maxDate && d > maxDate);
+            const locked = lockOutside && past;
             const closed = !workDays.includes(weekdayOf(d));
             const n = counts[d] ?? 0;
             return (
               <Pressable
                 key={d}
                 onPress={() => onSelect(d)}
+                disabled={locked}
                 style={[styles.cell, styles.day, active && styles.dayActive, (past || closed) && !active && styles.dayMuted]}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}

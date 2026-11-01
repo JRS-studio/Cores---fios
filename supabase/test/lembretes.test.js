@@ -9,7 +9,7 @@ execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyo
 fs.copyFileSync(path.join(__dirname, '../functions/lembretes/index.ts'), path.join(TMP, 'index.ts'));
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; const crypto = require('crypto'); const { spawn } = require('child_process'); const assert = require('assert/strict');
 const sub = () => { const e = crypto.createECDH('prime256v1'); e.generateKeys(); return { p256dh: e.getPublicKey().toString('base64url'), auth: crypto.randomBytes(16).toString('base64url') }; };
-const state = { config: null, marked: null, cancelMarked: null, deleted: [], pushes: [] };
+const state = { config: null, marked: null, cancelMarked: null, noticesMarked: null, deleted: [], pushes: [] };
 let port; let pushPort;
 const pushServer = https.createServer({ key: fs.readFileSync(path.join(TMP, 'key.pem')), cert: fs.readFileSync(path.join(TMP, 'cert.pem')) }, (req, res) => {
   let raw = ''; req.on('data', (c) => (raw += c)); req.on('end', () => {
@@ -37,6 +37,14 @@ const api = http.createServer((req, res) => {
     if (u.pathname === '/rest/v1/rpc/due_cancel_notices') {
       return send(200, [{ appointment_id: 'c1', data: { clientName: 'Paula Lima', serviceName: 'Manicure', date: '2026-11-04', time: '14:00' }, endpoint: `https://localhost:${pushPort}/push/pro`, ...sub() }]);
     }
+    if (u.pathname === '/rest/v1/rpc/due_owner_notices') {
+      const pro = `https://localhost:${pushPort}/push/pedidos`;
+      return send(200, [
+        { notice_id: 7, kind: 'agendamento', appointment_id: 'n1', data: { clientName: 'Ana', serviceName: 'Pedicure', date: '2026-11-05', time: '10:00' }, endpoint: pro, ...sub() },
+        { notice_id: 8, kind: 'cancelamento', appointment_id: 'n2', data: { clientName: 'Bia', serviceName: 'Manicure', date: '2026-11-06', time: '15:00' }, endpoint: pro, ...sub() },
+      ]);
+    }
+    if (u.pathname === '/rest/v1/rpc/mark_owner_notified') { state.noticesMarked = JSON.parse(raw).ids; return send(200, null); }
     if (u.pathname === '/rest/v1/rpc/mark_cancel_notified') { state.cancelMarked = JSON.parse(raw).ids; return send(200, null); }
     if (u.pathname === '/rest/v1/rpc/mark_reminded') { state.marked = JSON.parse(raw).ids; return send(200, null); }
     if (u.pathname === '/rest/v1/push_subscriptions' && req.method === 'DELETE') { state.deleted.push(u.searchParams.get('endpoint')); return send(204); }
@@ -60,7 +68,7 @@ api.listen(0, async () => {
   deno.kill(); api.close(); pushServer.close();
   if (!out) { console.error(log); process.exit(1); }
   console.log('resposta:', out);
-  assert.deepEqual(out, { horarios: 1, enviados: 1, removidos: 1, cancelamentos: 1, avisos: 1 });
+  assert.deepEqual(out, { horarios: 1, enviados: 1, removidos: 1, cancelamentos: 1, pedidos: 2, avisos: 3 });
   assert.ok(state.config?.public_key && state.config?.private_key, 'chaves VAPID criadas e guardadas');
   assert.deepEqual(state.marked, ['a1']);
   assert.deepEqual(state.deleted, [`eq.https://localhost:${pushPort}/push/gone`]);
@@ -68,7 +76,9 @@ api.listen(0, async () => {
   assert.match(ok.auth, /^vapid t=.+, k=/); assert.equal(ok.enc, 'aes128gcm'); assert.equal(ok.ttl, '3600'); assert.ok(ok.len > 100);
   // Aviso de cancelamento para a profissional.
   assert.deepEqual(state.cancelMarked, ['c1']);
+  assert.deepEqual(state.noticesMarked, [7, 8]);
+  assert.equal(state.pushes.filter((p) => p.path === '/push/pedidos').length, 2);
   const pro = state.pushes.find((p) => p.path === '/push/pro');
   assert.equal(pro.enc, 'aes128gcm'); assert.equal(pro.ttl, '86400'); assert.ok(pro.len > 100);
-  console.log('ok: chaves criadas, notificação criptografada enviada, inscrição removida (410), lembrete marcado, aviso de cancelamento enviado à profissional');
+  console.log('ok: chaves criadas, notificação criptografada enviada, inscrição removida (410), lembrete marcado, avisos de pedido de horário e de cancelamento enviados à profissional');
 });

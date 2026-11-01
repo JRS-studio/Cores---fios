@@ -15,6 +15,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { SyncBanner } from '@/components/SyncBanner';
 import { AppointmentsProvider } from '@/features/agenda/AppointmentsContext';
+import { CancelRequestsProvider } from '@/features/agenda/CancelRequestsContext';
 import { CashbackProvider } from '@/features/cashback/CashbackContext';
 import { ClientsProvider } from '@/features/clients/ClientsContext';
 import { FeedbackProvider } from '@/features/feedback/FeedbackContext';
@@ -54,24 +55,26 @@ export default function RootLayout() {
         <SettingsProvider>
           <ClientsProvider>
             <AppointmentsProvider>
-              <CashbackProvider>
-                <FinanceProvider>
-                  <FeedbackProvider>
-                    <PostsProvider>
-                      <CommentsProvider>
-                        <LikesProvider>
-                          <StatusBar style="dark" />
-                          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }} />
-                          <SyncBanner />
-                          <ThemeSync />
-                          <BiometricLock />
-                          <AutoUpdate />
-                        </LikesProvider>
-                      </CommentsProvider>
-                    </PostsProvider>
-                  </FeedbackProvider>
-                </FinanceProvider>
-              </CashbackProvider>
+              <CancelRequestsProvider>
+                <CashbackProvider>
+                  <FinanceProvider>
+                    <FeedbackProvider>
+                      <PostsProvider>
+                        <CommentsProvider>
+                          <LikesProvider>
+                            <StatusBar style="dark" />
+                            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }} />
+                            <SyncBanner />
+                            <ThemeSync />
+                            <BiometricLock />
+                            <AutoUpdate />
+                          </LikesProvider>
+                        </CommentsProvider>
+                      </PostsProvider>
+                    </FeedbackProvider>
+                  </FinanceProvider>
+                </CashbackProvider>
+              </CancelRequestsProvider>
             </AppointmentsProvider>
           </ClientsProvider>
         </SettingsProvider>

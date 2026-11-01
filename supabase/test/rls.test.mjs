@@ -385,4 +385,36 @@ await test('cliente avulsa sem WhatsApp: a profissional agenda e nenhuma cliente
   assert.equal((await rows('anon', `select * from busy_slots('2026-12-10')`)).length, 1, 'o horário aparece como ocupado');
 });
 
+await test('avisos para a profissional: pedido de horário, remarcação e pedido de cancelamento', async () => {
+  await as('service', 'delete from owner_notices');
+  const notices = async () => (await rows('service', 'select kind, appointment_id from owner_notices order by id')).map((n) => `${n.kind}:${n.appointment_id}`);
+  // A cliente pede um horário: aviso de agendamento. O que a profissional marca não gera aviso.
+  await as(ana, ...appt('av1', '5511987654321', '2026-12-15 10:00', '2026-12-15 11:00'));
+  await as(owner, ...appt('av2', '5521999998888', '2026-12-15 14:00', '2026-12-15 15:00', 'confirmado'));
+  // A cliente remarca: aviso de remarcação. A profissional confirmar não gera aviso.
+  await as(ana, `update appointments set starts_at = '2026-12-15 12:00', ends_at = '2026-12-15 13:00' where id = 'av1'`);
+  await as(owner, `update appointments set status = 'confirmado' where id = 'av1'`);
+  // Pedido de cancelamento só do próprio horário, e só aberto.
+  await as(ana, `insert into cancel_requests (id, appointment_id, data) values ('cr1', 'av1', '{}')`);
+  assert.ok(await fails(ana, `insert into cancel_requests (id, appointment_id, data) values ('cr2', 'av2', '{}')`), 'horário de outra');
+  assert.ok(await fails(ana, `insert into cancel_requests (id, appointment_id, status, data) values ('cr3', 'av1', 'resolvido', '{}')`));
+  assert.ok(await fails('anon', `insert into cancel_requests (id, appointment_id, data) values ('cr4', 'av1', '{}')`));
+  assert.deepEqual(await notices(), ['agendamento:av1', 'remarcacao:av1', 'cancelamento:av1']);
+  // A cliente vê o próprio pedido; outra cliente não; a profissional vê e resolve.
+  assert.equal((await rows(ana, 'select * from cancel_requests')).length, 1);
+  assert.equal((await rows(bia, 'select * from cancel_requests')).length, 0);
+  await as(owner, `update cancel_requests set status = 'resolvido' where id = 'cr1'`);
+  assert.equal((await rows(ana, `select status from cancel_requests where id = 'cr1'`))[0].status, 'resolvido');
+  await as(ana, `update cancel_requests set status = 'aberto' where id = 'cr1'`);
+  assert.equal((await rows(owner, `select status from cancel_requests where id = 'cr1'`))[0].status, 'resolvido', 'cliente não reabre');
+  // Os avisos só o servidor lê e envia, para os celulares da profissional.
+  assert.equal((await rows(owner, 'select * from owner_notices')).length, 0);
+  assert.ok(await fails(ana, 'select * from due_owner_notices()'));
+  await db.exec(`insert into push_subscriptions (endpoint, p256dh, auth, user_id, phone) values ('https://push.example/pro2', 'k', 'a', '${OWNER}', 'profissional') on conflict do nothing`);
+  const due = await rows('service', 'select notice_id, kind, endpoint from due_owner_notices()');
+  assert.ok(due.length >= 3 && due.every((d) => d.endpoint.startsWith('https://push.example/pro')));
+  await as('service', 'select mark_owner_notified($1)', [due.map((d) => d.notice_id)]);
+  assert.equal((await rows('service', 'select * from due_owner_notices()')).length, 0);
+});
+
 console.log(`\n${passed} testes passaram.`);

@@ -47,4 +47,5 @@ export const STORAGE_KEYS = {
   likes: 'cores:likes:v1',
   cashback: 'cores:cashback:v1',
   comments: 'cores:comments:v1',
+  cancelRequests: 'cores:pedidos-cancelamento:v1',
 };

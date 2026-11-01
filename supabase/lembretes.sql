@@ -33,3 +33,18 @@ end;
 $$;
 create or replace trigger appointments_poke_cancel_notice after update on appointments
   for each row execute function poke_cancel_notice();
+
+-- Avisos para a profissional na hora (pedido de horário, remarcação, pedido de cancelamento).
+create or replace function poke_owner_notice() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  perform net.http_post(
+    url := 'https://tnnlwaloowsxormyxtss.supabase.co/functions/v1/lembretes',
+    headers := '{"Content-Type": "application/json"}'::jsonb,
+    body := '{}'::jsonb
+  );
+  return new;
+end;
+$$;
+create or replace trigger owner_notices_poke after insert on owner_notices
+  for each row execute function poke_owner_notice();

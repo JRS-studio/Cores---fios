@@ -1,6 +1,6 @@
 // Função "lembretes" do Supabase (Edge Function). Chamada a cada 5 minutos (ver supabase/lembretes.sql):
 // envia uma notificação ao celular da cliente quando falta 1 hora (ou menos) para o horário dela
-// e avisa a profissional quando uma cliente cancela pelo app.
+// e avisa a profissional quando uma cliente pede horário, remarca ou pede cancelamento.
 // Na primeira execução cria as chaves de envio (VAPID) e guarda na tabela push_config.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
@@ -89,5 +89,48 @@ Deno.serve(async () => {
   const cancelIds = [...new Set(((cancels ?? []) as Cancel[]).map((c) => c.appointment_id))];
   if (cancelIds.length) await db.rpc('mark_cancel_notified', { ids: cancelIds });
 
-  return Response.json({ horarios: ids.length, enviados: sent, removidos: removed, cancelamentos: cancelIds.length, avisos });
+  // Avisos para a profissional: pedido de horário, remarcação e pedido de cancelamento feitos pelas clientes.
+  type Notice = {
+    notice_id: number;
+    kind: 'agendamento' | 'remarcacao' | 'cancelamento';
+    appointment_id: string;
+    data: { clientName?: string; serviceName?: string; date?: string; time?: string };
+    endpoint: string;
+    p256dh: string;
+    auth: string;
+  };
+  const TITLES = { agendamento: 'Novo pedido de horário', remarcacao: 'Pedido de remarcação', cancelamento: 'Pedido de cancelamento' };
+  const { data: notices } = await db.rpc('due_owner_notices');
+  for (const row of (notices ?? []) as Notice[]) {
+    const [, m, d] = (row.data.date ?? '').split('-');
+    const when = `${d ? `${d}/${m}` : ''}${row.data.time ? ` às ${row.data.time}` : ''}`.trim();
+    const who = row.data.clientName ?? 'Uma cliente';
+    const what = row.data.serviceName ?? 'horário';
+    const body =
+      row.kind === 'cancelamento'
+        ? `${who} pediu para cancelar ${what}${when ? ` de ${when}` : ''}.`
+        : row.kind === 'remarcacao'
+          ? `${who} remarcou ${what} para ${when}. Confirme no app.`
+          : `${who} pediu ${what}${when ? ` em ${when}` : ''}. Confirme no app.`;
+    const payload = JSON.stringify({
+      title: TITLES[row.kind],
+      body,
+      url: `${SITE_URL.replace(/\/$/, '')}/agendamento/${row.appointment_id}`,
+      tag: `${row.kind}-${row.notice_id}`,
+    });
+    try {
+      await webpush.sendNotification({ endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } }, payload, { TTL: 86400 });
+      avisos += 1;
+    } catch (e) {
+      const status = (e as { statusCode?: number }).statusCode;
+      if (status === 404 || status === 410) {
+        await db.from('push_subscriptions').delete().eq('endpoint', row.endpoint);
+        removed += 1;
+      }
+    }
+  }
+  const noticeIds = [...new Set(((notices ?? []) as Notice[]).map((n) => n.notice_id))];
+  if (noticeIds.length) await db.rpc('mark_owner_notified', { ids: noticeIds });
+
+  return Response.json({ horarios: ids.length, enviados: sent, removidos: removed, cancelamentos: cancelIds.length, pedidos: noticeIds.length, avisos });
 });

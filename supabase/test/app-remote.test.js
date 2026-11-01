@@ -11,7 +11,7 @@ const assert = require('assert/strict');
 const { chromium } = require('playwright');
 
 const API_PORT = 54329;
-const db = { clients: [], appointments: [], transactions: [], feedbacks: [], settings: [], posts: [], likes: [], push_subscriptions: [], cashback: [], comments: [] };
+const db = { clients: [], appointments: [], transactions: [], feedbacks: [], settings: [], posts: [], likes: [], push_subscriptions: [], cashback: [], comments: [], cancel_requests: [] };
 // Chave pública de envio (VAPID) válida, para o navegador aceitar a inscrição.
 const VAPID = require('crypto').createECDH('prime256v1');
 VAPID.generateKeys();
@@ -95,7 +95,7 @@ const api = http.createServer((req, res) => {
     const visible = (row) =>
       session?.owner || ['settings', 'posts', 'likes'].includes(table) ||
       (['feedbacks', 'comments'].includes(table) && (row.approved || row.author_id === session?.user.id)) ||
-      (table === 'clients' && row.phone === myPhone) || (['appointments', 'cashback'].includes(table) && row.client_phone === myPhone);
+      (table === 'clients' && row.phone === myPhone) || (['appointments', 'cashback', 'cancel_requests'].includes(table) && row.client_phone === myPhone);
     if (req.method === 'GET') return send(200, db[table].filter(visible).map((r) => ({ data: r.data })));
     if (req.method === 'POST') {
       for (const row of [].concat(body)) {
@@ -661,7 +661,7 @@ const site = http.createServer((req, res) =>
     await vis.close();
   });
 
-  await test('cliente pede o cancelamento pelo WhatsApp; só a profissional cancela e libera o horário', async () => {
+  await test('pedido de horário e pedido de cancelamento aparecem nos Avisos da profissional; só ela cancela e libera o horário', async () => {
     const home = `http://localhost:${site.address().port}/`;
     db.settings = [{ id: 1, data: { whatsapp: '11999990000' } }];
     const cli = await browser.newPage({ viewport: { width: 390, height: 844 } });
@@ -692,6 +692,13 @@ const site = http.createServer((req, res) =>
     await cli.waitForTimeout(1200);
     const appt = db.appointments.at(-1);
     assert.equal(appt.client_phone, '5511933332222');
+    // O pedido de horário aparece nos Avisos da profissional (sininho da tela inicial).
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(1500);
+    await R.getByLabel(/^Avisos: \d+ para responder$/).click();
+    await wait(800);
+    await R.getByLabel(/^Lia Souza pediu um horário: Pedicure/).waitFor();
+    await shot('24-avisos-pedido-de-horario');
     // A profissional aceita o horário.
     appt.status = 'confirmado';
     appt.data = { ...appt.data, status: 'confirmado' };
@@ -711,24 +718,31 @@ const site = http.createServer((req, res) =>
     assert.match(url, /wa\.me\/5511999990000/);
     assert.match(url, /Gostaria de cancelar meu horário de Pedicure/);
     await wa.close();
-    await C.getByText(/O horário continua marcado até Jhenifer cancelar/).waitFor();
+    await C.getByText(/Pedido de cancelamento enviado para Jhenifer\. O horário continua marcado até ela responder\./).waitFor();
+    await C.getByText(/Você pediu o cancelamento/).waitFor();
+    assert.equal(await C.getByRole('button', { name: 'Pedir cancelamento' }).count(), 0, 'não pede duas vezes');
+    assert.equal(db.cancel_requests.length, 1);
+    assert.equal(db.cancel_requests[0].status, 'aberto');
+    assert.equal(db.cancel_requests[0].client_phone, '5511933332222');
     await cli.screenshot({ path: path.join(shots, '19-pedido-cancelamento.png') });
     assert.equal(db.appointments.find((a) => a.id === appt.id).status, 'confirmado', 'o horário continua marcado');
 
-    // A profissional cancela: aí o horário fica livre.
+    // O pedido aparece nos Avisos da profissional; ela abre e cancela. Aí o horário fica livre.
     await p.goto(home, { waitUntil: 'networkidle' });
     await wait(1500);
-    await R.getByRole('button', { name: 'Clientes' }).last().click();
+    await R.getByLabel(/^Avisos: \d+ para responder$/).click();
     await wait(800);
-    await R.getByText('Lia Souza').first().click();
+    await shot('25-avisos-pedido-de-cancelamento');
+    await R.getByLabel(/^Lia Souza pediu para cancelar: Pedicure/).click();
     await wait(800);
-    await R.getByText('Pedicure', { exact: false }).last().click();
-    await wait(800);
-    await R.getByText('Cancelar horário', { exact: true }).first().click();
-    await R.getByRole('button', { name: 'Cancelar horário' }).click();
+    await R.getByText('Lia pediu para cancelar este horário.').waitFor();
+    await R.getByRole('button', { name: 'Cancelar horário' }).first().click();
+    await R.getByText(/Cancelar o horário de Lia\?/).waitFor();
+    await R.getByRole('button', { name: 'Cancelar horário' }).last().click();
     await wait(1200);
     const row = db.appointments.find((a) => a.id === appt.id);
     assert.equal(row.status, 'cancelado');
+    assert.equal(db.cancel_requests[0].status, 'resolvido', 'pedido respondido');
     // Celular de cliente que guardou a biometria da profissional (testes no mesmo aparelho): ao abrir,
     // não aparece "Olá, Jhenifer" nem o perfil do studio; abre direto como a cliente e a trava antiga some.
     await cli.evaluate(() => localStorage.setItem('cores:biometria:v1', JSON.stringify({ credentialId: 'AAAA' })));

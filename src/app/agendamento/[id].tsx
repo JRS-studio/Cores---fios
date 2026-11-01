@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Chips, Field, ScreenHeader } from '@/components/ui';
 import { useAppointments, PAYMENT_LABEL, type PaymentMethod } from '@/features/agenda/AppointmentsContext';
 import { endTime, StatusChip } from '@/features/agenda/components';
+import { useCancelRequests } from '@/features/agenda/CancelRequestsContext';
 import { cancelRequestWhatsApp, newBookingWhatsApp } from '@/features/agenda/whatsapp';
 import { cashbackFor, roundCents, useCashback, type CashbackEntry } from '@/features/cashback/CashbackContext';
 import { useClients } from '@/features/clients/ClientsContext';
@@ -40,6 +41,7 @@ export default function AgendamentoScreen() {
   const { settings } = useSettings();
   // A cliente só remarca ou cancela; concluir, cobrar, confirmar e marcar falta são da profissional.
   const { canManage } = useSession();
+  const { openFor, request, resolveFor } = useCancelRequests();
   const [action, setAction] = useState<{ message: string; novo?: string } | null>(null);
   const [paying, setPaying] = useState(false);
   const [method, setMethod] = useState<PaymentMethod>('pix');
@@ -60,6 +62,7 @@ export default function AgendamentoScreen() {
   // Cliente avulsa sem WhatsApp: sem botões de mensagem.
   const hasPhone = !!a.clientPhone;
   const open = a.status === 'agendado' || a.status === 'confirmado';
+  const cancelRequest = openFor(a.id);
   // Cashback que a cliente escolheu usar: nunca mais que o saldo dela nem que o valor do serviço.
   const cashbackUse = open ? roundCents(Math.min(a.cashbackUse ?? 0, balanceOf(a.clientPhone), a.price)) : 0;
   const toReceive = roundCents(a.price - cashbackUse);
@@ -123,6 +126,32 @@ export default function AgendamentoScreen() {
         <View style={styles.notice}>
           <Ionicons name="checkmark-circle" size={20} color={colors.success} />
           <Text style={styles.noticeText}>{notice}</Text>
+        </View>
+      )}
+      {open && cancelRequest && (
+        <View style={styles.cancelRequest}>
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+            <Ionicons name="alert-circle-outline" size={20} color={colors.danger} />
+            <Text style={styles.cancelRequestText}>
+              {canManage
+                ? `${firstName} pediu para cancelar este horário.`
+                : `Você pediu o cancelamento. O horário continua marcado até ${settings.professionalName} responder.`}
+            </Text>
+          </View>
+          {canManage && (
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Button label="Cancelar horário" variant="danger" onPress={() => setConfirm('cancelar')} style={{ flex: 1 }} />
+              <Button
+                label="Manter horário"
+                variant="secondary"
+                onPress={() => {
+                  resolveFor(a.id);
+                  say(`Pedido de cancelamento de ${firstName} respondido: o horário continua marcado.`);
+                }}
+                style={{ flex: 1 }}
+              />
+            </View>
+          )}
         </View>
       )}
       {!canManage && novo && settings.whatsapp ? (
@@ -303,21 +332,25 @@ export default function AgendamentoScreen() {
                     <Text style={[styles.subtle, { color: colors.danger }]}>Cancelar horário</Text>
                   </Pressable>
                 ) : (
-                  // Só a profissional cancela: a cliente pede pelo WhatsApp e o horário continua marcado até lá.
-                  <Pressable
-                    onPress={() => {
-                      if (settings.whatsapp) {
-                        openExternal(cancelRequestWhatsApp(settings.whatsapp, a, settings.professionalName));
+                  // Só a profissional cancela: a cliente pede pelo app (vai para os Avisos da profissional, com
+                  // notificação no celular dela) e pelo WhatsApp; o horário continua marcado até a resposta.
+                  !cancelRequest && (
+                    <Pressable
+                      onPress={async () => {
+                        const ok = await request(a);
+                        if (settings.whatsapp) openExternal(cancelRequestWhatsApp(settings.whatsapp, a, settings.professionalName));
                         say(
-                          `Pedido de cancelamento enviado pelo WhatsApp. O horário continua marcado até ${settings.professionalName} cancelar.`,
+                          ok
+                            ? `Pedido de cancelamento enviado para ${settings.professionalName}. O horário continua marcado até ela responder.`
+                            : 'Não foi possível enviar o pedido agora. Confira a internet e tente de novo.',
                         );
-                      } else say(`Para cancelar, fale com ${settings.professionalName}.`);
-                    }}
-                    hitSlop={6}
-                    accessibilityRole="button"
-                  >
-                    <Text style={[styles.subtle, { color: colors.danger }]}>Pedir cancelamento</Text>
-                  </Pressable>
+                      }}
+                      hitSlop={6}
+                      accessibilityRole="button"
+                    >
+                      <Text style={[styles.subtle, { color: colors.danger }]}>Pedir cancelamento</Text>
+                    </Pressable>
+                  )
                 )}
               </View>
             </>
@@ -379,6 +412,7 @@ export default function AgendamentoScreen() {
               onPress={() => {
                 if (confirm === 'cancelar') {
                   updateStatus(a.id, 'cancelado');
+                  resolveFor(a.id);
                   setConfirm(null);
                   say('Horário cancelado.');
                 } else {
@@ -405,6 +439,8 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
+  cancelRequest: { gap: 12, backgroundColor: '#FBEAE4', borderRadius: radius.md, padding: 14, marginBottom: 14 },
+  cancelRequestText: { flex: 1, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 19, color: colors.ink },
   cashbackNote: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.wine, marginBottom: 10 },
   pending: { flexDirection: 'row', gap: 10, backgroundColor: '#FEF3E2', borderRadius: radius.sm, padding: 12 },
   pendingText: { flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: '#92400E' },

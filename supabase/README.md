@@ -107,8 +107,9 @@ Qualquer pessoa comenta nas publicações do feed (quem só visita informa o nom
 
 1. **SQL Editor**: cole [`atualizacao-comentarios.sql`](atualizacao-comentarios.sql) e clique em **Run**.
 
-## Cancelamento
+## Cancelamento e avisos para a profissional
 
-Só a profissional cancela horários. Na tela do horário, a cliente vê **Pedir cancelamento**: abre o WhatsApp da profissional com a mensagem pronta e o horário continua marcado até a profissional cancelar (aí ele fica livre na agenda). O banco recusa o cancelamento feito pela cliente.
+Só a profissional cancela horários. A cliente toca em **Pedir cancelamento**: o pedido fica registrado, o WhatsApp da profissional abre com a mensagem pronta e o horário continua marcado. A profissional vê os pedidos de cancelamento e os pedidos de horário (a confirmar) no sininho da tela inicial (**Avisos**) e, se ativar **Avisos no celular**, recebe uma notificação a cada pedido de horário, remarcação ou pedido de cancelamento.
 
-1. **SQL Editor**: cole [`atualizacao-so-profissional-cancela.sql`](atualizacao-so-profissional-cancela.sql) e clique em **Run**.
+1. **SQL Editor**: cole [`atualizacao-avisos.sql`](atualizacao-avisos.sql) e clique em **Run**.
+2. Publique de novo a função `lembretes` e rode de novo [`lembretes.sql`](lembretes.sql) (envio na hora).

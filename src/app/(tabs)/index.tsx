@@ -20,6 +20,7 @@ import { formatDayMonth, today, toMinutes } from '@/utils/date';
 import { brl, formatPhone } from '@/utils/format';
 import { openExternal } from '@/utils/openExternal';
 import { RemindersCard } from '@/features/reminders/RemindersCard';
+import { useNoticeCount } from '@/features/agenda/notices';
 import { PremiumHomeCard } from '@/features/cashback/PremiumHomeCard';
 import { InstallCard } from '@/features/install/InstallCard';
 
@@ -141,11 +142,9 @@ export default function HomeScreen() {
 function TopBar() {
   const { settings } = useSettings();
   const { canManage, viewOnly } = useSession();
-  const { appointments } = useAppointments();
-  const todayIso = today();
-  const toConfirm = canManage
-    ? appointments.filter((a) => a.status === 'agendado' && a.date >= todayIso).length
-    : 0;
+  // Profissional: pedidos de horário a confirmar + pedidos de cancelamento (tela de Avisos).
+  const noticeCount = useNoticeCount();
+  const toConfirm = canManage ? noticeCount : 0;
   // Na tela inicial, só a marca: "Studio Cores & Fios" vira "Cores & Fios", com o "&" em dourado.
   const brandName = settings.studioName.replace(/^studio\s+/i, '').trim();
   const brandParts = brandName.split(/\s*&\s*/).flatMap((p, i) => (i ? ['&', p] : [p]));
@@ -181,8 +180,8 @@ function TopBar() {
       <>
       <Pressable
         style={styles.iconButton}
-        onPress={() => router.navigate('/agenda')}
-        accessibilityLabel={toConfirm ? `${toConfirm} pedidos de horário para confirmar` : 'Agenda'}
+        onPress={() => (canManage ? router.push('/avisos') : router.navigate('/agenda'))}
+        accessibilityLabel={canManage ? (toConfirm ? `Avisos: ${toConfirm} para responder` : 'Avisos') : 'Agenda'}
       >
         <Ionicons name={canManage ? 'notifications-outline' : 'calendar-outline'} size={22} color={colors.plum} />
         {toConfirm > 0 && (

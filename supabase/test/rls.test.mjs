@@ -129,9 +129,21 @@ await test('financeiro: só a profissional', async () => {
   assert.equal((await rows(ana, 'select * from transactions')).length, 0);
   assert.ok(await fails(ana, `insert into transactions (id, data) values ('t2', '{}')`));
 });
-await test('avaliações: todos leem, quem entrou publica, só a profissional remove', async () => {
-  await as(ana, `insert into feedbacks (id, data) values ('f1', '{"rating":5}')`);
+await test('avaliações: quem entrou envia, só aparece para todas depois de aprovada, só a profissional remove', async () => {
+  await as(ana, `insert into feedbacks (id, data) values ('f1', '{"rating":5,"approved":false}')`);
   assert.ok(await fails('anon', `insert into feedbacks (id, data) values ('f2', '{}')`));
+  // Esperando aprovação: só a autora e a profissional veem.
+  assert.equal((await rows('anon', 'select * from feedbacks')).length, 0);
+  assert.equal((await rows(bia, 'select * from feedbacks')).length, 0);
+  assert.equal((await rows(ana, 'select * from feedbacks')).length, 1);
+  assert.equal((await rows(owner, 'select * from feedbacks')).length, 1);
+  // A cliente não se aprova sozinha (nem pela coluna, nem pelo registro).
+  assert.ok(await fails(ana, `insert into feedbacks (id, approved, data) values ('f3', true, '{"approved":true}')`));
+  assert.ok(await fails(ana, `insert into feedbacks (id, data) values ('f4', '{"rating":5}')`));
+  await as(ana, `update feedbacks set approved = true where id = 'f1'`);
+  assert.equal((await rows('anon', 'select * from feedbacks')).length, 0);
+  // A profissional aprova: aparece para todas.
+  await as(owner, `update feedbacks set approved = true, data = '{"rating":5,"approved":true}' where id = 'f1'`);
   assert.equal((await rows('anon', 'select * from feedbacks')).length, 1);
   await as(bia, `delete from feedbacks where id = 'f1'`);
   assert.equal((await rows('anon', 'select * from feedbacks')).length, 1);
@@ -159,11 +171,16 @@ const upsert = (table, cols, values) =>
     on conflict (id) do update set ${cols.filter((c) => c !== 'id').map((c) => `${c} = excluded.${c}`).join(', ')}`, values];
 
 await test('upsert: cliente publica avaliação nova', async () => {
-  await as(ana, ...upsert('feedbacks', ['id', 'data'], ['f9', '{"rating":4}']));
-  assert.equal((await rows('anon', `select * from feedbacks where id = 'f9'`)).length, 1);
+  await as(ana, ...upsert('feedbacks', ['id', 'approved', 'data'], ['f9', false, '{"rating":4,"approved":false}']));
+  assert.equal((await rows(ana, `select * from feedbacks where id = 'f9'`)).length, 1);
+  assert.equal((await rows('anon', `select * from feedbacks where id = 'f9'`)).length, 0);
 });
 await test('upsert: cliente não altera avaliação já publicada', async () => {
-  assert.ok(await fails(ana, ...upsert('feedbacks', ['id', 'data'], ['f9', '{"rating":1}'])));
+  assert.ok(await fails(ana, ...upsert('feedbacks', ['id', 'approved', 'data'], ['f9', false, '{"rating":1,"approved":false}'])));
+});
+await test('upsert: profissional aprova a avaliação e ela aparece para todas', async () => {
+  await as(owner, ...upsert('feedbacks', ['id', 'approved', 'data'], ['f9', true, '{"rating":4,"approved":true}']));
+  assert.equal((await rows('anon', `select * from feedbacks where id = 'f9'`)).length, 1);
 });
 await test('upsert: cliente cria e edita o próprio cadastro', async () => {
   await as(ana, ...upsert('clients', ['id', 'phone', 'data'], ['c9', '5511987654321', '{"name":"Ana"}']));

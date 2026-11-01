@@ -90,12 +90,19 @@ const api = http.createServer((req, res) => {
     const myPhone = [...claims].find(([, uid]) => uid === session?.user.id)?.[0];
     // Imita as regras de acesso do schema.sql no que o teste usa.
     const visible = (row) =>
-      session?.owner || ['feedbacks', 'settings', 'posts', 'likes'].includes(table) ||
+      session?.owner || ['settings', 'posts', 'likes'].includes(table) ||
+      (table === 'feedbacks' && (row.approved || row.author_id === session?.user.id)) ||
       (table === 'clients' && row.phone === myPhone) || (['appointments', 'cashback'].includes(table) && row.client_phone === myPhone);
     if (req.method === 'GET') return send(200, db[table].filter(visible).map((r) => ({ data: r.data })));
     if (req.method === 'POST') {
       for (const row of [].concat(body)) {
         if (['transactions', 'posts', 'cashback'].includes(table) && !session?.owner) return send(403, { code: '42501', message: 'rls' });
+        if (table === 'feedbacks') {
+          if (!session) return send(403, { code: '42501', message: 'rls' });
+          // Só a profissional publica ou aprova; a cliente envia esperando aprovação.
+          if (!session.owner && (row.approved || row.data.approved !== false)) return send(403, { code: '42501', message: 'rls' });
+          row.author_id = db.feedbacks.find((r) => r.id === row.id)?.author_id ?? session.user.id;
+        }
         if (table === 'likes') {
           if (!session) return send(403, { code: '42501', message: 'rls' });
           row.user_id = session.user.id; // default auth.uid() do banco
@@ -356,6 +363,8 @@ const site = http.createServer((req, res) =>
     await C.getByLabel('WhatsApp', { exact: true }).fill('11955550000');
     await C.getByText('Confirmar e entrar').click();
     await cli.waitForTimeout(1500);
+    await cli.goto(home, { waitUntil: 'networkidle' });
+    await cli.waitForTimeout(1500);
     await C.getByLabel('Conta', { exact: true }).last().click();
     await cli.waitForTimeout(800);
     await C.getByLabel(/Saldo de cashback: R\$\s?10,70/).waitFor();
@@ -413,6 +422,61 @@ const site = http.createServer((req, res) =>
     assert.equal(done.cashbackEarned, 0.24);
     const balance = db.cashback.filter((r) => r.client_phone === PHONE).reduce((sum, r) => sum + r.data.amount, 0);
     assert.equal(Math.round(balance * 100) / 100, 0.24);
+  });
+
+  await test('avaliação da cliente só aparece no feed depois que a profissional aprova', async () => {
+    const home = `http://localhost:${site.address().port}/`;
+    const cli = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const C = cli.locator('#root');
+    await cli.goto(home, { waitUntil: 'networkidle' });
+    await cli.waitForTimeout(1500);
+    await C.getByLabel('Conta', { exact: true }).click();
+    await cli.waitForTimeout(400);
+    await C.getByText('Cadastro rápido', { exact: true }).click();
+    await cli.waitForTimeout(400);
+    await C.getByLabel('Nome', { exact: true }).fill('Rita Gomes');
+    await C.getByLabel('WhatsApp', { exact: true }).fill('11944443333');
+    await C.getByText('Confirmar e entrar').click();
+    await cli.waitForTimeout(1200);
+    await C.getByText(/Concordo com o uso/).click();
+    await C.getByText('Concluir cadastro').click();
+    await cli.waitForTimeout(1200);
+    await cli.goto(home, { waitUntil: 'networkidle' });
+    await cli.waitForTimeout(1500);
+    await C.getByText('Avaliar', { exact: true }).first().click();
+    await cli.waitForTimeout(800);
+    await C.getByLabel(/^5 estrelas/).click();
+    await C.getByLabel('Conte como foi').fill('Amei o atendimento, unhas perfeitas!');
+    await C.getByLabel('Seu nome').fill('Rita');
+    await C.getByText('Publicar avaliação').click();
+    await cli.waitForTimeout(1200);
+    await C.getByText(/aparece no feed assim que Jhenifer aprovar/).waitFor();
+    await C.getByText('Aguardando aprovação').first().waitFor();
+    await cli.screenshot({ path: path.join(shots, '11-avaliacao-aguardando.png') });
+    const row = db.feedbacks.find((r) => r.data.comment === 'Amei o atendimento, unhas perfeitas!');
+    assert.equal(row.approved, false);
+
+    // Quem visita ainda não vê.
+    const visit = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await visit.goto(home, { waitUntil: 'networkidle' });
+    await visit.waitForTimeout(1500);
+    assert.equal(await visit.locator('#root').getByText('Amei o atendimento, unhas perfeitas!').count(), 0);
+
+    // A profissional vê o aviso na tela inicial e aprova.
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(1500);
+    await R.getByText(/1 avaliação esperando sua aprovação/).click();
+    await wait(800);
+    await shot('12-avaliacao-aprovar');
+    await R.getByRole('button', { name: 'Aprovar' }).click();
+    await wait(1200);
+    assert.equal(db.feedbacks.find((r) => r.id === row.id).approved, true);
+
+    await visit.goto(home, { waitUntil: 'networkidle' });
+    await visit.waitForTimeout(1500);
+    await visit.locator('#root').getByText('Amei o atendimento, unhas perfeitas!').first().waitFor();
+    await visit.close();
+    await cli.close();
   });
 
   await test('profissional ativa a biometria; o app abre travado e só entra com rosto/digital', async () => {

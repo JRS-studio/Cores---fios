@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, ScreenHeader, Stars } from '@/components/ui';
 import { useFeedback, type Feedback } from '@/features/feedback/FeedbackContext';
 import { useSession } from '@/features/session/SessionContext';
+import { useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { formatShortDate } from '@/utils/format';
 
@@ -14,7 +15,8 @@ type Filter = 'todas' | 'foto' | '5';
 
 export default function AvaliacoesScreen() {
   const insets = useSafeAreaInsets();
-  const { feedbacks, average, removeFeedback } = useFeedback();
+  const { feedbacks, pending, average, removeFeedback, approveFeedback } = useFeedback();
+  const { settings } = useSettings();
   const { canManage } = useSession();
   const { publicada } = useLocalSearchParams<{ publicada?: string }>();
   const [filter, setFilter] = useState<Filter>('todas');
@@ -33,7 +35,40 @@ export default function AvaliacoesScreen() {
       {publicada && (
         <View style={styles.success}>
           <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-          <Text style={styles.successText}>Avaliação publicada. Obrigada pelo carinho!</Text>
+          <Text style={styles.successText}>
+            {canManage
+              ? 'Avaliação publicada.'
+              : `Avaliação enviada. Obrigada pelo carinho! Ela aparece no feed assim que ${settings.professionalName} aprovar.`}
+          </Text>
+        </View>
+      )}
+
+      {pending.length > 0 && (
+        <View style={styles.pending}>
+          <Text style={styles.pendingTitle}>
+            {canManage ? `Para aprovar (${pending.length})` : 'Aguardando aprovação'}
+          </Text>
+          <Text style={styles.pendingHint}>
+            {canManage
+              ? 'Só aparecem no feed e na nota do studio depois que você aprovar.'
+              : `Só você vê. Ela aparece para todas depois que ${settings.professionalName} aprovar.`}
+          </Text>
+          {pending.map((f) => (
+            <FeedbackCard
+              key={f.id}
+              feedback={f}
+              confirming={confirmId === f.id}
+              canRemove={canManage}
+              removeLabel="Recusar"
+              onApprove={canManage ? () => approveFeedback(f.id) : undefined}
+              onAskRemove={() => setConfirmId(f.id)}
+              onCancel={() => setConfirmId(null)}
+              onRemove={() => {
+                removeFeedback(f.id);
+                setConfirmId(null);
+              }}
+            />
+          ))}
         </View>
       )}
 
@@ -118,6 +153,8 @@ export default function AvaliacoesScreen() {
 function FeedbackCard({
   feedback: f,
   canRemove,
+  removeLabel = 'Remover',
+  onApprove,
   confirming,
   onAskRemove,
   onCancel,
@@ -125,6 +162,8 @@ function FeedbackCard({
 }: {
   feedback: Feedback;
   canRemove: boolean;
+  removeLabel?: string;
+  onApprove?: () => void;
   confirming: boolean;
   onAskRemove: () => void;
   onCancel: () => void;
@@ -157,18 +196,25 @@ function FeedbackCard({
 
         {confirming ? (
           <View style={styles.confirm}>
-            <Text style={styles.confirmText}>Remover esta avaliação?</Text>
+            <Text style={styles.confirmText}>{removeLabel} esta avaliação?</Text>
             <Pressable onPress={onCancel} hitSlop={6}>
               <Text style={styles.confirmCancel}>Cancelar</Text>
             </Pressable>
             <Pressable onPress={onRemove} hitSlop={6}>
-              <Text style={styles.confirmRemove}>Remover</Text>
+              <Text style={styles.confirmRemove}>{removeLabel}</Text>
             </Pressable>
           </View>
+        ) : onApprove ? (
+          <View style={styles.approveRow}>
+            <Button label="Aprovar" icon="checkmark-circle-outline" onPress={onApprove} style={{ flex: 1 }} />
+            <Button label={removeLabel} icon="close-circle-outline" variant="secondary" onPress={onAskRemove} style={{ flex: 1 }} />
+          </View>
+        ) : f.approved === false ? (
+          <Text style={styles.waiting}>Aguardando aprovação</Text>
         ) : (
           canRemove && (
             <Pressable onPress={onAskRemove} hitSlop={6} style={styles.removeLink}>
-              <Text style={styles.removeText}>Remover</Text>
+              <Text style={styles.removeText}>{removeLabel}</Text>
             </Pressable>
           )
         )}
@@ -188,6 +234,18 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 14,
   },
+  pending: {
+    marginBottom: 16,
+    padding: 14,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.roseGold,
+    backgroundColor: colors.blush,
+  },
+  pendingTitle: { fontFamily: fonts.semibold, fontSize: 15, color: colors.wine },
+  pendingHint: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.muted, marginTop: 2 },
+  approveRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  waiting: { fontFamily: fonts.semibold, fontSize: 12, color: colors.wine, marginTop: 10 },
   successText: { fontFamily: fonts.medium, fontSize: 13, color: colors.success, flex: 1 },
   summary: {
     flexDirection: 'row',

@@ -95,3 +95,9 @@ A cliente Premium ganha uma porcentagem (1% por padrão, em **Ajustes › Cashba
 
 1. **SQL Editor**: cole [`atualizacao-cashback.sql`](atualizacao-cashback.sql) e clique em **Run**.
 
+## Avaliações com aprovação
+
+Toda avaliação de cliente (nota, comentário e foto) só aparece no feed, na nota e na contagem do studio depois que a profissional aprova em **Avaliações › Para aprovar**. Até lá, só a autora e a profissional veem. A regra fica no banco: a cliente não consegue se aprovar sozinha.
+
+1. **SQL Editor**: cole [`atualizacao-aprovacao.sql`](atualizacao-aprovacao.sql) e clique em **Run**.
+

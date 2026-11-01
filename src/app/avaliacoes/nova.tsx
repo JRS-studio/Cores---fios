@@ -23,7 +23,7 @@ export default function NovaAvaliacaoScreen() {
   const { addFeedback } = useFeedback();
   const { settings } = useSettings();
   const SERVICES = settings.services.filter(isServiceActive).map((sv) => ({ id: sv.name, label: sv.name }));
-  const { remote, role } = useSession();
+  const { remote, role, canManage, userId } = useSession();
   // Com servidor, só publica quem confirmou o WhatsApp (evita avaliações falsas); o nome pode continuar anônimo.
   const needsLogin = remote && role === 'visitante';
   const [loginPhone, setLoginPhone] = useState('');
@@ -61,6 +61,9 @@ export default function NovaAvaliacaoScreen() {
       photoUri: photoUri ?? undefined,
       displayName: anonymous ? null : name.trim(),
       service: service ?? undefined,
+      // Avaliação de cliente espera a aprovação da profissional para aparecer no feed.
+      approved: canManage,
+      authorId: userId ?? undefined,
     });
     // Volta para a lista que já está aberta (ou a abre), sem empilhar uma cópia dela.
     router.dismissTo({ pathname: '/avaliacoes', params: { publicada: '1' } });

@@ -50,7 +50,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
   const { canManage, phone } = useSession();
-  const { feedbacks, average, removeFeedback } = useFeedback();
+  const { feedbacks, pending, average, removeFeedback } = useFeedback();
   const { posts, removePost } = usePosts();
   const [filter, setFilter] = useState<Filter>('tudo');
 
@@ -77,6 +77,15 @@ export default function HomeScreen() {
       <TopBar />
       <Profile postsCount={posts.length} reviewsCount={feedbacks.length} average={average} />
       <Shortcuts />
+      {canManage && pending.length > 0 && (
+        <Pressable style={styles.toApprove} onPress={() => router.push('/avaliacoes')} accessibilityRole="button">
+          <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.wine} />
+          <Text style={styles.toApproveText}>
+            {pending.length === 1 ? '1 avaliação esperando' : `${pending.length} avaliações esperando`} sua aprovação para aparecer no feed
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.wine} />
+        </Pressable>
+      )}
       <InstallCard />
       {canManage ? <TodayCard /> : phone ? <NextAppointment /> : null}
       {!canManage && (
@@ -482,6 +491,19 @@ const styles = StyleSheet.create({
   nextText: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
 
   reminders: { marginHorizontal: 12, marginTop: 12 },
+  toApprove: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 12,
+    marginTop: 12,
+    padding: 14,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.roseGold,
+    backgroundColor: colors.blush,
+  },
+  toApproveText: { flex: 1, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, color: colors.wine },
   composer: {
     flexDirection: 'row',
     alignItems: 'center',

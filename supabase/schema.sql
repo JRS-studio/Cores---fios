@@ -163,11 +163,21 @@ create policy "cliente remarca ou cancela" on appointments for update
 drop policy if exists "profissional: financeiro" on transactions;
 create policy "profissional: financeiro" on transactions for all using (is_owner()) with check (is_owner());
 
+-- Avaliações só aparecem para todas depois que a profissional aprova.
+-- As que já existiam ao criar a coluna continuam no ar; as novas nascem esperando aprovação.
+alter table feedbacks add column if not exists approved boolean not null default true;
+alter table feedbacks alter column approved set default false;
 drop policy if exists "todos veem avaliações" on feedbacks;
-create policy "todos veem avaliações" on feedbacks for select using (true);
+drop policy if exists "todos veem avaliações aprovadas" on feedbacks;
+create policy "todos veem avaliações aprovadas" on feedbacks for select
+  using (approved or is_owner() or author_id = auth.uid());
 drop policy if exists "cliente publica avaliação" on feedbacks;
 create policy "cliente publica avaliação" on feedbacks for insert
-  with check (auth.uid() is not null and author_id = auth.uid());
+  with check (auth.uid() is not null and author_id = auth.uid() and approved = false and data ->> 'approved' = 'false');
+drop policy if exists "profissional publica avaliação" on feedbacks;
+create policy "profissional publica avaliação" on feedbacks for insert with check (is_owner());
+drop policy if exists "profissional aprova avaliação" on feedbacks;
+create policy "profissional aprova avaliação" on feedbacks for update using (is_owner()) with check (is_owner());
 drop policy if exists "profissional remove avaliação" on feedbacks;
 create policy "profissional remove avaliação" on feedbacks for delete using (is_owner());
 

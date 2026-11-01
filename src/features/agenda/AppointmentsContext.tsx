@@ -73,7 +73,8 @@ const REMOTE: RemoteTable<Appointment> = {
   table: 'appointments',
   toRow: (a) => ({
     id: a.id,
-    client_phone: toAuthPhone(a.clientPhone),
+    // Cliente avulsa sem WhatsApp: fica vazio (nenhuma cliente logada tem número vazio, então ninguém mais vê).
+    client_phone: a.clientPhone ? toAuthPhone(a.clientPhone) : '',
     status: a.status,
     starts_at: `${a.date} ${a.time}`,
     ends_at: `${a.date} ${toTime(toMinutes(a.time) + a.duration)}`,

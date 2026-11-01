@@ -853,6 +853,36 @@ const site = http.createServer((req, res) =>
     db.appointments = db.appointments.filter((a) => a.id !== 'teste-vazio');
   });
 
+  await test('profissional agenda cliente avulsa sem WhatsApp (só o nome)', async () => {
+    const home = `http://localhost:${site.address().port}/`;
+    const clientsBefore = db.clients.length;
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(1500);
+    await R.getByText('Agendar', { exact: true }).first().click();
+    await wait(800);
+    await R.getByText('Nova / avulsa').click();
+    await R.getByLabel('Nome', { exact: true }).fill('Dona Cida');
+    // WhatsApp pela metade não passa; em branco, passa.
+    await R.getByLabel('WhatsApp', { exact: true }).fill('1199');
+    await R.getByText('Pedicure', { exact: true }).last().click();
+    await R.getByRole('button', { name: /^(seg|ter|qua|qui|sex) \d+$/ }).nth(5).click();
+    await wait(500);
+    await R.getByText('16:00', { exact: true }).last().click();
+    await R.getByText('Confirmar agendamento').click();
+    await R.getByText('Digite um WhatsApp válido com DDD ou deixe em branco.').waitFor();
+    await R.getByLabel('WhatsApp', { exact: true }).fill('');
+    await R.getByText('Confirmar agendamento').click();
+    await wait(1500);
+    const appt = db.appointments.find((a) => a.data.clientName === 'Dona Cida');
+    assert.ok(appt, 'horário gravado');
+    assert.equal(appt.client_phone, '');
+    assert.equal(appt.status, 'confirmado');
+    assert.equal(db.clients.length, clientsBefore, 'sem WhatsApp não cria cadastro');
+    await R.getByText('Não informado').waitFor();
+    assert.equal(await R.getByText('Enviar lembrete no WhatsApp').count(), 0, 'sem botões de WhatsApp');
+    await shot('23-avulsa-sem-whatsapp');
+  });
+
   await test('profissional ativa a biometria; o app abre travado e só entra com rosto/digital', async () => {
     // Leitor de biometria simulado do Chrome (como o Face ID ou a digital do celular).
     const cdp = await p.context().newCDPSession(p);

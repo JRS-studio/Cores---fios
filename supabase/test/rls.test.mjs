@@ -378,4 +378,11 @@ await test('modo visualização: quem não entrou com o WhatsApp não curte, nã
   assert.equal((await rows(v, 'select * from posts where id = \'pv1\'')).length, 1);
 });
 
+await test('cliente avulsa sem WhatsApp: a profissional agenda e nenhuma cliente vê o horário', async () => {
+  await as(owner, ...appt('sw1', '', '2026-12-10 10:00', '2026-12-10 11:00', 'confirmado'));
+  assert.equal((await rows(owner, `select * from appointments where id = 'sw1'`)).length, 1);
+  assert.equal((await rows(ana, `select * from appointments where id = 'sw1'`)).length, 0);
+  assert.equal((await rows('anon', `select * from busy_slots('2026-12-10')`)).length, 1, 'o horário aparece como ocupado');
+});
+
 console.log(`\n${passed} testes passaram.`);

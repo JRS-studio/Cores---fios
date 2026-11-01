@@ -87,7 +87,8 @@ export default function NovoAgendamentoScreen() {
 
   const walkInErrors = {
     name: name.trim().length < 2 ? 'Digite o nome da cliente.' : null,
-    phone: !isValidPhone(phone) ? 'Digite um WhatsApp válido com DDD.' : null,
+    // Cliente avulsa marcada pela profissional: o WhatsApp é opcional (se preencher, precisa estar certo).
+    phone: onlyDigits(phone) && !isValidPhone(phone) ? 'Digite um WhatsApp válido com DDD ou deixe em branco.' : null,
   };
   const errors = {
     client: isWalkIn ? (walkInErrors.name ?? walkInErrors.phone) : !client ? 'Escolha a cliente.' : null,
@@ -119,16 +120,16 @@ export default function NovoAgendamentoScreen() {
     if (!time) return;
     const cashbackUse = cashbackFor(useBalance);
     let finalClientId = isWalkIn ? undefined : selectedId;
-    let clientName = client?.name ?? name.trim();
-    let clientPhone = client?.phone ?? onlyDigits(phone);
+    let clientName = isWalkIn ? name.trim() : (client?.name ?? '');
+    let clientPhone = isWalkIn ? onlyDigits(phone) : (client?.phone ?? '');
     if (isWalkIn) {
       // Se o WhatsApp já é de uma cliente cadastrada, liga o agendamento a ela.
-      const existing = findByPhone(onlyDigits(phone));
+      const existing = clientPhone ? findByPhone(clientPhone) : undefined;
       if (existing) {
         finalClientId = existing.id;
         clientName = existing.name;
         clientPhone = existing.phone;
-      } else if (saveAsClient) {
+      } else if (saveAsClient && clientPhone) {
         finalClientId = newId();
         saveClient({
           id: finalClientId,
@@ -256,10 +257,21 @@ export default function NovoAgendamentoScreen() {
           ) : (
             <View style={{ marginTop: 12 }}>
               <Field label="Nome" value={name} onChangeText={setName} placeholder="Nome da cliente" autoCapitalize="words" maxLength={60} error={tried ? walkInErrors.name : null} />
-              <Field label="WhatsApp" value={phone} onChangeText={(t) => setPhone(formatPhone(t))} placeholder="(11) 98765-4321" keyboardType="phone-pad" error={tried ? walkInErrors.phone : null} />
-              <CheckRow checked={saveAsClient} onToggle={() => setSaveAsClient(!saveAsClient)}>
-                A cliente autorizou salvar nome e WhatsApp (cadastro rápido) para os próximos agendamentos.
-              </CheckRow>
+              <Field
+                label="WhatsApp"
+                optional
+                value={phone}
+                onChangeText={(t) => setPhone(formatPhone(t))}
+                placeholder="(11) 98765-4321"
+                keyboardType="phone-pad"
+                helper="Sem WhatsApp, o horário fica só na agenda (sem cadastro e sem mensagens para a cliente)."
+                error={tried ? walkInErrors.phone : null}
+              />
+              {isValidPhone(phone) && (
+                <CheckRow checked={saveAsClient} onToggle={() => setSaveAsClient(!saveAsClient)}>
+                  A cliente autorizou salvar nome e WhatsApp (cadastro rápido) para os próximos agendamentos.
+                </CheckRow>
+              )}
             </View>
           )}
           {tried && !isWalkIn && errors.client && <Text style={styles.error}>{errors.client}</Text>}

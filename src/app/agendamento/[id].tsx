@@ -56,7 +56,9 @@ export default function AgendamentoScreen() {
     );
   }
 
-  const client = (a.clientId ? getClient(a.clientId) : undefined) ?? findByPhone(a.clientPhone);
+  const client = (a.clientId ? getClient(a.clientId) : undefined) ?? (a.clientPhone ? findByPhone(a.clientPhone) : undefined);
+  // Cliente avulsa sem WhatsApp: sem botões de mensagem.
+  const hasPhone = !!a.clientPhone;
   const open = a.status === 'agendado' || a.status === 'confirmado';
   // Cashback que a cliente escolheu usar: nunca mais que o saldo dela nem que o valor do serviço.
   const cashbackUse = open ? roundCents(Math.min(a.cashbackUse ?? 0, balanceOf(a.clientPhone), a.price)) : 0;
@@ -83,7 +85,12 @@ export default function AgendamentoScreen() {
     if (cashbackUse > 0) entries.push({ ...base, id: newId(), kind: 'uso', amount: -cashbackUse, description: `Usado: ${a!.serviceName}` });
     if (earned > 0) entries.push({ ...base, id: newId(), kind: 'credito', amount: earned, description: a!.serviceName });
     addEntries(entries);
-    updateStatus(a!.id, 'concluido', { paidAmount: paid, paymentMethod: method, cashbackUsed: cashbackUse || undefined, cashbackEarned: earned || undefined });
+    updateStatus(a!.id, 'concluido', {
+      paidAmount: paid,
+      paymentMethod: method,
+      cashbackUsed: cashbackUse || undefined,
+      cashbackEarned: earned || undefined,
+    });
     addTransaction({
       id: newId(),
       createdAt: new Date().toISOString(),
@@ -148,7 +155,9 @@ export default function AgendamentoScreen() {
           )}
         </Row>
         <Row label="WhatsApp">
-          <Text style={styles.rowValue}>{formatPhone(a.clientPhone)}</Text>
+          <Text style={[styles.rowValue, !hasPhone && { color: colors.muted }]}>
+            {hasPhone ? formatPhone(a.clientPhone) : 'Não informado'}
+          </Text>
         </Row>
         <Row label={a.status === 'concluido' ? 'Pago' : 'Valor'}>
           <Text style={styles.rowValue}>
@@ -225,37 +234,41 @@ export default function AgendamentoScreen() {
                     icon="checkmark-circle-outline"
                     onPress={() => {
                       updateStatus(a.id, 'confirmado');
-                      say(`Horário de ${firstName} confirmado. Avise a cliente pelo WhatsApp.`);
+                      say(`Horário de ${firstName} confirmado.${hasPhone ? ' Avise a cliente pelo WhatsApp.' : ''}`);
                     }}
                   />
-                  <Button
-                    label="Recusar e sugerir outro horário"
-                    icon="logo-whatsapp"
-                    variant="secondary"
-                    onPress={() =>
-                      whatsapp(
-                        `Oi, ${firstName}! Aqui é a ${settings.professionalName}, do ${settings.studioName}. ` +
-                          `Não vou conseguir te atender ${when}. Podemos ver outro horário? 💅`,
-                      )
-                    }
-                  />
+                  {hasPhone && (
+                    <Button
+                      label="Recusar e sugerir outro horário"
+                      icon="logo-whatsapp"
+                      variant="secondary"
+                      onPress={() =>
+                        whatsapp(
+                          `Oi, ${firstName}! Aqui é a ${settings.professionalName}, do ${settings.studioName}. ` +
+                            `Não vou conseguir te atender ${when}. Podemos ver outro horário? 💅`,
+                        )
+                      }
+                    />
+                  )}
                 </>
               )}
               {canManage && a.status === 'confirmado' && (
                 <>
                   <Button label="Concluir atendimento" icon="checkmark-done" onPress={() => setPaying(true)} />
-                  <Button
-                    label={justConfirmed ? `Avisar ${firstName} que está confirmado` : 'Enviar lembrete no WhatsApp'}
-                    icon="logo-whatsapp"
-                    variant={justConfirmed ? 'primary' : 'secondary'}
-                    onPress={() =>
-                      whatsapp(
-                        justConfirmed
-                          ? `Oi, ${firstName}! Seu horário de ${a.serviceName.toLowerCase()} no ${settings.studioName} está confirmado para ${when}. Te espero! 💅`
-                          : `Oi, ${firstName}! Passando para lembrar do seu horário de ${a.serviceName.toLowerCase()} ${when}. Te espero! 💅`,
-                      )
-                    }
-                  />
+                  {hasPhone && (
+                    <Button
+                      label={justConfirmed ? `Avisar ${firstName} que está confirmado` : 'Enviar lembrete no WhatsApp'}
+                      icon="logo-whatsapp"
+                      variant={justConfirmed ? 'primary' : 'secondary'}
+                      onPress={() =>
+                        whatsapp(
+                          justConfirmed
+                            ? `Oi, ${firstName}! Seu horário de ${a.serviceName.toLowerCase()} no ${settings.studioName} está confirmado para ${when}. Te espero! 💅`
+                            : `Oi, ${firstName}! Passando para lembrar do seu horário de ${a.serviceName.toLowerCase()} ${when}. Te espero! 💅`,
+                        )
+                      }
+                    />
+                  )}
                 </>
               )}
               {!canManage && <RemindersCard compact />}
@@ -295,7 +308,9 @@ export default function AgendamentoScreen() {
                     onPress={() => {
                       if (settings.whatsapp) {
                         openExternal(cancelRequestWhatsApp(settings.whatsapp, a, settings.professionalName));
-                        say(`Pedido de cancelamento enviado pelo WhatsApp. O horário continua marcado até ${settings.professionalName} cancelar.`);
+                        say(
+                          `Pedido de cancelamento enviado pelo WhatsApp. O horário continua marcado até ${settings.professionalName} cancelar.`,
+                        );
                       } else say(`Para cancelar, fale com ${settings.professionalName}.`);
                     }}
                     hitSlop={6}
@@ -317,7 +332,7 @@ export default function AgendamentoScreen() {
             icon="star-outline"
             onPress={() => router.push('/avaliacoes/nova')}
           />
-          {canManage && (
+          {canManage && hasPhone && (
             <Button
               label="Enviar agradecimento no WhatsApp"
               icon="logo-whatsapp"

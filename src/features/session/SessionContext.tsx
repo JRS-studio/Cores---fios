@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { fromAuthPhone, isRemote, supabase } from '@/data/supabase';
 import { forgetReminders } from '@/features/reminders/push';
+import { disableBiometric } from '@/features/session/biometric';
 
 // local: sem servidor, o app é da profissional e funciona só no aparelho (como antes).
 // profissional / cliente / visitante: com servidor, cada uma vê o que as regras do banco permitem.
@@ -97,6 +98,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           await forgetReminders();
           await supabase?.rpc('release_my_phone');
         }
+        // Quem sai entra de novo com login e senha (e pode ativar a biometria outra vez).
+        disableBiometric();
         await supabase?.auth.signOut();
       },
       refresh,

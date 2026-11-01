@@ -149,6 +149,7 @@ node tools/web/check-pages.js        # confere o site contra o Supabase real
 Sem configuração, o app funciona só no aparelho. Com o Supabase ligado (passo a passo em [`supabase/README.md`](supabase/README.md)):
 
 - **Profissional** entra com e-mail e senha e vê tudo: agenda completa, clientes, financeiro e ajustes.
+- **Entrada pela biometria (profissional, versão web):** depois do login, ela toca em **Ativar biometria** (logo após entrar ou em Ajustes). O login fica guardado no celular e, ao abrir o app (ou voltar depois de 2 minutos fora), ele fica travado até ela passar o rosto ou a digital. "Entrar com login e senha" sai da conta e desliga a biometria. No iPhone, use o app pela Tela de Início: em aba privada do Safari o login se perde ao fechar.
 - **Cliente** entra só com o WhatsApp, recebendo o código de verdade (Twilio pelo Supabase Auth). Vê e marca só os próprios horários, edita o próprio cadastro e publica avaliações. As abas mudam: sem Financeiro, e "Clientes" vira "Conta".
 - **Sem login**: vê o feed (publicações e avaliações), curte e pode se cadastrar.
 - As regras ficam no banco (Row Level Security, em `supabase/schema.sql`), testadas com `npm run test:db`. O banco recusa horários sobrepostos, inclusive de duas clientes ao mesmo tempo.

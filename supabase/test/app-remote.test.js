@@ -310,6 +310,52 @@ const site = http.createServer((req, res) =>
     await other.close();
   });
 
+  await test('profissional ativa a biometria; o app abre travado e só entra com rosto/digital', async () => {
+    // Leitor de biometria simulado do Chrome (como o Face ID ou a digital do celular).
+    const cdp = await p.context().newCDPSession(p);
+    await cdp.send('WebAuthn.enable');
+    const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
+      options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+    });
+    const home = `http://localhost:${site.address().port}/`;
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(1500);
+    await R.getByLabel('Ajustes').first().click();
+    await wait();
+    await R.getByRole('button', { name: 'Ativar biometria' }).click();
+    await R.getByText('Entrada pela biometria ativada neste celular.').waitFor();
+
+    // Reabre o app com a biometria recusada: fica travado, sem mostrar nada do studio.
+    await cdp.send('WebAuthn.setUserVerified', { authenticatorId, isUserVerified: false });
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(1500);
+    await R.getByText('Use o rosto ou a digital para entrar.').waitFor();
+    await R.getByText('Não foi possível confirmar', { exact: false }).waitFor();
+    await shot('08-biometria-travado');
+
+    // Com o rosto/digital certo, abre direto no painel da profissional, sem senha.
+    await cdp.send('WebAuthn.setUserVerified', { authenticatorId, isUserVerified: true });
+    await R.getByRole('button', { name: 'Entrar com biometria' }).click();
+    await wait(1000);
+    assert.equal(await R.getByText('Use o rosto ou a digital para entrar.').count(), 0);
+    await R.getByText('horários hoje').waitFor();
+
+    // Ao reabrir, a biometria é pedida sozinha e o app abre.
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(2000);
+    assert.equal(await R.getByText('Use o rosto ou a digital para entrar.').count(), 0);
+    await R.getByText('horários hoje').waitFor();
+
+    // "Entrar com login e senha" sai da conta e desliga a biometria.
+    await cdp.send('WebAuthn.setUserVerified', { authenticatorId, isUserVerified: false });
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(1500);
+    await R.getByText('Entrar com login e senha').click();
+    await wait(1000);
+    await R.getByText('Sou a profissional').waitFor();
+    assert.equal(await p.evaluate(() => localStorage.getItem('cores:biometria:v1')), null);
+  });
+
   await browser.close();
   api.close();
   site.close();

@@ -20,6 +20,7 @@ import { FeedbackProvider } from '@/features/feedback/FeedbackContext';
 import { LikesProvider } from '@/features/feed/LikesContext';
 import { PostsProvider } from '@/features/feed/PostsContext';
 import { FinanceProvider } from '@/features/finance/FinanceContext';
+import { BiometricLock } from '@/features/session/BiometricLock';
 import { SessionProvider } from '@/features/session/SessionContext';
 import { SettingsProvider } from '@/features/settings/SettingsContext';
 import { colors } from '@/theme';
@@ -56,6 +57,7 @@ export default function RootLayout() {
                       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }} />
                       <SyncBanner />
                       <ThemeSync />
+                      <BiometricLock />
                     </LikesProvider>
                   </PostsProvider>
                 </FeedbackProvider>

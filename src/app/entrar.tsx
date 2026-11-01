@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Field, ScreenHeader } from '@/components/ui';
 import { useSession } from '@/features/session/SessionContext';
+import { BiometricToggle } from '@/features/session/BiometricLock';
+import { isIosBrowserTab } from '@/features/session/biometric';
 import { PhoneVerification } from '@/features/verification/PhoneVerification';
 import { colors, fonts, radius } from '@/theme';
 import { formatPhone, isValidPhone, onlyDigits } from '@/utils/format';
@@ -59,6 +61,7 @@ export default function EntrarScreen() {
                 ? 'Você entrou como profissional.'
                 : `Você entrou com o WhatsApp ${formatPhone(loggedPhone ?? '')}.`}
             </Text>
+            <BiometricToggle highlight />
             <View style={{ flexDirection: 'row', gap: 10, alignSelf: 'stretch' }}>
               <Button label="Continuar" onPress={done} style={{ flex: 1 }} />
               <Button label="Sair" variant="secondary" onPress={signOut} style={{ flex: 1 }} />
@@ -99,6 +102,12 @@ export default function EntrarScreen() {
                 <Field label="Login" value={email} onChangeText={setEmail} autoCapitalize="none" placeholder="Seu login ou e-mail" />
                 <Field label="Senha" value={password} onChangeText={setPassword} autoCapitalize="none" secure />
                 {error && <Text style={styles.error}>{error}</Text>}
+                {isIosBrowserTab() && (
+                  <Text style={styles.tip}>
+                    Para não precisar entrar toda vez, use o app pela Tela de Início (Compartilhar › Adicionar à Tela de
+                    Início) e não em aba privada.
+                  </Text>
+                )}
                 <Button label="Entrar" icon="log-in-outline" onPress={loginProfessional} disabled={busy || !email || !password} />
               </View>
             )}
@@ -124,6 +133,7 @@ const styles = StyleSheet.create({
   segmentActive: { backgroundColor: colors.plum },
   segmentText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.plum },
   link: { fontFamily: fonts.semibold, fontSize: 13, color: colors.wine, textAlign: 'center', marginTop: 8 },
+  tip: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.muted, marginBottom: 10 },
   error: { fontFamily: fonts.medium, fontSize: 12, color: colors.danger, marginBottom: 10 },
   logged: { alignItems: 'center', gap: 12, backgroundColor: colors.white, borderRadius: radius.md, padding: 18 },
   loggedText: { fontFamily: fonts.medium, fontSize: 14, color: colors.ink, textAlign: 'center' },

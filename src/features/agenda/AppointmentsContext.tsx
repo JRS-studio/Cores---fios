@@ -26,6 +26,9 @@ export type Appointment = {
   notes?: string;
   paidAmount?: number;
   paymentMethod?: PaymentMethod;
+  // Desconto de aniversário da cliente Premium (%) e o valor cheio do serviço antes dele.
+  birthdayDiscount?: number;
+  fullPrice?: number;
   // Cashback que a cliente escolheu usar neste horário (sai do saldo quando o atendimento é concluído).
   cashbackUse?: number;
   // Cashback usado e ganho, gravados quando a profissional conclui o atendimento.

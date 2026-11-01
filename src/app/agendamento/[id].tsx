@@ -156,6 +156,13 @@ export default function AgendamentoScreen() {
             {a.paymentMethod ? ` · ${PAYMENT_LABEL[a.paymentMethod]}` : ''}
           </Text>
         </Row>
+        {!!a.birthdayDiscount && (
+          <Row label="Aniversário">
+            <Text style={styles.rowValue}>
+              {a.birthdayDiscount}% de desconto{a.fullPrice ? ` (de ${brl(a.fullPrice)})` : ''}
+            </Text>
+          </Row>
+        )}
         {(cashbackUse > 0 || a.cashbackUsed || a.cashbackEarned) && (
           <Row label="Cashback">
             <Text style={styles.rowValue}>

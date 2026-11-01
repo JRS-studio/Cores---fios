@@ -424,6 +424,46 @@ const site = http.createServer((req, res) =>
     assert.equal(Math.round(balance * 100) / 100, 0.24);
   });
 
+  await test('aniversário: Premium ganha o desconto sozinho no agendamento e o atendimento gera cashback', async () => {
+    const home = `http://localhost:${site.address().port}/`;
+    const PHONE = '5511955550000';
+    // Próximo dia útil; o aniversário da Paula fica no mês desse dia.
+    const d = new Date();
+    do d.setDate(d.getDate() + 1); while (d.getDay() === 0 || d.getDay() === 6);
+    const pad = (n) => String(n).padStart(2, '0');
+    const paula = db.clients.find((c) => c.phone === PHONE);
+    paula.data = { ...paula.data, birthDate: `10/${pad(d.getMonth() + 1)}/1990` };
+
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(1500);
+    await R.getByRole('button', { name: 'Clientes' }).last().click();
+    await wait(800);
+    await R.getByText('Paula Lima').first().click();
+    await wait(800);
+    await R.getByText('Agendar horário').first().click();
+    await wait(800);
+    await R.getByText('Esmaltação em gel', { exact: true }).last().click();
+    await R.getByText(/15% de desconto aplicado\. De R\$\s?70(,00)? por R\$\s?59,50/).waitFor();
+    await R.getByRole('button', { name: new RegExp(`^(seg|ter|qua|qui|sex) ${d.getDate()}$`) }).first().click();
+    await wait(500);
+    await R.getByText('16:00', { exact: true }).last().click();
+    await shot('13-aniversario');
+    await R.getByText('Confirmar agendamento').click();
+    await wait(1200);
+    const appt = db.appointments.at(-1).data;
+    assert.equal(appt.price, 59.5);
+    assert.equal(appt.fullPrice, 70);
+    assert.equal(appt.birthdayDiscount, 15);
+
+    await R.getByRole('button', { name: 'Concluir atendimento' }).click();
+    await R.getByRole('button', { name: 'Concluir' }).last().click();
+    await wait(1200);
+    const done = db.appointments.find((a) => a.id === appt.id).data;
+    assert.equal(done.paidAmount, 59.5);
+    assert.ok(done.cashbackEarned >= 0.59 && done.cashbackEarned <= 0.6, `cashback do aniversário: ${done.cashbackEarned}`);
+    assert.ok(db.cashback.some((r) => r.data.appointmentId === appt.id && r.data.kind === 'credito'));
+  });
+
   await test('avaliação da cliente só aparece no feed depois que a profissional aprova', async () => {
     const home = `http://localhost:${site.address().port}/`;
     const cli = await browser.newPage({ viewport: { width: 390, height: 844 } });

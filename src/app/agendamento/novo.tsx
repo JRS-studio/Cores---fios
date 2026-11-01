@@ -43,7 +43,7 @@ export default function NovoAgendamentoScreen() {
   const [saveAsClient, setSaveAsClient] = useState(true);
   const custom = editing && !editing.serviceId ? editing : undefined;
   const [serviceId, setServiceId] = useState<string | undefined>(editing ? (editing.serviceId ?? CUSTOM) : undefined);
-  const [price, setPrice] = useState(editing ? String(editing.price) : '');
+  const [price, setPrice] = useState(editing ? String(editing.fullPrice ?? editing.price) : '');
   const [date, setDate] = useState(editing?.date ?? (params.data && params.data >= today() ? params.data : today()));
   const [time, setTime] = useState<string | undefined>(editing?.time ?? params.hora);
   const [notes, setNotes] = useState(editing?.notes ?? '');
@@ -69,10 +69,13 @@ export default function NovoAgendamentoScreen() {
   // Cashback livre da cliente (o que já está separado para outros horários não conta).
   const { availableOf } = useCashback();
   const available = !isWalkIn && client ? availableOf(client.phone, editing?.id) : 0;
-  const priceValue = Number(price.replace(',', '.')) || 0;
-  const cashbackUse = useCashbackBalance && available > 0 ? roundCents(Math.min(available, priceValue)) : 0;
   const birthday = client?.plan === 'premium' && client.birthDate ? parseDate(client.birthDate) : null;
   const birthdayMonth = !!birthday && birthday.getMonth() === new Date(date + 'T12:00').getMonth();
+  // Cliente Premium no mês do aniversário: o desconto (o mesmo para todas, em Ajustes) entra sozinho.
+  const birthdayDiscount = birthdayMonth ? LOYALTY.birthdayDiscount : 0;
+  const fullPrice = Number(price.replace(',', '.')) || 0;
+  const priceValue = birthdayDiscount > 0 ? roundCents(fullPrice * (1 - birthdayDiscount / 100)) : fullPrice;
+  const cashbackUse = useCashbackBalance && available > 0 ? roundCents(Math.min(available, priceValue)) : 0;
 
   const q = query.trim().toLowerCase();
   const matches = clients
@@ -133,7 +136,9 @@ export default function NovoAgendamentoScreen() {
       clientPhone,
       serviceId: serviceId === CUSTOM ? undefined : serviceId,
       serviceName,
-      price: Number(price.replace(',', '.')),
+      price: priceValue,
+      fullPrice: birthdayDiscount > 0 ? fullPrice : undefined,
+      birthdayDiscount: birthdayDiscount > 0 ? birthdayDiscount : undefined,
       duration,
       date,
       time,
@@ -277,21 +282,20 @@ export default function NovoAgendamentoScreen() {
 
           <View style={{ marginTop: 12 }}>
             <Field
-              label="Valor cobrado (R$)"
+              label="Valor do serviço (R$)"
               value={price}
               onChangeText={(t) => setPrice(t.replace(/[^\d,.]/g, ''))}
               keyboardType="decimal-pad"
               error={tried ? errors.price : null}
             />
           </View>
-          {birthdayMonth && service && (
-            <Pressable
-              style={styles.birthday}
-              onPress={() => setPrice(String(Math.round(service.price * (1 - LOYALTY.birthdayDiscount / 100))))}
-            >
+          {birthdayDiscount > 0 && fullPrice > 0 && (
+            <View style={styles.birthday}>
               <Ionicons name="gift-outline" size={18} color={colors.wine} />
-              <Text style={styles.birthdayText}>Mês de aniversário: aplicar {LOYALTY.birthdayDiscount}% de desconto</Text>
-            </Pressable>
+              <Text style={styles.birthdayText}>
+                Mês de aniversário: {birthdayDiscount}% de desconto aplicado. De {brl(fullPrice)} por {brl(priceValue)}.
+              </Text>
+            </View>
           )}
         </View>
 

@@ -76,7 +76,9 @@ function PremiumContent() {
           error={tried ? errors.cashbackPercent : null}
         />
 
-        <SectionTitle hint="Use 0 para desligar.">Outras vantagens</SectionTitle>
+        <SectionTitle hint="Vale para todas as clientes Premium que informaram a data de nascimento, em qualquer serviço marcado no mês do aniversário. Entra sozinho no agendamento e o atendimento também gera cashback. Use 0 para desligar.">
+          Desconto de aniversário
+        </SectionTitle>
         <Field
           label="Desconto no aniversário (%)"
           value={form.birthdayDiscount}

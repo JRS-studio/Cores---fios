@@ -38,29 +38,68 @@ export function loginToEmail(login: string) {
 
 const SessionContext = createContext<SessionApi | null>(null);
 
+// Quem estava logada neste aparelho na última vez. O app abre direto como essa pessoa (sem mostrar
+// por um instante o perfil do studio, com o nome da profissional) e confere com o servidor em seguida.
+const CACHE_KEY = 'cores:sessao:v1';
+type Cached = { role: Role; phone: string | null; userId: string | null };
+const storage = () => (globalThis as { localStorage?: Storage }).localStorage;
+function readCache(): Cached | null {
+  try {
+    const raw = storage()?.getItem(CACHE_KEY);
+    return raw ? (JSON.parse(raw) as Cached) : null;
+  } catch {
+    return null;
+  }
+}
+function writeCache(value: Cached | null) {
+  try {
+    if (value) storage()?.setItem(CACHE_KEY, JSON.stringify(value));
+    else storage()?.removeItem(CACHE_KEY);
+  } catch {
+    // Sem armazenamento: só não lembra.
+  }
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<Role>(isRemote ? 'visitante' : 'local');
-  const [phone, setPhone] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(isRemote ? null : 'local');
-  const [ready, setReady] = useState(!isRemote);
+  const [cached] = useState(() => (isRemote ? readCache() : null));
+  const [role, setRole] = useState<Role>(isRemote ? (cached?.role ?? 'visitante') : 'local');
+  const [phone, setPhone] = useState<string | null>(cached?.phone ?? null);
+  const [userId, setUserId] = useState<string | null>(isRemote ? (cached?.userId ?? null) : 'local');
+  const [ready, setReady] = useState(!isRemote || !!cached);
 
   const resolve = useCallback(async (session: Session | null) => {
     if (!supabase) return;
-    setUserId(session?.user.id ?? null);
     if (!session) {
+      setUserId(null);
       setRole('visitante');
       setPhone(null);
-    } else {
-      const { data: owner } = await supabase.rpc('is_owner');
-      // Número confirmado por código (no login) ou preso a este aparelho (entrada sem código).
-      let authPhone = session.user.phone || null;
-      if (!authPhone) {
-        const { data } = await supabase.from('phone_claims').select('phone').eq('user_id', session.user.id).maybeSingle();
-        authPhone = data?.phone ?? null;
-      }
-      setPhone(authPhone ? fromAuthPhone(authPhone) : null);
-      setRole(owner ? 'profissional' : authPhone ? 'cliente' : 'visitante');
+      writeCache(null);
+      setReady(true);
+      return;
     }
+    const { data: owner, error: ownerError } = await supabase.rpc('is_owner');
+    // Número confirmado por código (no login) ou preso a este aparelho (entrada sem código).
+    let authPhone = session.user.phone || null;
+    let claimError = null;
+    if (!authPhone && !owner) {
+      const { data, error } = await supabase.from('phone_claims').select('phone').eq('user_id', session.user.id).maybeSingle();
+      authPhone = data?.phone ?? null;
+      claimError = error;
+    }
+    // Sem resposta do servidor (internet fraca): mantém quem já estava logada em vez de trocar de perfil.
+    if (ownerError || claimError) {
+      setReady(true);
+      return;
+    }
+    const next: Cached = {
+      role: owner ? 'profissional' : authPhone ? 'cliente' : 'visitante',
+      phone: owner ? null : authPhone ? fromAuthPhone(authPhone) : null,
+      userId: session.user.id,
+    };
+    setUserId(next.userId);
+    setPhone(next.phone);
+    setRole(next.role);
+    writeCache(next);
     setReady(true);
   }, []);
 

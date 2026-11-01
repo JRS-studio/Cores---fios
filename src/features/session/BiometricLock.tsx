@@ -47,7 +47,13 @@ export function BiometricLock() {
     return () => doc.removeEventListener('visibilitychange', onChange);
   }, []);
 
-  const show = locked && (!ready || role === 'profissional');
+  // A trava é só da profissional. Se este aparelho guardou a biometria dela mas quem está logada agora é
+  // outra pessoa (ex.: uma cliente no mesmo celular), a trava antiga é apagada.
+  useEffect(() => {
+    if (ready && role !== 'profissional' && biometricEnabled()) disableBiometric();
+  }, [ready, role]);
+
+  const show = locked && ready && role === 'profissional' && biometricEnabled();
 
   // Já pede a biometria ao abrir (se o celular não deixar sem um toque, fica o botão).
   useEffect(() => {

@@ -669,6 +669,16 @@ const site = http.createServer((req, res) =>
     await wait(1200);
     const row = db.appointments.find((a) => a.id === appt.id);
     assert.equal(row.status, 'cancelado');
+    // Celular de cliente que guardou a biometria da profissional (testes no mesmo aparelho): ao abrir,
+    // não aparece "Olá, Jhenifer" nem o perfil do studio; abre direto como a cliente e a trava antiga some.
+    await cli.evaluate(() => localStorage.setItem('cores:biometria:v1', JSON.stringify({ credentialId: 'AAAA' })));
+    assert.equal(JSON.parse(await cli.evaluate(() => localStorage.getItem('cores:sessao:v1'))).role, 'cliente');
+    await cli.goto(home, { waitUntil: 'domcontentloaded' });
+    await C.getByText('Lia Souza', { exact: true }).first().waitFor({ timeout: 5000 });
+    assert.equal(await C.getByText('Use o rosto ou a digital para entrar.').count(), 0);
+    assert.equal(await C.getByText(/Jhenifer/).count(), 0, 'nada da Jhenifer na tela da cliente');
+    await cli.waitForTimeout(1500);
+    assert.equal(await cli.evaluate(() => localStorage.getItem('cores:biometria:v1')), null, 'trava antiga apagada');
     db.settings = [];
     await cli.close();
   });

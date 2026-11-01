@@ -196,9 +196,11 @@ function TopBar() {
 
 function Profile({ postsCount, reviewsCount, average }: { postsCount: number; reviewsCount: number; average: number }) {
   const { settings } = useSettings();
-  const { canManage, phone } = useSession();
+  const { canManage, phone, role } = useSession();
   const { findByPhone } = useClients();
-  const me = !canManage && phone ? findByPhone(phone) : undefined;
+  const record = !canManage && phone ? findByPhone(phone) : undefined;
+  // Cliente logada sem o cadastro carregado ainda: mostra o número dela (nunca o perfil do studio com o nome da profissional).
+  const me = record ?? (role === 'cliente' && phone ? { name: formatPhone(phone), phone } : undefined);
   const { appointments } = useAppointments();
   const { balanceOf } = useCashback();
 
@@ -227,7 +229,11 @@ function Profile({ postsCount, reviewsCount, average }: { postsCount: number; re
         {me ? (
           <LinearGradient colors={[colors.roseGold, colors.wine]} style={styles.meRing}>
             <View style={styles.meAvatar} accessibilityLabel={`Foto de perfil de ${me.name}`}>
-              <Text style={styles.meInitial}>{me.name.trim()[0]?.toUpperCase()}</Text>
+              {record ? (
+                <Text style={styles.meInitial}>{record.name.trim()[0]?.toUpperCase()}</Text>
+              ) : (
+                <Ionicons name="person" size={30} color={colors.roseGoldLight} />
+              )}
             </View>
           </LinearGradient>
         ) : (
@@ -257,7 +263,9 @@ function Profile({ postsCount, reviewsCount, average }: { postsCount: number; re
         {canManage
           ? 'Seu perfil como as clientes veem. Publique seus trabalhos e novidades.'
           : me
-            ? `Que bom te ver, ${me.name.split(' ')[0]}! Confira as novidades e os trabalhos do ${settings.studioName}.`
+            ? record
+              ? `Que bom te ver, ${record.name.split(' ')[0]}! Confira as novidades e os trabalhos do ${settings.studioName}.`
+              : `Confira as novidades e os trabalhos do ${settings.studioName}.`
             : 'Manicure e nail designer. Veja os trabalhos, as avaliações das clientes e agende seu horário.'}
       </Text>
       <View style={styles.profileButtons}>

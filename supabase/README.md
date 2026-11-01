@@ -88,3 +88,10 @@ A cliente ativa em **Conta › Lembrete 1 hora antes** (ou no horário marcado).
 4. **SQL Editor**: cole [`lembretes.sql`](lembretes.sql) e clique em **Run**. Isso agenda a função a cada 5 minutos. Na primeira execução ela cria as chaves de envio; a partir daí as clientes já conseguem ativar.
 
 Teste da função: `node supabase/test/lembretes.test.js <caminho-do-deno>`.
+
+## Cashback do Premium
+
+A cliente Premium ganha uma porcentagem (1% por padrão, em **Ajustes › Cashback e benefícios do Premium**) de cada atendimento pago. Ela vê o saldo em **Conta** e escolhe usar ao agendar; o valor sai do saldo quando a profissional conclui o atendimento. Só a profissional grava no extrato; cada cliente só lê o dela.
+
+1. **SQL Editor**: cole [`atualizacao-cashback.sql`](atualizacao-cashback.sql) e clique em **Run**.
+

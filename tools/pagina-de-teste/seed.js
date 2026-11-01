@@ -13,12 +13,12 @@
       privacyConsent: true, remindersConsent: true, email: 'mariana.alves@email.com', birthDate: '14/03/1992',
       contactChannel: 'whatsapp', preferredShape: 'amendoada', preferredLength: 'media', favoriteColors: ['vinho', 'nude-rose'],
       preferredPeriods: ['Tarde'], referralSource: 'Instagram', healthConsent: true, allergies: ['Acetona'], healthConditions: [],
-      healthNotes: '', loyalty: { stamps: 7, totalVisits: 12, rewardsRedeemed: 1 } },
+      healthNotes: '' },
     { id: 'demo-ana', plan: 'premium', createdAt: day(-40).toISOString(), name: 'Ana Souza', phone: '11976540002', phoneVerified: true,
       privacyConsent: true, remindersConsent: true, email: 'ana.souza@email.com', birthDate: '22/' + thisMonth + '/1998',
       contactChannel: 'whatsapp', preferredShape: 'quadrada', preferredLength: 'curta', favoriteColors: ['rubi', 'noir'],
       preferredPeriods: ['Manhã', 'Sábado'], referralSource: 'Indicação de amiga', referredBy: 'Mariana Alves',
-      healthConsent: false, allergies: [], healthConditions: [], healthNotes: '', loyalty: { stamps: 3, totalVisits: 3, rewardsRedeemed: 0 } },
+      healthConsent: false, allergies: [], healthConditions: [], healthNotes: '' },
     { id: 'demo-camila', plan: 'rapido', createdAt: day(-25).toISOString(), name: 'Camila Rocha', phone: '21998760003', phoneVerified: true, privacyConsent: true, remindersConsent: true },
     { id: 'demo-leticia', plan: 'rapido', createdAt: day(-10).toISOString(), name: 'Letícia Prado', phone: '31991230004', privacyConsent: true, remindersConsent: false },
   ];
@@ -88,5 +88,11 @@
     'cores:clients:v1': clients,
     'cores:appointments:v1': appointments,
     'cores:transactions:v1': transactions,
+    // Cashback das clientes Premium de exemplo (1% de atendimentos anteriores).
+    'cores:cashback:v1': [
+      { id: 'demo-cb1', createdAt: day(-20).toISOString(), clientPhone: '11987650001', clientName: 'Mariana Alves', amount: 1.6, kind: 'credito', description: 'Alongamento em fibra' },
+      { id: 'demo-cb2', createdAt: day(-6).toISOString(), clientPhone: '11987650001', clientName: 'Mariana Alves', amount: 0.7, kind: 'credito', description: 'Esmaltação em gel' },
+      { id: 'demo-cb3', createdAt: day(-10).toISOString(), clientPhone: '11976540002', clientName: 'Ana Souza', amount: 0.7, kind: 'credito', description: 'Mão e pé' },
+    ],
   };
 })();

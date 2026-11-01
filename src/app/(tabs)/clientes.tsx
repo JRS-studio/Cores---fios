@@ -5,12 +5,12 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useCashback } from '@/features/cashback/CashbackContext';
 import { useClients } from '@/features/clients/ClientsContext';
 import { MyAccount } from '@/features/session/MyAccount';
 import { useSession } from '@/features/session/SessionContext';
-import { useLoyalty } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
-import { formatPhone, initials, onlyDigits } from '@/utils/format';
+import { brl, formatPhone, initials, onlyDigits } from '@/utils/format';
 
 export default function ClientesScreen() {
   const { canManage } = useSession();
@@ -19,7 +19,7 @@ export default function ClientesScreen() {
 }
 
 function ClientList() {
-  const LOYALTY = useLoyalty();
+  const { balanceOf } = useCashback();
   const insets = useSafeAreaInsets();
   const { clients, ready } = useClients();
   const [query, setQuery] = useState('');
@@ -60,7 +60,7 @@ function ClientList() {
             </View>
             <Text style={[styles.planName, { color: colors.white }]}>Premium</Text>
             <Text style={[styles.planText, { color: 'rgba(255,255,255,0.78)' }]}>
-              Cartão fidelidade, desconto no aniversário e preferências salvas.
+              Cashback em todo atendimento, desconto no aniversário e preferências salvas.
             </Text>
             <Text style={[styles.planCta, { color: colors.roseGoldLight }]}>Ser Premium ›</Text>
           </LinearGradient>
@@ -92,7 +92,7 @@ function ClientList() {
       ) : (
         <View style={styles.list}>
           {visible.map((c, i) => {
-            const stamps = Math.min(c.loyalty?.stamps ?? 0, LOYALTY.stampsForReward);
+            const cashback = balanceOf(c.phone);
             return (
               <Pressable
                 key={c.id}
@@ -105,11 +105,10 @@ function ClientList() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemName}>{c.name}</Text>
                   <Text style={styles.itemPhone}>{formatPhone(c.phone)}</Text>
-                  {c.plan === 'premium' && (
-                    <View style={styles.miniStamps}>
-                      {Array.from({ length: LOYALTY.stampsForReward }, (_, k) => (
-                        <View key={k} style={[styles.miniStamp, k < stamps && styles.miniStampOn]} />
-                      ))}
+                  {(c.plan === 'premium' || cashback > 0) && (
+                    <View style={styles.cashback}>
+                      <Ionicons name="wallet-outline" size={13} color={colors.wine} />
+                      <Text style={styles.cashbackText}>Cashback {brl(cashback)}</Text>
                     </View>
                   )}
                 </View>
@@ -179,9 +178,8 @@ const styles = StyleSheet.create({
   avatarText: { fontFamily: fonts.display, fontSize: 16, color: colors.plum },
   itemName: { fontFamily: fonts.semibold, fontSize: 14, color: colors.ink },
   itemPhone: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
-  miniStamps: { flexDirection: 'row', gap: 3, marginTop: 6 },
-  miniStamp: { width: 9, height: 9, borderRadius: 5, borderWidth: 1, borderColor: colors.roseGold },
-  miniStampOn: { backgroundColor: colors.roseGold },
+  cashback: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  cashbackText: { fontFamily: fonts.semibold, fontSize: 12, color: colors.wine },
   badge: { borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 3, backgroundColor: colors.blush },
   badgePremium: { backgroundColor: colors.plum },
   badgeText: { fontFamily: fonts.semibold, fontSize: 10, color: colors.wine },

@@ -11,7 +11,7 @@ const assert = require('assert/strict');
 const { chromium } = require('playwright');
 
 const API_PORT = 54329;
-const db = { clients: [], appointments: [], transactions: [], feedbacks: [], settings: [], posts: [], likes: [], push_subscriptions: [] };
+const db = { clients: [], appointments: [], transactions: [], feedbacks: [], settings: [], posts: [], likes: [], push_subscriptions: [], cashback: [] };
 // Chave pública de envio (VAPID) válida, para o navegador aceitar a inscrição.
 const VAPID = require('crypto').createECDH('prime256v1');
 VAPID.generateKeys();
@@ -91,11 +91,11 @@ const api = http.createServer((req, res) => {
     // Imita as regras de acesso do schema.sql no que o teste usa.
     const visible = (row) =>
       session?.owner || ['feedbacks', 'settings', 'posts', 'likes'].includes(table) ||
-      (table === 'clients' && row.phone === myPhone) || (table === 'appointments' && row.client_phone === myPhone);
+      (table === 'clients' && row.phone === myPhone) || (['appointments', 'cashback'].includes(table) && row.client_phone === myPhone);
     if (req.method === 'GET') return send(200, db[table].filter(visible).map((r) => ({ data: r.data })));
     if (req.method === 'POST') {
       for (const row of [].concat(body)) {
-        if (['transactions', 'posts'].includes(table) && !session?.owner) return send(403, { code: '42501', message: 'rls' });
+        if (['transactions', 'posts', 'cashback'].includes(table) && !session?.owner) return send(403, { code: '42501', message: 'rls' });
         if (table === 'likes') {
           if (!session) return send(403, { code: '42501', message: 'rls' });
           row.user_id = session.user.id; // default auth.uid() do banco
@@ -308,6 +308,111 @@ const site = http.createServer((req, res) =>
     assert.equal(db.settings.length, 0, 'a escolha da cliente não vai para os ajustes do studio');
     await other.screenshot({ path: path.join(shots, '07-tema-cliente.png') });
     await other.close();
+  });
+
+  await test('cashback: Premium ganha 1% ao concluir, vê o saldo, usa ao agendar e a profissional vê o saldo', async () => {
+    const home = `http://localhost:${site.address().port}/`;
+    const PHONE = '5511955550000';
+    // Paula vira Premium.
+    const paula = db.clients.find((c) => c.phone === PHONE);
+    paula.data = { ...paula.data, plan: 'premium' };
+    const first = db.appointments.find((a) => a.client_phone === PHONE);
+
+    // Profissional confirma e conclui o horário de R$ 70: Paula ganha R$ 0,70.
+    // Abre o horário pela ficha da cliente (Clientes › Paula › Histórico).
+    const openFromClient = async (service) => {
+      await p.goto(home, { waitUntil: 'networkidle' });
+      await wait(1500);
+      await R.getByRole('button', { name: 'Clientes' }).last().click();
+      await wait(800);
+      await R.getByText('Paula Lima').first().click();
+      await wait(800);
+      await R.getByText(service, { exact: false }).last().click();
+      await wait(800);
+    };
+    await openFromClient('Esmaltação em gel');
+    await R.getByRole('button', { name: 'Confirmar horário' }).click();
+    await wait(800);
+    await R.getByRole('button', { name: 'Concluir atendimento' }).click();
+    await R.getByRole('button', { name: 'Concluir' }).last().click();
+    await wait(1200);
+    await R.getByText(/\+R\$\s?0,70 de cashback para Paula/).waitFor();
+    const credit = db.cashback.find((r) => r.data.kind === 'credito');
+    assert.equal(credit?.client_phone, PHONE);
+    assert.equal(credit.data.amount, 0.7);
+
+    // Um crédito anterior de R$ 10 (lançado pela profissional): saldo R$ 10,70.
+    db.cashback.push({ id: 'cb-antigo', client_phone: PHONE, data: { id: 'cb-antigo', createdAt: new Date(Date.now() - 86400000).toISOString(), clientPhone: '11955550000', clientName: 'Paula Lima', amount: 10, kind: 'credito', description: 'Mão e pé' } });
+
+    // Paula entra no celular dela, vê o saldo e usa ao agendar.
+    const cli = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const C = cli.locator('#root');
+    await cli.goto(home, { waitUntil: 'networkidle' });
+    await cli.waitForTimeout(1500);
+    await C.getByLabel('Conta', { exact: true }).click();
+    await cli.waitForTimeout(400);
+    await C.getByText('Já tenho cadastro: entrar').click();
+    await cli.waitForTimeout(400);
+    await C.getByLabel('WhatsApp', { exact: true }).fill('11955550000');
+    await C.getByText('Confirmar e entrar').click();
+    await cli.waitForTimeout(1500);
+    await C.getByLabel('Conta', { exact: true }).last().click();
+    await cli.waitForTimeout(800);
+    await C.getByLabel(/Saldo de cashback: R\$\s?10,70/).waitFor();
+    await cli.screenshot({ path: path.join(shots, '08-cashback-conta.png') });
+    await C.getByText('Agendar horário').last().click();
+    await cli.waitForTimeout(800);
+    await C.getByText('Manicure tradicional', { exact: true }).last().click();
+    await C.getByRole('checkbox', { name: /Usar cashback de R\$\s?10,70/ }).click();
+    await C.getByText(/Desconta R\$\s?10,70: a pagar R\$\s?24,30/).waitFor();
+    await C.getByRole('button', { name: /^(seg|ter|qua|qui|sex) \d+$/ }).nth(2).click();
+    await cli.waitForTimeout(500);
+    await C.getByText('14:00', { exact: true }).last().click();
+    await cli.screenshot({ path: path.join(shots, '09-cashback-agendar.png') });
+    await C.getByText('Confirmar agendamento').click();
+    await cli.waitForTimeout(1200);
+    const booked = db.appointments.at(-1);
+    assert.equal(booked.data.cashbackUse, 10.7);
+    // Enquanto o horário não acontece, o saldo fica separado (não dá para usar duas vezes).
+    await cli.goto(home, { waitUntil: 'networkidle' });
+    await cli.waitForTimeout(1500);
+    await C.getByLabel('Conta', { exact: true }).last().click();
+    await cli.waitForTimeout(800);
+    await C.getByText(/R\$\s?10,70 separado para horário marcado/).waitFor();
+    // A cliente não consegue lançar cashback para si.
+    const before = db.cashback.length;
+    const status = await cli.evaluate(async ([url]) => {
+      const key = Object.keys(localStorage).find((k) => k.includes('auth-token'));
+      const token = JSON.parse(localStorage.getItem(key)).access_token;
+      const r = await fetch(`${url}/rest/v1/cashback`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, apikey: 'teste', 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 'golpe', client_phone: '5511955550000', data: { amount: 999 } }) });
+      return r.status;
+    }, [`http://localhost:${API_PORT}`]);
+    assert.equal(status, 403);
+    assert.equal(db.cashback.length, before);
+    await cli.close();
+
+    // Profissional vê o saldo na lista de clientes e conclui: recebe R$ 24,30, o cashback sai do saldo.
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(1500);
+    await R.getByRole('button', { name: 'Clientes' }).last().click();
+    await wait(800);
+    await R.getByText(/Cashback R\$\s?10,70/).waitFor();
+    await shot('10-cashback-lista');
+    await openFromClient('Manicure tradicional');
+    await R.getByRole('button', { name: 'Confirmar horário' }).click();
+    await wait(800);
+    await R.getByRole('button', { name: 'Concluir atendimento' }).click();
+    await R.getByText(/usa R\$\s?10,70 de cashback: receba R\$\s?24,30/).waitFor();
+    await R.getByRole('button', { name: 'Concluir' }).last().click();
+    await wait(1200);
+    const use = db.cashback.find((r) => r.data.kind === 'uso');
+    assert.equal(use.data.amount, -10.7);
+    const done = db.appointments.find((a) => a.id === booked.id).data;
+    assert.equal(done.paidAmount, 24.3);
+    assert.equal(done.cashbackUsed, 10.7);
+    assert.equal(done.cashbackEarned, 0.24);
+    const balance = db.cashback.filter((r) => r.client_phone === PHONE).reduce((sum, r) => sum + r.data.amount, 0);
+    assert.equal(Math.round(balance * 100) / 100, 0.24);
   });
 
   await test('profissional ativa a biometria; o app abre travado e só entra com rosto/digital', async () => {

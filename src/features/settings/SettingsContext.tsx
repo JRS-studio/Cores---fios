@@ -4,7 +4,7 @@ import { STORAGE_KEYS } from '@/data/storage';
 import { supabase } from '@/data/supabase';
 import { reportSyncError } from '@/data/syncStatus';
 import { usePersisted } from '@/data/usePersisted';
-import { DEFAULT_EXTRA_BENEFITS, DEFAULT_LOYALTY, premiumBenefits, type LoyaltyRules } from '@/data/loyalty';
+import { DEFAULT_EXTRA_BENEFITS, DEFAULT_LOYALTY, migrateLoyalty, premiumBenefits, withoutOldBenefits, type LoyaltyRules } from '@/data/loyalty';
 import { DEFAULT_SERVICES, type Service } from '@/data/services';
 import { toMinutes, weekdayOf } from '@/utils/date';
 
@@ -95,7 +95,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   // Ajustes salvos antes de um campo existir ganham o valor padrão dele.
   const api = useMemo(
-    () => ({ settings: { ...DEFAULT_SETTINGS, ...stored, loyalty: { ...DEFAULT_LOYALTY, ...stored.loyalty } }, ready, saveSettings }),
+    () => ({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        ...stored,
+        loyalty: migrateLoyalty(stored.loyalty),
+        extraBenefits: withoutOldBenefits(stored.extraBenefits ?? DEFAULT_EXTRA_BENEFITS),
+      },
+      ready,
+      saveSettings,
+    }),
     [stored, ready, saveSettings],
   );
   return <SettingsContext.Provider value={api}>{children}</SettingsContext.Provider>;

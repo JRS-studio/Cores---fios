@@ -8,6 +8,7 @@ import { Button, Chips, Field, ScreenHeader } from '@/components/ui';
 import { useAppointments, PAYMENT_LABEL, type PaymentMethod } from '@/features/agenda/AppointmentsContext';
 import { endTime, StatusChip } from '@/features/agenda/components';
 import { newBookingWhatsApp } from '@/features/agenda/whatsapp';
+import { cashbackFor, roundCents, useCashback, type CashbackEntry } from '@/features/cashback/CashbackContext';
 import { useClients } from '@/features/clients/ClientsContext';
 import { useFinance } from '@/features/finance/FinanceContext';
 import { useSession } from '@/features/session/SessionContext';
@@ -33,7 +34,8 @@ export default function AgendamentoScreen() {
   const insets = useSafeAreaInsets();
   const { id, novo } = useLocalSearchParams<{ id: string; novo?: string }>();
   const { ready, getAppointment, updateStatus, removeAppointment } = useAppointments();
-  const { getClient, registerVisit } = useClients();
+  const { getClient, findByPhone } = useClients();
+  const { balanceOf, addEntries } = useCashback();
   const { addTransaction } = useFinance();
   const { settings } = useSettings();
   // A cliente só remarca ou cancela; concluir, cobrar, confirmar e marcar falta são da profissional.
@@ -54,8 +56,11 @@ export default function AgendamentoScreen() {
     );
   }
 
-  const client = a.clientId ? getClient(a.clientId) : undefined;
+  const client = (a.clientId ? getClient(a.clientId) : undefined) ?? findByPhone(a.clientPhone);
   const open = a.status === 'agendado' || a.status === 'confirmado';
+  // Cashback que a cliente escolheu usar: nunca mais que o saldo dela nem que o valor do serviço.
+  const cashbackUse = open ? roundCents(Math.min(a.cashbackUse ?? 0, balanceOf(a.clientPhone), a.price)) : 0;
+  const toReceive = roundCents(a.price - cashbackUse);
   const notice = action && action.novo === novo ? action.message : novo ? ((canManage ? NOTICES : CLIENT_NOTICES)[novo] ?? null) : null;
   const firstName = a.clientName.split(' ')[0];
   const when = `${formatLongDate(a.date)}, às ${a.time}`;
@@ -68,9 +73,17 @@ export default function AgendamentoScreen() {
   }
 
   function complete() {
-    const paid = Number((amount || String(a!.price)).replace(',', '.'));
+    const paid = Number((amount || String(toReceive)).replace(',', '.'));
     if (!(paid >= 0)) return;
-    updateStatus(a!.id, 'concluido', { paidAmount: paid, paymentMethod: method });
+    // Cliente Premium ganha cashback sobre o que pagou; o cashback usado sai do saldo.
+    const earned = client?.plan === 'premium' ? cashbackFor(paid, settings.loyalty.cashbackPercent) : 0;
+    const now = new Date().toISOString();
+    const base = { createdAt: now, clientPhone: a!.clientPhone, clientName: a!.clientName, appointmentId: a!.id };
+    const entries: CashbackEntry[] = [];
+    if (cashbackUse > 0) entries.push({ ...base, id: newId(), kind: 'uso', amount: -cashbackUse, description: `Usado: ${a!.serviceName}` });
+    if (earned > 0) entries.push({ ...base, id: newId(), kind: 'credito', amount: earned, description: a!.serviceName });
+    addEntries(entries);
+    updateStatus(a!.id, 'concluido', { paidAmount: paid, paymentMethod: method, cashbackUsed: cashbackUse || undefined, cashbackEarned: earned || undefined });
     addTransaction({
       id: newId(),
       createdAt: new Date().toISOString(),
@@ -82,10 +95,13 @@ export default function AgendamentoScreen() {
       date: a!.date,
       appointmentId: a!.id,
     });
-    // Cliente Premium ganha o selo do cartão fidelidade automaticamente.
-    if (client?.plan === 'premium') registerVisit(client.id);
     setPaying(false);
-    say(`Atendimento concluído e ${brl(paid)} lançado no financeiro${client?.plan === 'premium' ? ` · +1 selo para ${firstName}` : ''}.`);
+    say(
+      `Atendimento concluído e ${brl(paid)} lançado no financeiro` +
+        (cashbackUse > 0 ? ` · ${brl(cashbackUse)} de cashback usado` : '') +
+        (earned > 0 ? ` · +${brl(earned)} de cashback para ${firstName}` : '') +
+        '.',
+    );
   }
 
   return (
@@ -140,6 +156,17 @@ export default function AgendamentoScreen() {
             {a.paymentMethod ? ` · ${PAYMENT_LABEL[a.paymentMethod]}` : ''}
           </Text>
         </Row>
+        {(cashbackUse > 0 || a.cashbackUsed || a.cashbackEarned) && (
+          <Row label="Cashback">
+            <Text style={styles.rowValue}>
+              {open
+                ? `${brl(cashbackUse)} do saldo · a pagar ${brl(toReceive)}`
+                : [a.cashbackUsed ? `usou ${brl(a.cashbackUsed)}` : null, a.cashbackEarned ? `ganhou ${brl(a.cashbackEarned)}` : null]
+                    .filter(Boolean)
+                    .join(' · ')}
+            </Text>
+          </Row>
+        )}
         {a.notes && (
           <Row label="Observações">
             <Text style={styles.rowValue}>{a.notes}</Text>
@@ -165,9 +192,14 @@ export default function AgendamentoScreen() {
                 onToggle={(m) => setMethod(m as PaymentMethod)}
               />
               <View style={{ marginTop: 14 }}>
+                {cashbackUse > 0 && (
+                  <Text style={styles.cashbackNote}>
+                    {firstName} usa {brl(cashbackUse)} de cashback: receba {brl(toReceive)} de {brl(a.price)}.
+                  </Text>
+                )}
                 <Field
                   label="Valor recebido (R$)"
-                  value={amount || String(a.price)}
+                  value={amount || String(toReceive)}
                   onChangeText={(t) => setAmount(t.replace(/[^\d,.]/g, ''))}
                   keyboardType="decimal-pad"
                 />
@@ -335,6 +367,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
+  cashbackNote: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.wine, marginBottom: 10 },
   pending: { flexDirection: 'row', gap: 10, backgroundColor: '#FEF3E2', borderRadius: radius.sm, padding: 12 },
   pendingText: { flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: '#92400E' },
   screen: { flex: 1, backgroundColor: colors.cream },

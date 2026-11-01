@@ -15,6 +15,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { SyncBanner } from '@/components/SyncBanner';
 import { AppointmentsProvider } from '@/features/agenda/AppointmentsContext';
+import { CashbackProvider } from '@/features/cashback/CashbackContext';
 import { ClientsProvider } from '@/features/clients/ClientsContext';
 import { FeedbackProvider } from '@/features/feedback/FeedbackContext';
 import { LikesProvider } from '@/features/feed/LikesContext';
@@ -51,19 +52,21 @@ export default function RootLayout() {
         <SettingsProvider>
           <ClientsProvider>
             <AppointmentsProvider>
-              <FinanceProvider>
-                <FeedbackProvider>
-                  <PostsProvider>
-                    <LikesProvider>
-                      <StatusBar style="dark" />
-                      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }} />
-                      <SyncBanner />
-                      <ThemeSync />
-                      <BiometricLock />
-                    </LikesProvider>
-                  </PostsProvider>
-                </FeedbackProvider>
-              </FinanceProvider>
+              <CashbackProvider>
+                <FinanceProvider>
+                  <FeedbackProvider>
+                    <PostsProvider>
+                      <LikesProvider>
+                        <StatusBar style="dark" />
+                        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }} />
+                        <SyncBanner />
+                        <ThemeSync />
+                        <BiometricLock />
+                      </LikesProvider>
+                    </PostsProvider>
+                  </FeedbackProvider>
+                </FinanceProvider>
+              </CashbackProvider>
             </AppointmentsProvider>
           </ClientsProvider>
         </SettingsProvider>

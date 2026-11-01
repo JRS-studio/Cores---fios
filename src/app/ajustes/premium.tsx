@@ -5,15 +5,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Field, OwnerOnly, ScreenHeader, SectionTitle } from '@/components/ui';
 import { premiumBenefits } from '@/data/loyalty';
+import { cashbackFor } from '@/features/cashback/CashbackContext';
 import { useSession } from '@/features/session/SessionContext';
 import { useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
+import { brl } from '@/utils/format';
 
 const digits = (v: string, max = 3) => v.replace(/\D/g, '').slice(0, max);
 
 export default function PremiumScreen() {
   const { canManage } = useSession();
-  return canManage ? <PremiumContent /> : <OwnerOnly title="Benefícios do Premium" />;
+  return canManage ? <PremiumContent /> : <OwnerOnly title="Cashback e benefícios" />;
 }
 
 function PremiumContent() {
@@ -21,10 +23,7 @@ function PremiumContent() {
   const { settings, saveSettings } = useSettings();
   const l = settings.loyalty;
   const [form, setForm] = useState({
-    stampsForReward: String(l.stampsForReward),
-    reward: l.reward,
-    welcomeStamps: String(l.welcomeStamps),
-    referralStamps: String(l.referralStamps),
+    cashbackPercent: String(l.cashbackPercent).replace('.', ','),
     birthdayDiscount: String(l.birthdayDiscount),
   });
   const [extra, setExtra] = useState<string[]>(settings.extraBenefits);
@@ -37,15 +36,11 @@ function PremiumContent() {
   };
 
   const rules = {
-    stampsForReward: Number(form.stampsForReward || 0),
-    reward: form.reward.trim(),
-    welcomeStamps: Number(form.welcomeStamps || 0),
-    referralStamps: Number(form.referralStamps || 0),
+    cashbackPercent: Number(form.cashbackPercent.replace(',', '.') || 0),
     birthdayDiscount: Number(form.birthdayDiscount || 0),
   };
   const errors = {
-    stampsForReward: rules.stampsForReward < 1 ? 'Pelo menos 1 atendimento.' : null,
-    reward: rules.reward.length < 3 ? 'Descreva o prêmio.' : null,
+    cashbackPercent: !(rules.cashbackPercent >= 0 && rules.cashbackPercent <= 50) ? 'Use de 0 a 50%.' : null,
     birthdayDiscount: rules.birthdayDiscount > 100 ? 'No máximo 100%.' : null,
   };
   const valid = Object.values(errors).every((e) => !e);
@@ -65,46 +60,30 @@ function PremiumContent() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }}
       >
-        <ScreenHeader title="Benefícios do Premium" subtitle="O que a cliente ganha no cadastro Premium" />
+        <ScreenHeader title="Cashback e benefícios" subtitle="O que a cliente ganha no cadastro Premium" />
 
-        <SectionTitle hint="O cartão de selos das clientes usa estes números.">Cartão fidelidade</SectionTitle>
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <Field
-              label="Atendimentos para o prêmio"
-              value={form.stampsForReward}
-              onChangeText={(t) => set('stampsForReward', digits(t, 2))}
-              keyboardType="number-pad"
-              error={tried ? errors.stampsForReward : null}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Field label="Selos de boas-vindas" value={form.welcomeStamps} onChangeText={(t) => set('welcomeStamps', digits(t, 2))} keyboardType="number-pad" />
-          </View>
-        </View>
+        <SectionTitle hint="Em todo atendimento pago, essa porcentagem volta para a cliente Premium como saldo no app.">Cashback</SectionTitle>
         <Field
-          label="Prêmio"
-          value={form.reward}
-          onChangeText={(t) => set('reward', t)}
-          placeholder="Ex.: Esmaltação em gel grátis"
-          error={tried ? errors.reward : null}
+          label="Cashback (%)"
+          value={form.cashbackPercent}
+          onChangeText={(t) => set('cashbackPercent', t.replace(/[^\d,]/g, '').slice(0, 4))}
+          keyboardType="decimal-pad"
+          helper={
+            rules.cashbackPercent > 0
+              ? `Ex.: num atendimento de R$ 100, ela ganha ${brl(cashbackFor(100, rules.cashbackPercent))}. Use 0 para desligar.`
+              : 'Cashback desligado.'
+          }
+          error={tried ? errors.cashbackPercent : null}
         />
 
         <SectionTitle hint="Use 0 para desligar.">Outras vantagens</SectionTitle>
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <Field
-              label="Desconto no aniversário (%)"
-              value={form.birthdayDiscount}
-              onChangeText={(t) => set('birthdayDiscount', digits(t))}
-              keyboardType="number-pad"
-              error={tried ? errors.birthdayDiscount : null}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Field label="Selos por indicação" value={form.referralStamps} onChangeText={(t) => set('referralStamps', digits(t, 2))} keyboardType="number-pad" />
-          </View>
-        </View>
+        <Field
+          label="Desconto no aniversário (%)"
+          value={form.birthdayDiscount}
+          onChangeText={(t) => set('birthdayDiscount', digits(t))}
+          keyboardType="number-pad"
+          error={tried ? errors.birthdayDiscount : null}
+        />
 
         <SectionTitle hint="Escreva do jeito que a cliente vai ler.">Benefícios extras</SectionTitle>
         {extra.map((b, i) => (
@@ -153,7 +132,6 @@ function PremiumContent() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
-  row: { flexDirection: 'row', gap: 12 },
   extraRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   removeButton: { paddingTop: 18 },
   preview: { backgroundColor: colors.white, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 10 },

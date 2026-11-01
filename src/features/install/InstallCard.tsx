@@ -1,16 +1,9 @@
-import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
-import {
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button } from "@/components/ui";
+import { Button } from '@/components/ui';
 import {
   canPromptInstall,
   device,
@@ -20,52 +13,52 @@ import {
   onInstallChange,
   promptInstall,
   runningInstalled,
-} from "@/features/install/install";
-import { colors, fonts, radius, shadow } from "@/theme";
+} from '@/features/install/install';
+import { colors, fonts, radius, shadow } from '@/theme';
 
 type Step = { icon: keyof typeof Ionicons.glyphMap; text: string };
 
 const IOS_STEPS: Step[] = [
   {
-    icon: "share-outline",
-    text: "Toque no botão Compartilhar do Safari (o quadrado com a seta para cima), embaixo ou no alto da tela.",
+    icon: 'share-outline',
+    text: 'Toque no botão Compartilhar do Safari (o quadrado com a seta para cima), embaixo ou no alto da tela.',
   },
   {
-    icon: "add-circle-outline",
+    icon: 'add-circle-outline',
     text: 'Role a lista e toque em "Adicionar à Tela de Início".',
   },
   {
-    icon: "checkmark-circle-outline",
+    icon: 'checkmark-circle-outline',
     text: 'Toque em "Adicionar". O ícone do studio aparece na sua tela inicial.',
   },
 ];
 
 const ANDROID_STEPS: Step[] = [
   {
-    icon: "ellipsis-vertical",
-    text: "Toque no menu ⋮ do navegador, no canto de cima.",
+    icon: 'ellipsis-vertical',
+    text: 'Toque no menu ⋮ do navegador, no canto de cima.',
   },
   {
-    icon: "download-outline",
+    icon: 'download-outline',
     text: 'Toque em "Instalar app" ou "Adicionar à tela inicial".',
   },
   {
-    icon: "checkmark-circle-outline",
-    text: "Confirme. O ícone do studio aparece na sua tela inicial.",
+    icon: 'checkmark-circle-outline',
+    text: 'Confirme. O ícone do studio aparece na sua tela inicial.',
   },
 ];
 
 const IN_APP_STEPS: Step[] = [
   {
-    icon: "ellipsis-horizontal",
-    text: "Toque no menu (⋯ ou ⋮) no canto da tela.",
+    icon: 'ellipsis-horizontal',
+    text: 'Toque no menu (⋯ ou ⋮) no canto da tela.',
   },
   {
-    icon: "open-outline",
+    icon: 'open-outline',
     text: 'Escolha "Abrir no navegador" (Safari no iPhone, Chrome no Android).',
   },
   {
-    icon: "download-outline",
+    icon: 'download-outline',
     text: 'No navegador, toque em "Instalar app" aqui na tela inicial do studio.',
   },
 ];
@@ -81,13 +74,10 @@ export function InstallCard() {
   useEffect(() => onInstallChange(() => refresh((n) => n + 1)), []);
 
   // O site é só do navegador (sem geração no servidor), então dá para olhar o celular aqui.
-  const hidden =
-    closed ||
-    runningInstalled() ||
-    (device() === "outro" && !canPromptInstall());
-  if (Platform.OS !== "web" || hidden) return null;
+  const hidden = closed || runningInstalled() || (device() === 'outro' && !canPromptInstall());
+  if (Platform.OS !== 'web' || hidden) return null;
 
-  const ios = device() === "ios";
+  const ios = device() === 'ios';
   const steps = inAppBrowser() ? IN_APP_STEPS : ios ? IOS_STEPS : ANDROID_STEPS;
 
   async function install() {
@@ -105,15 +95,8 @@ export function InstallCard() {
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.title}>Instale o app no celular</Text>
-        <Text style={styles.text}>
-          Abra pelo ícone, em tela cheia, sem procurar o link.
-        </Text>
-        <Pressable
-          style={styles.install}
-          onPress={install}
-          accessibilityRole="button"
-          accessibilityLabel="Instalar app"
-        >
+        <Text style={styles.text}>Abra pelo ícone, em tela cheia, sem procurar o link.</Text>
+        <Pressable style={styles.install} onPress={install} accessibilityRole="button" accessibilityLabel="Instalar app">
           <Ionicons name="download-outline" size={16} color={colors.white} />
           <Text style={styles.installText}>Instalar app</Text>
         </Pressable>
@@ -129,22 +112,11 @@ export function InstallCard() {
         <Ionicons name="close" size={18} color={colors.muted} />
       </Pressable>
 
-      <Modal
-        visible={help}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setHelp(false)}
-      >
+      <Modal visible={help} transparent animationType="fade" onRequestClose={() => setHelp(false)}>
         <View style={styles.overlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setHelp(false)}
-            accessibilityLabel="Fechar"
-          />
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setHelp(false)} accessibilityLabel="Fechar" />
           <View style={[styles.sheet, { paddingBottom: insets.bottom + 24 }]}>
-            <Text style={styles.sheetTitle}>
-              {ios ? "Instalar no iPhone" : "Instalar no celular"}
-            </Text>
+            <Text style={styles.sheetTitle}>{ios ? 'Instalar no iPhone' : 'Instalar no celular'}</Text>
             {steps.map((s, i) => (
               <View key={s.text} style={styles.step}>
                 <View style={styles.stepNumber}>
@@ -156,21 +128,13 @@ export function InstallCard() {
             ))}
             {ios && !inAppBrowser() && (
               <Text style={styles.note}>
-                Depois, abra sempre pelo ícone: assim você continua conectada e
-                recebe os lembretes (iOS 16.4 ou mais novo).
+                Depois, abra sempre pelo ícone: assim você continua conectada e recebe os lembretes (iOS 16.4 ou mais novo).
               </Text>
             )}
             {!ios && !inAppBrowser() && (
-              <Text style={styles.note}>
-                Se aparecer &quot;Esse app já está instalado&quot;, ele está na
-                lista de apps do celular.
-              </Text>
+              <Text style={styles.note}>Se aparecer &quot;Esse app já está instalado&quot;, ele está na lista de apps do celular.</Text>
             )}
-            <Button
-              label="Entendi"
-              onPress={() => setHelp(false)}
-              style={{ marginTop: 18 }}
-            />
+            <Button label="Entendi" onPress={() => setHelp(false)} style={{ marginTop: 18 }} />
           </View>
         </View>
       </Modal>
@@ -180,8 +144,8 @@ export function InstallCard() {
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: 12,
     marginHorizontal: 12,
     marginTop: 12,
@@ -197,8 +161,8 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: colors.blush,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: { fontFamily: fonts.semibold, fontSize: 14, color: colors.ink },
   text: {
@@ -209,9 +173,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   install: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: 6,
     marginTop: 10,
     paddingHorizontal: 16,
@@ -226,8 +190,8 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(43, 18, 32, 0.45)",
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(43, 18, 32, 0.45)',
   },
   sheet: {
     backgroundColor: colors.cream,
@@ -242,14 +206,14 @@ const styles = StyleSheet.create({
     color: colors.plum,
     marginBottom: 4,
   },
-  step: { flexDirection: "row", alignItems: "center", gap: 12 },
+  step: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   stepNumber: {
     width: 24,
     height: 24,
     borderRadius: 12,
     backgroundColor: colors.plum,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stepNumberText: {
     fontFamily: fonts.semibold,

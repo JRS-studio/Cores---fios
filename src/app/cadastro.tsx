@@ -18,6 +18,7 @@ import {
   type Client,
   type Plan,
 } from '@/features/clients/types';
+import { formatPercent } from '@/data/loyalty';
 import { useLoyalty, usePremiumBenefits } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { newId } from '@/utils/id';
@@ -123,7 +124,6 @@ export default function CadastroScreen() {
 
   function finish() {
     const wasPremium = target?.plan === 'premium';
-    const prevLoyalty = target?.loyalty ?? { stamps: 0, totalVisits: 0, rewardsRedeemed: 0 };
     const base: Client = {
       ...(target ?? {}),
       id: target?.id ?? newId(),
@@ -153,7 +153,6 @@ export default function CadastroScreen() {
           allergies: form.healthConsent ? form.allergies : [],
           healthConditions: form.healthConsent ? form.healthConditions : [],
           healthNotes: form.healthConsent ? form.healthNotes.trim() : '',
-          loyalty: wasPremium ? prevLoyalty : { ...prevLoyalty, stamps: prevLoyalty.stamps + LOYALTY.welcomeStamps },
         }
       : base;
     saveClient(client);
@@ -334,7 +333,6 @@ export default function CadastroScreen() {
                   onChangeText={(t) => set('referredBy', t)}
                   placeholder="Nome da amiga"
                   autoCapitalize="words"
-                  helper={`Ela ganha +${LOYALTY.referralStamps} selos quando você fizer o primeiro atendimento.`}
                 />
               </View>
             )}
@@ -388,7 +386,7 @@ export default function CadastroScreen() {
         {premium && step === 3 && (
           <>
             <LinearGradient colors={[colors.wine, colors.plum]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.loyaltyCard}>
-              <Text style={styles.loyaltyEyebrow}>PROGRAMA FIDELIDADE</Text>
+              <Text style={styles.loyaltyEyebrow}>CASHBACK E VANTAGENS</Text>
               <Text style={styles.loyaltyTitle}>Suas vantagens Premium</Text>
               {PREMIUM_BENEFITS.map((b) => (
                 <View key={b} style={styles.benefit}>
@@ -425,7 +423,9 @@ export default function CadastroScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.upsellTitle}>Vem sempre? Seja Premium</Text>
               <Text style={styles.upsellText}>
-                Cartão fidelidade: a cada {LOYALTY.stampsForReward} atendimentos, 1 {LOYALTY.reward.toLowerCase()}.
+                {LOYALTY.cashbackPercent > 0
+                  ? `Ganhe ${formatPercent(LOYALTY.cashbackPercent)} de cashback em todo atendimento para usar nos próximos.`
+                  : `${LOYALTY.birthdayDiscount}% de desconto no mês do aniversário e preferências salvas.`}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.wine} />

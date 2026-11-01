@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, ScreenHeader } from '@/components/ui';
 import { polishById, shapeById } from '@/data/catalog';
-import { LEVELS, levelFor, nextLevel } from '@/data/loyalty';
+import { formatPercent } from '@/data/loyalty';
+import { CashbackCard } from '@/features/cashback/CashbackCard';
 import { useAppointments } from '@/features/agenda/AppointmentsContext';
 import { StatusChip } from '@/features/agenda/components';
 import { useClients } from '@/features/clients/ClientsContext';
@@ -15,26 +16,27 @@ import { supabase, toAuthPhone } from '@/data/supabase';
 import { reportSyncError } from '@/data/syncStatus';
 import { useSession } from '@/features/session/SessionContext';
 import { CODE_BY_WHATSAPP } from '@/features/verification/whatsappCode';
-import { CONTACT_CHANNELS, LENGTHS, type Client } from '@/features/clients/types';
+import { CONTACT_CHANNELS, LENGTHS } from '@/features/clients/types';
 import { useLoyalty } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { formatDayMonth } from '@/utils/date';
 import { brl, formatPhone, formatShortDate, initials, parseDate } from '@/utils/format';
 
-const welcome = (welcomeStamps: number): Record<string, string> => ({
+const welcome = (cashbackPercent: number): Record<string, string> => ({
   rapido: 'Cadastro concluído! Seus dados já ficam prontos para o próximo agendamento.',
-  premium: welcomeStamps > 0
-    ? `Bem-vinda ao Premium! Você já ganhou ${welcomeStamps} ${welcomeStamps === 1 ? 'selo' : 'selos'} de boas-vindas.`
-    : 'Bem-vinda ao Premium!',
+  premium:
+    cashbackPercent > 0
+      ? `Bem-vinda ao Premium! A partir de agora, ${formatPercent(cashbackPercent)} de cada atendimento pago volta para você em cashback.`
+      : 'Bem-vinda ao Premium!',
   editado: 'Cadastro atualizado.',
 });
 
 export default function ClienteScreen() {
   const LOYALTY = useLoyalty();
-  const WELCOME = welcome(LOYALTY.welcomeStamps);
+  const WELCOME = welcome(LOYALTY.cashbackPercent);
   const insets = useSafeAreaInsets();
   const { id, novo } = useLocalSearchParams<{ id: string; novo?: string }>();
-  const { ready, getClient, registerVisit, addReferralBonus, redeemReward, removeClient } = useClients();
+  const { ready, getClient, removeClient } = useClients();
   const { appointments } = useAppointments();
   const { canManage, role, signOut } = useSession();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -56,14 +58,8 @@ export default function ClienteScreen() {
   const history = appointments
     .filter((a) => a.clientId === client.id)
     .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
-  const loyalty = client.loyalty ?? { stamps: 0, totalVisits: 0, rewardsRedeemed: 0 };
   const birthday = client.birthDate ? parseDate(client.birthDate) : null;
   const birthdayMonth = !!birthday && birthday.getMonth() === new Date().getMonth();
-
-  const act = (fn: () => void, message: string) => {
-    fn();
-    setAction({ message, novo });
-  };
 
   return (
     <ScrollView
@@ -101,12 +97,12 @@ export default function ClienteScreen() {
       />
 
       {premium ? (
-        <LoyaltyCard client={client} />
+        <CashbackCard phone={client.phone} history={canManage ? 10 : 5} />
       ) : (
         <View style={styles.upgrade}>
           <Text style={styles.upgradeTitle}>Ganhe vantagens com o Premium</Text>
           <Text style={styles.upgradeText}>
-            Cartão fidelidade ({LOYALTY.stampsForReward} atendimentos = 1 {LOYALTY.reward.toLowerCase()}),{' '}
+            {LOYALTY.cashbackPercent > 0 ? `${formatPercent(LOYALTY.cashbackPercent)} de cashback em todo atendimento pago, ` : ''}
             {LOYALTY.birthdayDiscount}% no mês do aniversário e preferências salvas. Os dados atuais são aproveitados.
           </Text>
           <Button
@@ -125,28 +121,6 @@ export default function ClienteScreen() {
             Mês de aniversário! {LOYALTY.birthdayDiscount}% de desconto em qualquer serviço até o fim do mês.
           </Text>
         </View>
-      )}
-
-      {premium && canManage && (
-        <Section title="Área da profissional">
-          <Text style={styles.muted}>Use depois de cada atendimento para atualizar o cartão da cliente.</Text>
-          <View style={styles.proActions}>
-            <Button label="Registrar atendimento (+1 selo)" icon="add-circle-outline" onPress={() => act(() => registerVisit(client.id), 'Atendimento registrado: +1 selo.')} />
-            <Button
-              label={`Bônus de indicação (+${LOYALTY.referralStamps} selos)`}
-              icon="people-outline"
-              variant="secondary"
-              onPress={() => act(() => addReferralBonus(client.id), `Indicação registrada: +${LOYALTY.referralStamps} selos.`)}
-            />
-            {loyalty.stamps >= LOYALTY.stampsForReward && (
-              <Button
-                label={`Resgatar ${LOYALTY.reward.toLowerCase()}`}
-                icon="gift-outline"
-                onPress={() => act(() => redeemReward(client.id), 'Prêmio resgatado. Aproveite!')}
-              />
-            )}
-          </View>
-        </Section>
       )}
 
       <Section title="Histórico">
@@ -245,7 +219,7 @@ export default function ClienteScreen() {
         {confirmDelete ? (
           <View style={styles.confirm}>
             <Text style={styles.confirmText}>
-              Apagar todos os dados de {client.name.split(' ')[0]}? {premium ? 'Os selos acumulados também serão perdidos.' : ''}
+              Apagar todos os dados de {client.name.split(' ')[0]}? {premium ? 'O cadastro Premium e as preferências também serão apagados.' : ''}
             </Text>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <Button label="Cancelar" variant="secondary" onPress={() => setConfirmDelete(false)} style={{ flex: 1 }} />
@@ -267,67 +241,6 @@ export default function ClienteScreen() {
         )}
       </View>
     </ScrollView>
-  );
-}
-
-function LoyaltyCard({ client }: { client: Client }) {
-  const LOYALTY = useLoyalty();
-  const loyalty = client.loyalty ?? { stamps: 0, totalVisits: 0, rewardsRedeemed: 0 };
-  const level = levelFor(loyalty.totalVisits);
-  const upcoming = nextLevel(loyalty.totalVisits);
-  const filled = Math.min(loyalty.stamps, LOYALTY.stampsForReward);
-  const remaining = LOYALTY.stampsForReward - filled;
-
-  return (
-    <LinearGradient colors={[colors.wine, colors.plum]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
-      <View style={styles.cardTop}>
-        <View>
-          <Text style={styles.cardEyebrow}>CARTÃO FIDELIDADE</Text>
-          <Text style={styles.cardTitle}>Nível {level.name}</Text>
-        </View>
-        <View style={styles.levelPill}>
-          <Ionicons name="diamond" size={12} color={colors.plum} />
-          <Text style={styles.levelPillText}>{loyalty.totalVisits} atendimentos</Text>
-        </View>
-      </View>
-
-      <View style={styles.stamps}>
-        {Array.from({ length: LOYALTY.stampsForReward }, (_, i) => (
-          <View key={i} style={[styles.stamp, i < filled && styles.stampOn]}>
-            {i < filled ? (
-              <Ionicons name="sparkles" size={16} color={colors.plum} />
-            ) : (
-              <Text style={styles.stampNumber}>{i + 1}</Text>
-            )}
-          </View>
-        ))}
-      </View>
-
-      <Text style={styles.cardStatus}>
-        {remaining === 0
-          ? `Prêmio liberado: ${LOYALTY.reward.toLowerCase()}!`
-          : `Faltam ${remaining} ${remaining === 1 ? 'selo' : 'selos'} para ${LOYALTY.reward.toLowerCase()}.`}
-        {loyalty.stamps > LOYALTY.stampsForReward ? ` (+${loyalty.stamps - LOYALTY.stampsForReward} guardados)` : ''}
-      </Text>
-      <Text style={styles.cardPerk}>{level.perk}</Text>
-      {upcoming && (
-        <Text style={styles.cardNext}>
-          Próximo nível: {upcoming.name} com {upcoming.minVisits} atendimentos.
-        </Text>
-      )}
-      {loyalty.rewardsRedeemed > 0 && (
-        <Text style={styles.cardNext}>
-          {loyalty.rewardsRedeemed} {loyalty.rewardsRedeemed === 1 ? 'prêmio resgatado' : 'prêmios resgatados'}.
-        </Text>
-      )}
-      <View style={styles.levels}>
-        {LEVELS.map((l) => (
-          <Text key={l.id} style={[styles.levelName, l.id === level.id && styles.levelNameOn]}>
-            {l.name}
-          </Text>
-        ))}
-      </View>
-    </LinearGradient>
   );
 }
 
@@ -399,40 +312,6 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   birthdayText: { flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.wine },
-  card: { borderRadius: radius.lg, padding: 20, marginTop: 16, ...shadow, shadowOpacity: 0.25 },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  cardEyebrow: { fontFamily: fonts.semibold, fontSize: 11, letterSpacing: 2, color: colors.roseGold },
-  cardTitle: { fontFamily: fonts.display, fontSize: 24, color: colors.white, marginTop: 2 },
-  levelPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.roseGoldLight,
-    borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  levelPillText: { fontFamily: fonts.semibold, fontSize: 11, color: colors.plum },
-  stamps: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 18, justifyContent: 'space-between' },
-  stamp: {
-    width: '17%',
-    aspectRatio: 1,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: 'rgba(232,205,181,0.45)',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stampOn: { backgroundColor: colors.roseGoldLight, borderStyle: 'solid', borderColor: colors.roseGoldLight },
-  stampNumber: { fontFamily: fonts.medium, fontSize: 12, color: 'rgba(232,205,181,0.6)' },
-  cardStatus: { fontFamily: fonts.semibold, fontSize: 14, color: colors.white, marginTop: 16 },
-  cardPerk: { fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 4 },
-  cardNext: { fontFamily: fonts.regular, fontSize: 12, color: colors.roseGoldLight, marginTop: 4 },
-  levels: { flexDirection: 'row', gap: 14, marginTop: 14 },
-  levelName: { fontFamily: fonts.medium, fontSize: 11, color: 'rgba(255,255,255,0.45)' },
-  levelNameOn: { color: colors.roseGoldLight, textDecorationLine: 'underline' },
-  proActions: { gap: 10, marginTop: 12 },
   section: {
     backgroundColor: colors.white,
     borderRadius: radius.md,

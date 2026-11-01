@@ -2,6 +2,7 @@ import type { ShapeId } from '@/data/catalog';
 
 export type Plan = 'rapido' | 'premium';
 
+// Cartão de selos (versão antiga do Premium, trocada pelo cashback). Fica só para ler cadastros antigos.
 export type Loyalty = {
   stamps: number;
   totalVisits: number;

@@ -6,20 +6,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui';
 import { useClients } from '@/features/clients/ClientsContext';
+import { formatPercent } from '@/data/loyalty';
+import { CashbackCard } from '@/features/cashback/CashbackCard';
+import { useCashback } from '@/features/cashback/CashbackContext';
 import { useLoyalty } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { formatPhone } from '@/utils/format';
 import { RemindersCard } from '@/features/reminders/RemindersCard';
 import { useSession } from './SessionContext';
 
-// Aba "Conta" da cliente: o próprio cadastro, o cartão fidelidade e o login.
+// Aba "Conta" da cliente: o próprio cadastro, o saldo de cashback e o login.
 export function MyAccount() {
   const LOYALTY = useLoyalty();
   const insets = useSafeAreaInsets();
   const { role, phone, signOut } = useSession();
   const { findByPhone } = useClients();
   const me = phone ? findByPhone(phone) : undefined;
-  const stamps = Math.min(me?.loyalty?.stamps ?? 0, LOYALTY.stampsForReward);
+  const { balanceOf } = useCashback();
+  const showCashback = !!me && (me.plan === 'premium' || balanceOf(me.phone) > 0);
 
   return (
     <ScrollView
@@ -39,18 +43,6 @@ export function MyAccount() {
         <LinearGradient colors={[colors.wine, colors.plum]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
           <Text style={styles.cardName}>{me.name}</Text>
           <Text style={styles.cardPlan}>{me.plan === 'premium' ? 'Cliente Premium' : 'Cadastro rápido'}</Text>
-          {me.plan === 'premium' && (
-            <>
-              <View style={styles.stamps}>
-                {Array.from({ length: LOYALTY.stampsForReward }, (_, i) => (
-                  <View key={i} style={[styles.stamp, i < stamps && styles.stampOn]} />
-                ))}
-              </View>
-              <Text style={styles.cardPlan}>
-                {stamps}/{LOYALTY.stampsForReward} selos para {LOYALTY.reward.toLowerCase()}
-              </Text>
-            </>
-          )}
         </LinearGradient>
       ) : (
         <View style={styles.empty}>
@@ -63,10 +55,28 @@ export function MyAccount() {
         </View>
       )}
 
+      {showCashback && me && <CashbackCard phone={me.phone} history={5} />}
+      {me && me.plan !== 'premium' && LOYALTY.cashbackPercent > 0 && (
+        <View style={styles.upsell}>
+          <Ionicons name="wallet-outline" size={22} color={colors.wine} />
+          <Text style={styles.upsellText}>
+            Seja Premium e ganhe {formatPercent(LOYALTY.cashbackPercent)} de cashback em todo atendimento para usar nos próximos.
+          </Text>
+        </View>
+      )}
+
       <View style={styles.actions}>
         {me ? (
           <>
             <Button label="Agendar horário" icon="calendar-outline" onPress={() => router.push('/agendamento/novo')} />
+            {me.plan !== 'premium' && (
+              <Button
+                label="Quero ser Premium"
+                icon="diamond-outline"
+                variant="secondary"
+                onPress={() => router.push({ pathname: '/cadastro', params: { tipo: 'premium', id: me.id } })}
+              />
+            )}
             <Button
               label="Meu cadastro"
               icon="person-outline"
@@ -102,9 +112,18 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.lg, padding: 20, gap: 4, ...shadow, shadowOpacity: 0.25 },
   cardName: { fontFamily: fonts.display, fontSize: 24, color: colors.white },
   cardPlan: { fontFamily: fonts.medium, fontSize: 12, color: colors.roseGoldLight },
-  stamps: { flexDirection: 'row', gap: 6, marginVertical: 10 },
-  stamp: { width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: colors.roseGoldLight },
-  stampOn: { backgroundColor: colors.roseGoldLight },
+  upsell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 14,
+    padding: 14,
+    borderRadius: radius.md,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.roseGoldLight,
+  },
+  upsellText: { flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.wine },
   empty: { alignItems: 'center', gap: 8, backgroundColor: colors.white, borderRadius: radius.md, padding: 20 },
   emptyText: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.muted, textAlign: 'center' },
   actions: { gap: 10, marginTop: 20 },

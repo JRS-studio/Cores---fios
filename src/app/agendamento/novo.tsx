@@ -10,6 +10,7 @@ import { isServiceActive } from '@/data/services';
 import { useAppointments, type Appointment } from '@/features/agenda/AppointmentsContext';
 import { DateStrip, endTime } from '@/features/agenda/components';
 import { newBookingWhatsApp } from '@/features/agenda/whatsapp';
+import { roundCents, useCashback } from '@/features/cashback/CashbackContext';
 import { useClients } from '@/features/clients/ClientsContext';
 import { useSession } from '@/features/session/SessionContext';
 import { releasedSlots, serviceIn, useSettings } from '@/features/settings/SettingsContext';
@@ -46,6 +47,7 @@ export default function NovoAgendamentoScreen() {
   const [date, setDate] = useState(editing?.date ?? (params.data && params.data >= today() ? params.data : today()));
   const [time, setTime] = useState<string | undefined>(editing?.time ?? params.hora);
   const [notes, setNotes] = useState(editing?.notes ?? '');
+  const [useCashbackBalance, setUseCashbackBalance] = useState(!!editing?.cashbackUse);
   const [tried, setTried] = useState(false);
 
   const isWalkIn = !clientMode && walkIn;
@@ -64,6 +66,11 @@ export default function NovoAgendamentoScreen() {
   useEffect(() => {
     loadBusy(date);
   }, [date, loadBusy]);
+  // Cashback livre da cliente (o que já está separado para outros horários não conta).
+  const { availableOf } = useCashback();
+  const available = !isWalkIn && client ? availableOf(client.phone, editing?.id) : 0;
+  const priceValue = Number(price.replace(',', '.')) || 0;
+  const cashbackUse = useCashbackBalance && available > 0 ? roundCents(Math.min(available, priceValue)) : 0;
   const birthday = client?.plan === 'premium' && client.birthDate ? parseDate(client.birthDate) : null;
   const birthdayMonth = !!birthday && birthday.getMonth() === new Date(date + 'T12:00').getMonth();
 
@@ -134,6 +141,7 @@ export default function NovoAgendamentoScreen() {
       // O que a própria profissional marca ou remarca já nasce confirmado.
       status: clientMode ? 'agendado' : 'confirmado',
       notes: notes.trim() || undefined,
+      cashbackUse: cashbackUse > 0 ? cashbackUse : undefined,
     };
     saveAppointment(appointment);
     // A cliente avisa a profissional pelo WhatsApp dela (mensagem pronta; é só tocar em enviar).
@@ -287,6 +295,30 @@ export default function NovoAgendamentoScreen() {
           )}
         </View>
 
+        {available > 0 && (
+          <View style={styles.gutter}>
+            <Pressable
+              style={[styles.cashback, useCashbackBalance && styles.cashbackOn]}
+              onPress={() => setUseCashbackBalance((v) => !v)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: useCashbackBalance }}
+              accessibilityLabel={`Usar cashback de ${brl(available)}`}
+            >
+              <Ionicons name={useCashbackBalance ? 'checkbox' : 'square-outline'} size={22} color={colors.wine} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cashbackTitle}>
+                  {clientMode ? 'Usar meu cashback' : 'Usar o cashback da cliente'} ({brl(available)})
+                </Text>
+                <Text style={styles.cashbackText}>
+                  {useCashbackBalance && priceValue > 0
+                    ? `Desconta ${brl(cashbackUse)}: a pagar ${brl(roundCents(priceValue - cashbackUse))}.`
+                    : 'O valor é descontado quando o atendimento for concluído.'}
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+        )}
+
         {/* Data e horário */}
         <View style={styles.gutter}>
           <SectionTitle hint={formatLongDate(date)}>Data</SectionTitle>
@@ -324,7 +356,8 @@ export default function NovoAgendamentoScreen() {
 
           {valid && time && (
             <Text style={styles.summary}>
-              {serviceName} em {formatLongDate(date)}, das {time} às {endTime({ time, duration })} · {brl(Number(price.replace(',', '.')))}
+              {serviceName} em {formatLongDate(date)}, das {time} às {endTime({ time, duration })} · {brl(priceValue)}
+              {cashbackUse > 0 ? ` · cashback −${brl(cashbackUse)} · a pagar ${brl(roundCents(priceValue - cashbackUse))}` : ''}
             </Text>
           )}
           <Button label={editing ? 'Salvar novo horário' : 'Confirmar agendamento'} icon="checkmark" onPress={submit} style={{ marginTop: 10 }} />
@@ -456,6 +489,20 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     padding: 12,
   },
+  cashback: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 14,
+    padding: 14,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.roseGoldLight,
+    backgroundColor: colors.white,
+  },
+  cashbackOn: { borderColor: colors.wine, backgroundColor: colors.blush },
+  cashbackTitle: { fontFamily: fonts.semibold, fontSize: 14, color: colors.ink },
+  cashbackText: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.muted, marginTop: 2 },
   birthdayText: { flex: 1, fontFamily: fonts.semibold, fontSize: 13, color: colors.wine },
   slots: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   slot: {

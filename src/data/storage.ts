@@ -45,4 +45,5 @@ export const STORAGE_KEYS = {
   settings: 'cores:settings:v1',
   posts: 'cores:posts:v1',
   likes: 'cores:likes:v1',
+  cashback: 'cores:cashback:v1',
 };

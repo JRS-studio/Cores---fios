@@ -287,4 +287,18 @@ await test('lembretes: só o servidor lista os horários da próxima hora e marc
   assert.equal(await rows('anon', 'select vapid_public_key() as k').then((r) => r[0].k), null);
 });
 
+await test('cashback: só a profissional lança; cada cliente vê só o próprio extrato', async () => {
+  await as(owner, `insert into cashback (id, client_phone, data) values ('cb1', '5511987654321', '{"amount": 1.5}'), ('cb2', '5521999998888', '{"amount": 2}')`);
+  assert.equal((await rows(owner, 'select * from cashback')).length, 2);
+  const mine = await rows(ana, 'select id from cashback');
+  assert.deepEqual(mine.map((r) => r.id), ['cb1']);
+  assert.equal((await rows('anon', 'select * from cashback')).length, 0);
+  // A cliente não cria crédito para si, não altera nem apaga o extrato.
+  assert.ok(await fails(ana, `insert into cashback (id, client_phone, data) values ('cb3', '5511987654321', '{"amount": 100}')`));
+  await as(ana, `update cashback set data = '{"amount": 100}' where id = 'cb1'`);
+  await as(ana, `delete from cashback where id = 'cb1'`);
+  assert.deepEqual((await rows(owner, `select data from cashback where id = 'cb1'`))[0].data, { amount: 1.5 });
+  assert.ok(await fails('anon', `insert into cashback (id, client_phone, data) values ('cb4', '5511987654321', '{}')`));
+});
+
 console.log(`\n${passed} testes passaram.`);

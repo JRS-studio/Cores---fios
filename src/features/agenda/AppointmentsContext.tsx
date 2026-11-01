@@ -26,6 +26,11 @@ export type Appointment = {
   notes?: string;
   paidAmount?: number;
   paymentMethod?: PaymentMethod;
+  // Cashback que a cliente escolheu usar neste horário (sai do saldo quando o atendimento é concluído).
+  cashbackUse?: number;
+  // Cashback usado e ganho, gravados quando a profissional conclui o atendimento.
+  cashbackUsed?: number;
+  cashbackEarned?: number;
 };
 
 export const STATUS_LABEL: Record<AppointmentStatus, string> = {

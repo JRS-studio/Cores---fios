@@ -100,7 +100,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         }
         // Quem sai entra de novo com login e senha (e pode ativar a biometria outra vez).
         disableBiometric();
-        await supabase?.auth.signOut();
+        // Sai só deste aparelho. O padrão do Supabase ("global") desconectava a profissional de todos os
+        // celulares ao tocar em Sair em um deles (e o app passava a mostrar a versão da cliente).
+        await supabase?.auth.signOut({ scope: 'local' });
       },
       refresh,
       userId,

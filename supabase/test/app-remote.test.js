@@ -20,6 +20,8 @@ const VAPID_PUBLIC = VAPID.getPublicKey().toString('base64url');
 const sessions = new Map(); // token -> { user, phone?, owner? }
 const claims = new Map(); // phone -> userId
 let nextUser = 1;
+// Como cada "Sair" pediu para desconectar (local = só este aparelho; global = todos os aparelhos da conta).
+const logouts = [];
 
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 const jwt = (claims) => `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64(claims)}.assinatura`;
@@ -61,6 +63,7 @@ const api = http.createServer((req, res) => {
       return login({ email: body.email });
     }
     if (p === '/auth/v1/logout') {
+      logouts.push(url.searchParams.get('scope'));
       sessions.delete(token);
       return send(204);
     }
@@ -670,6 +673,29 @@ const site = http.createServer((req, res) =>
     await cli.close();
   });
 
+  await test('profissional agenda para cliente que pediu fora do app (nova, com nome e WhatsApp)', async () => {
+    const home = `http://localhost:${site.address().port}/`;
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(1500);
+    await R.getByText('Agendar', { exact: true }).first().click();
+    await wait(800);
+    await R.getByText('Nova / avulsa').click();
+    await R.getByLabel('Nome', { exact: true }).fill('Bruna Costa');
+    await R.getByLabel('WhatsApp', { exact: true }).fill('11977776666');
+    await R.getByText('Mão e pé', { exact: true }).last().click();
+    await R.getByRole('button', { name: /^(seg|ter|qua|qui|sex) \d+$/ }).nth(4).click();
+    await wait(500);
+    await R.getByText('09:00', { exact: true }).last().click();
+    await R.getByText('Confirmar agendamento').click();
+    await wait(1500);
+    await shot('20-profissional-agendou');
+    const appt = db.appointments.find((a) => a.client_phone === '5511977776666');
+    assert.ok(appt, 'horário gravado no servidor');
+    assert.equal(appt.status, 'confirmado');
+    assert.ok(db.clients.some((c) => c.phone === '5511977776666'), 'cadastro rápido criado');
+    await R.getByText('Horário agendado!').first().waitFor();
+  });
+
   await test('profissional ativa a biometria; o app abre travado e só entra com rosto/digital', async () => {
     // Leitor de biometria simulado do Chrome (como o Face ID ou a digital do celular).
     const cdp = await p.context().newCDPSession(p);
@@ -714,6 +740,9 @@ const site = http.createServer((req, res) =>
     await wait(1000);
     await R.getByText('Sou a profissional').waitFor();
     assert.equal(await p.evaluate(() => localStorage.getItem('cores:biometria:v1')), null);
+    // Sair desconecta só este aparelho: a profissional continua logada nos outros celulares.
+    assert.ok(logouts.length >= 2, 'houve saídas no teste');
+    assert.ok(logouts.every((scope) => scope === 'local'), `todas as saídas só deste aparelho: ${logouts.join(', ')}`);
   });
 
   await browser.close();

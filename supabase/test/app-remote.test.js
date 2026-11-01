@@ -766,6 +766,93 @@ const site = http.createServer((req, res) =>
     await R.getByText('Horário agendado!').first().waitFor();
   });
 
+  await test('profissional: cliente nova/avulsa e troca de dia em qualquer ordem, sem a tela travar', async () => {
+    const home = `http://localhost:${site.address().port}/`;
+    const before = errors.length;
+    const days = () => R.getByRole('button', { name: /^(seg|ter|qua|qui|sex|sáb|dom) \d+$/ });
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(1500);
+    await R.getByText('Agendar', { exact: true }).first().click();
+    await wait(800);
+    await R.getByText('Nova / avulsa').click();
+    // Troca o dia antes de tudo, com o nome pela metade, depois de escolher o serviço e de novo.
+    await days().nth(1).click();
+    await wait(300);
+    await R.getByLabel('Nome', { exact: true }).fill('Dani');
+    await days().nth(2).click();
+    await wait(300);
+    await R.getByLabel('WhatsApp', { exact: true }).fill('1198');
+    await days().nth(3).click();
+    await wait(300);
+    await R.getByLabel('WhatsApp', { exact: true }).fill('11988887777');
+    await days().nth(4).click();
+    await wait(300);
+    await R.getByText('Pedicure', { exact: true }).last().click();
+    for (let i = 1; i <= 6; i++) {
+      await days().nth(i).click();
+      await wait(250);
+    }
+    await shot('21-avulsa-trocando-dia');
+    assert.equal(errors.length, before, `erros na tela: ${errors.slice(before).join(' | ')}`);
+    assert.ok((await R.innerText()).includes('Novo agendamento'), 'a tela continua aberta');
+    await days().nth(2).click();
+    await wait(400);
+    await R.getByText('15:00', { exact: true }).last().click();
+    await R.getByText('Confirmar agendamento').click();
+    await wait(1500);
+    assert.ok(db.appointments.some((a) => a.client_phone === '5511988887777'), 'horário gravado');
+  });
+
+  await test('profissional com ajustes como os reais e um registro vazio no banco: nova/avulsa trocando de dia não trava', async () => {
+    // Como os ajustes do studio de verdade: das 6h às 20h de 15 em 15 minutos, serviços longos e curtos,
+    // muitos bloqueios de 15 minutos e horários liberados para as clientes.
+    const quarter = (from, to) => {
+      const out = [];
+      for (let t = from; t < to; t += 15) out.push(`${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`);
+      return out;
+    };
+    const iso = (offset) => {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+    const blocks = [[2, 375, 660], [3, 435, 720], [4, 480, 720], [5, 375, 435]].flatMap(([day, from, to]) =>
+      quarter(from, to).map((start, i) => ({ id: `b${day}-${i}`, date: iso(day), start, end: quarter(from + 15 * (i + 1), from + 15 * (i + 2))[0] ?? '23:59' })),
+    );
+    db.settings = [{ id: 1, data: {
+      openTime: '06:00', closeTime: '20:00', slotStep: 15, workDays: [1, 2, 3, 4, 5, 6], breaks: [], blocks,
+      clientSlots: Object.fromEntries([1, 2, 3, 4, 5, 6].map((w) => [String(w), [...quarter(360, 480), ...quarter(720, 1200)]])),
+      services: [
+        { id: 'pedicure', name: 'Pedicure', price: 30, active: true, duration: 60 },
+        { id: 'pr', name: 'Progressiva (apartir de:)', price: 130, active: true, duration: 240 },
+        { id: 's', name: 'Sombrancelha', price: 25, active: true, duration: 10 },
+      ],
+    } }];
+    // Registro antigo e vazio que existe no banco real (de testes): o app não pode quebrar por causa dele.
+    db.appointments.push({ id: 'teste-vazio', client_phone: '5511900000001', status: 'cancelado', starts_at: '2030-01-02 10:00', ends_at: '2030-01-02 11:00', data: {} });
+    const home = `http://localhost:${site.address().port}/`;
+    const before = errors.length;
+    const days = () => R.getByRole('button', { name: /^(seg|ter|qua|qui|sex|sáb|dom) \d+/ });
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(2000);
+    await R.getByText('Agendar', { exact: true }).first().click();
+    await wait(800);
+    await R.getByText('Nova / avulsa').click();
+    await R.getByLabel('Nome', { exact: true }).fill('Teste Real');
+    await R.getByLabel('WhatsApp', { exact: true }).fill('31977776666');
+    for (const service of ['Pedicure', 'Progressiva (apartir de:)', 'Sombrancelha']) {
+      await R.getByText(service, { exact: true }).last().click();
+      for (let i = 0; i <= 10; i++) {
+        await days().nth(i).click({ timeout: 5000 });
+        await wait(200);
+      }
+    }
+    await shot('22-ajustes-reais');
+    assert.equal(errors.length, before, `erros: ${errors.slice(before).join(' | ')}`);
+    db.settings = [];
+    db.appointments = db.appointments.filter((a) => a.id !== 'teste-vazio');
+  });
+
   await test('profissional ativa a biometria; o app abre travado e só entra com rosto/digital', async () => {
     // Leitor de biometria simulado do Chrome (como o Face ID ou a digital do celular).
     const cdp = await p.context().newCDPSession(p);

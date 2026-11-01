@@ -81,10 +81,20 @@ const REMOTE: RemoteTable<Appointment> = {
   }),
 };
 
+const isComplete = (a: Appointment) =>
+  !!a && typeof a.id === 'string' && typeof a.date === 'string' && typeof a.time === 'string' && typeof a.duration === 'number';
+
 const byTime = (a: Appointment, b: Appointment) => (a.date + a.time).localeCompare(b.date + b.time);
 
 export function AppointmentsProvider({ children }: { children: ReactNode }) {
-  const [appointments, commit, ready] = useCollection<Appointment>(STORAGE_KEYS.appointments, REMOTE);
+  const [stored, commitStored, ready] = useCollection<Appointment>(STORAGE_KEYS.appointments, REMOTE);
+  // Registros incompletos (ex.: sobras de testes no banco) ficam de fora: sem data e horário, quebrariam a agenda.
+  const appointments = useMemo(() => stored.filter(isComplete), [stored]);
+  // Ao gravar, os incompletos voltam junto (o app só não os usa; não apaga nada do banco por conta própria).
+  const commit = useCallback(
+    (next: Appointment[]) => commitStored([...next, ...stored.filter((a) => !isComplete(a))]),
+    [commitStored, stored],
+  );
   const [remoteBusy, setRemoteBusy] = useState<Record<string, [number, number][]>>({});
 
   const loadBusy = useCallback(async (date: string) => {
@@ -115,7 +125,8 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         if (!settings.workDays.includes(weekdayOf(date))) return [];
         const open = toMinutes(settings.openTime);
         const close = toMinutes(settings.closeTime);
-        const ignored = appointments.find((a) => a.id === ignoreId);
+        // Só ao remarcar existe um horário a ignorar (sem o id, um registro sem id seria encontrado por engano).
+        const ignored = ignoreId ? appointments.find((a) => a.id === ignoreId) : undefined;
         const ignoredRange = ignored ? [toMinutes(ignored.time), toMinutes(ignored.time) + ignored.duration] : null;
         const busy = [
           ...appointments

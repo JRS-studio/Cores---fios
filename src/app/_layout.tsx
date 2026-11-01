@@ -8,9 +8,9 @@ import {
   Poppins_600SemiBold,
 } from '@expo-google-fonts/poppins';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, router, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { SyncBanner } from '@/components/SyncBanner';
@@ -28,7 +28,7 @@ import { BiometricLock } from '@/features/session/BiometricLock';
 import { AutoUpdate } from '@/features/update/AutoUpdate';
 import { SessionProvider } from '@/features/session/SessionContext';
 import { SettingsProvider } from '@/features/settings/SettingsContext';
-import { colors } from '@/theme';
+import { colors, fonts } from '@/theme';
 import { ThemeSync } from '@/theme/ThemeSync';
 
 export default function RootLayout() {
@@ -77,5 +77,27 @@ export default function RootLayout() {
         </SettingsProvider>
       </SessionProvider>
     </SafeAreaProvider>
+  );
+}
+
+// Se alguma tela quebrar, mostra um aviso com saída (em vez de tela em branco e o app travado).
+export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, backgroundColor: colors.cream, gap: 12 }}>
+      <Text style={{ fontFamily: fonts.display, fontSize: 22, color: colors.ink, textAlign: 'center' }}>Algo não saiu como esperado</Text>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.muted, textAlign: 'center' }}>
+        Nada do que você salvou foi perdido. Volte ao início e tente de novo.
+      </Text>
+      <Pressable
+        onPress={() => {
+          retry();
+          router.replace('/');
+        }}
+        accessibilityRole="button"
+        style={{ marginTop: 8, backgroundColor: colors.plum, borderRadius: 999, paddingHorizontal: 22, paddingVertical: 12 }}
+      >
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.white }}>Voltar ao início</Text>
+      </Pressable>
+    </View>
   );
 }

@@ -35,7 +35,7 @@ export function useCollection<T extends { id: string }>(localKey: string, remote
     // Tabela nova que o banco ainda não tem (schema.sql não foi rodado de novo): na leitura, a lista
     // só fica vazia; o aviso para atualizar o servidor aparece quando a profissional tenta gravar.
     if (error) return error.code === 'PGRST205' ? undefined : reportSyncError(error);
-    const next = (data ?? []).map((row) => row.data as T);
+    const next = (data ?? []).map((row) => row.data as T).filter((item) => !!item && typeof item.id === 'string');
     apply(next);
     saveJson(localKey, next);
   }, [apply, localKey, remote.table]);

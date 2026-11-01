@@ -12,12 +12,15 @@ import json
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "dist-pages"
 BASE = "/Cores---fios"
 SITE = f"https://jefersonroodrigo-cmyk.github.io{BASE}"
+# Versão desta publicação (data e hora): muda a cada vez que o site é gerado.
+VERSION = time.strftime("%Y%m%d%H%M%S")
 
 
 def main():
@@ -28,7 +31,7 @@ def main():
     shutil.rmtree(OUT, ignore_errors=True)
     try:
         app_json.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n")
-        env = {**os.environ, "CI": "1", "EXPO_OFFLINE": "1", "EXPO_PUBLIC_WEB_URL": SITE}
+        env = {**os.environ, "CI": "1", "EXPO_OFFLINE": "1", "EXPO_PUBLIC_WEB_URL": SITE, "EXPO_PUBLIC_APP_VERSION": VERSION}
         subprocess.run(["npx", "expo", "export", "-p", "web", "--output-dir", str(OUT)], cwd=ROOT, env=env, check=True)
     finally:
         app_json.write_text(original)
@@ -46,6 +49,9 @@ def main():
     for icon in data["icons"]:
         icon["src"] = BASE + icon["src"]
     manifest.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
+    # O app instalado confere este arquivo para saber se há versão nova (src/features/update/AutoUpdate.tsx).
+    (OUT / "version.json").write_text(json.dumps({"version": VERSION}) + "\n")
 
     # Sem isto o GitHub Pages ignora a pasta _expo (onde fica o app).
     (OUT / ".nojekyll").write_text("")

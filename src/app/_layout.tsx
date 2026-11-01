@@ -25,6 +25,7 @@ import { FinanceProvider } from '@/features/finance/FinanceContext';
 // Escuta o aviso de instalação do navegador desde o início (botão "Instalar app").
 import '@/features/install/install';
 import { BiometricLock } from '@/features/session/BiometricLock';
+import { AutoUpdate } from '@/features/update/AutoUpdate';
 import { SessionProvider } from '@/features/session/SessionContext';
 import { SettingsProvider } from '@/features/settings/SettingsContext';
 import { colors } from '@/theme';
@@ -64,6 +65,7 @@ export default function RootLayout() {
                           <SyncBanner />
                           <ThemeSync />
                           <BiometricLock />
+                          <AutoUpdate />
                         </LikesProvider>
                       </CommentsProvider>
                     </PostsProvider>

@@ -417,4 +417,14 @@ await test('avisos para a profissional: pedido de horário, remarcação e pedid
   assert.equal((await rows('service', 'select * from due_owner_notices()')).length, 0);
 });
 
+await test('cliente agenda até o fim do mês seguinte; a profissional, sem limite', async () => {
+  const [{ ok, fora }] = await rows('service', `select
+    to_char(date_trunc('month', now() at time zone 'America/Sao_Paulo') + interval '2 months' - interval '1 day', 'YYYY-MM-DD') as ok,
+    to_char(date_trunc('month', now() at time zone 'America/Sao_Paulo') + interval '2 months', 'YYYY-MM-DD') as fora`);
+  await as(ana, ...appt('pm1', '5511987654321', `${ok} 10:00`, `${ok} 11:00`));
+  assert.ok(await fails(ana, ...appt('pm2', '5511987654321', `${fora} 10:00`, `${fora} 11:00`)), 'mês depois do próximo');
+  assert.ok(await fails(ana, `update appointments set starts_at = '${fora} 10:00', ends_at = '${fora} 11:00' where id = 'pm1'`), 'remarcar para fora');
+  await as(owner, ...appt('pm3', '5521999998888', `${fora} 14:00`, `${fora} 15:00`, 'confirmado'));
+});
+
 console.log(`\n${passed} testes passaram.`);

@@ -153,14 +153,15 @@ create policy "profissional: agenda" on appointments for all using (is_owner()) 
 drop policy if exists "cliente vê os próprios horários" on appointments;
 create policy "cliente vê os próprios horários" on appointments for select using (client_phone = current_phone());
 drop policy if exists "cliente marca horário" on appointments;
+-- A cliente agenda e remarca até o fim do mês seguinte (a agenda do próximo mês abre no dia 1º).
 create policy "cliente marca horário" on appointments for insert
-  with check (client_phone = current_phone() and status = 'agendado');
+  with check (client_phone = current_phone() and status = 'agendado' and starts_at < date_trunc('month', now() at time zone 'America/Sao_Paulo') + interval '2 months');
 -- A cliente só remarca (o horário volta a "a confirmar"); cancelar é só com a profissional
 -- (no app, a cliente pede o cancelamento pelo WhatsApp).
 drop policy if exists "cliente remarca ou cancela" on appointments;
 create policy "cliente remarca ou cancela" on appointments for update
   using (client_phone = current_phone() and status in ('agendado', 'confirmado'))
-  with check (client_phone = current_phone() and status = 'agendado');
+  with check (client_phone = current_phone() and status = 'agendado' and starts_at < date_trunc('month', now() at time zone 'America/Sao_Paulo') + interval '2 months');
 
 drop policy if exists "profissional: financeiro" on transactions;
 create policy "profissional: financeiro" on transactions for all using (is_owner()) with check (is_owner());

@@ -682,6 +682,20 @@ const site = http.createServer((req, res) =>
     await C.getByText('Agendar horário').last().click();
     await cli.waitForTimeout(800);
     await C.getByText('Pedicure', { exact: true }).last().click();
+    // A cliente vê o mês atual e o seguinte (e só eles); tocar no mês pula para os dias dele.
+    const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+    const now = new Date();
+    const [esteMes, proximo, depois] = [0, 1, 2].map((k) => MESES[(now.getMonth() + k) % 12]);
+    await C.getByLabel(`Mês de ${esteMes}`).waitFor();
+    await C.getByLabel(`Mês de ${proximo}`).click();
+    await cli.waitForTimeout(500);
+    await C.getByText(new RegExp(`\\d+ de ${proximo}$`)).first().waitFor();
+    assert.equal(await C.getByLabel(`Mês de ${depois}`).count(), 0, 'o mês depois do próximo ainda não abriu');
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 2, 0).getDate();
+    await C.getByRole('button', { name: new RegExp(`^(seg|ter|qua|qui|sex|sáb|dom) ${lastDay}(, fechado)?$`) }).last().waitFor();
+    await cli.screenshot({ path: path.join(shots, '27-proximo-mes.png') });
+    await C.getByLabel(`Mês de ${esteMes}`).click();
+    await cli.waitForTimeout(500);
     await C.getByRole('button', { name: /^(seg|ter|qua|qui|sex) \d+$/ }).nth(3).click();
     await cli.waitForTimeout(500);
     await C.getByText('11:00', { exact: true }).last().click();

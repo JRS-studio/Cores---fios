@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRef, type ComponentRef } from 'react';
+import { useEffect, useRef, type ComponentRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors, fonts, radius, shadow } from '@/theme';
-import { addDays, fromISODate, toMinutes, toTime, today, WEEKDAYS_SHORT, weekdayOf } from '@/utils/date';
+import { addDays, fromISODate, MONTHS, monthKey, toMinutes, toTime, today, WEEKDAYS_SHORT, weekdayOf } from '@/utils/date';
 import { brl } from '@/utils/format';
 import { STATUS_LABEL, type Appointment, type AppointmentStatus } from './AppointmentsContext';
 
@@ -16,6 +16,8 @@ export function DateStrip({
   onSelect,
   daysBefore = 0,
   daysAfter = 30,
+  until,
+  showMonths = false,
   counts = {},
   workDays,
 }: {
@@ -23,21 +25,34 @@ export function DateStrip({
   onSelect: (date: string) => void;
   daysBefore?: number;
   daysAfter?: number;
+  // Último dia mostrado (no lugar de daysAfter), ex.: o fim do mês seguinte para as clientes.
+  until?: string;
+  // Botões dos meses acima dos dias, para pular direto para um mês.
+  showMonths?: boolean;
   counts?: Record<string, number>;
   workDays: number[];
 }) {
   const ref = useRef<ComponentRef<typeof ScrollView>>(null);
   const start = addDays(today(), -daysBefore);
-  const days = Array.from({ length: daysBefore + daysAfter + 1 }, (_, i) => addDays(start, i));
+  const count = until ? Math.max(0, Math.round((fromISODate(until).getTime() - fromISODate(start).getTime()) / 86400000)) + 1 : daysBefore + daysAfter + 1;
+  const days = Array.from({ length: count }, (_, i) => addDays(start, i));
   const selectedIndex = Math.max(0, days.indexOf(selected));
+  const months = [...new Set(days.map(monthKey))];
+  const scrollTo = (index: number, animated: boolean) =>
+    ref.current?.scrollTo({ x: Math.max(0, index - 1) * (DAY_WIDTH + DAY_GAP), animated });
 
-  return (
+  // Ao trocar de mês (ou de dia por fora), a faixa acompanha o dia escolhido.
+  useEffect(() => {
+    scrollTo(selectedIndex, true);
+  }, [selectedIndex]);
+
+  const strip = (
     <ScrollView
       ref={ref}
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.strip}
-      onLayout={() => ref.current?.scrollTo({ x: Math.max(0, selectedIndex - 1) * (DAY_WIDTH + DAY_GAP), animated: false })}
+      onLayout={() => scrollTo(selectedIndex, false)}
     >
       {days.map((d) => {
         const active = d === selected;
@@ -64,7 +79,45 @@ export function DateStrip({
       })}
     </ScrollView>
   );
+  if (!showMonths || months.length < 2) return strip;
+
+  const currentMonth = monthKey(selected);
+  return (
+    <View>
+      <View style={monthStyles.months}>
+        {months.map((m) => {
+          const active = m === currentMonth;
+          const name = MONTHS[Number(m.slice(5, 7)) - 1];
+          return (
+            <Pressable
+              key={m}
+              onPress={() => {
+                // Primeiro dia daquele mês dentro da faixa, de preferência um dia de atendimento.
+                const inMonth = days.filter((d) => monthKey(d) === m);
+                onSelect(inMonth.find((d) => workDays.includes(weekdayOf(d))) ?? inMonth[0]);
+              }}
+              style={[monthStyles.month, active && monthStyles.monthActive]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`Mês de ${name}`}
+            >
+              <Text style={[monthStyles.monthText, active && monthStyles.monthTextActive]}>{name[0].toUpperCase() + name.slice(1)}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {strip}
+    </View>
+  );
 }
+
+const monthStyles = StyleSheet.create({
+  months: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, marginBottom: 10 },
+  month: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
+  monthActive: { backgroundColor: colors.plum, borderColor: colors.plum },
+  monthText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.plum },
+  monthTextActive: { color: colors.white },
+});
 
 const STATUS_STYLE: Record<AppointmentStatus, { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }> = {
   agendado: { icon: 'time-outline', color: colors.plumSoft, bg: colors.blush },

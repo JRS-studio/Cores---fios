@@ -57,6 +57,13 @@ export const daysInMonth = (key: string) => {
   return new Date(y, m, 0).getDate();
 };
 
+// Último dia que as clientes podem agendar: o fim do mês seguinte. A agenda do próximo mês abre sempre
+// no dia 1º (em novembro vai até 31 de dezembro; em 1º de dezembro passa a ir até 31 de janeiro).
+export function lastBookableDate(fromIso = today()) {
+  const next = shiftMonth(monthKey(fromIso), 1);
+  return `${next}-${pad(daysInMonth(next))}`;
+}
+
 // "DD/MM/AAAA" <-> "AAAA-MM-DD"
 export const isoToBr = (iso: string) => iso.split('-').reverse().join('/');
 export function brToIso(br: string) {

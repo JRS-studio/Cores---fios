@@ -16,7 +16,7 @@ import { useSession } from '@/features/session/SessionContext';
 import { isReleasedTime, releasedSlots, serviceIn, useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
 import { newId } from '@/utils/id';
-import { formatLongDate, today } from '@/utils/date';
+import { addDays, formatLongDate, lastBookableDate, today } from '@/utils/date';
 import { brl, formatPhone, initials, isValidPhone, onlyDigits, parseDate } from '@/utils/format';
 import { openExternal } from '@/utils/openExternal';
 
@@ -44,7 +44,11 @@ export default function NovoAgendamentoScreen() {
   const custom = editing && !editing.serviceId ? editing : undefined;
   const [serviceId, setServiceId] = useState<string | undefined>(editing ? (editing.serviceId ?? CUSTOM) : undefined);
   const [price, setPrice] = useState(editing ? String(editing.fullPrice ?? editing.price) : '');
-  const [date, setDate] = useState(editing?.date ?? (params.data && params.data >= today() ? params.data : today()));
+  // Clientes agendam até o fim do mês seguinte (a agenda do próximo mês abre no dia 1º); a profissional, até 6 meses.
+  const lastDate = clientMode ? lastBookableDate() : addDays(today(), 180);
+  const [date, setDate] = useState(
+    editing?.date ?? (params.data && params.data >= today() && params.data <= lastDate ? params.data : today()),
+  );
   const [time, setTime] = useState<string | undefined>(editing?.time ?? params.hora);
   const [notes, setNotes] = useState(editing?.notes ?? '');
   const [useCashbackBalance, setUseCashbackBalance] = useState(!!editing?.cashbackUse);
@@ -359,7 +363,8 @@ export default function NovoAgendamentoScreen() {
             setDate(d);
             setTime(undefined);
           }}
-          daysAfter={60}
+          until={lastDate}
+          showMonths
           workDays={settings.workDays}
         />
 

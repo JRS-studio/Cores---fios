@@ -102,11 +102,9 @@ export default function HomeScreen() {
       <InstallCard />
       {canManage ? <TodayCard /> : phone ? <NextAppointment /> : null}
       <PremiumHomeCard />
-      {!canManage && (
-        <View style={styles.reminders}>
-          <RemindersCard compact />
-        </View>
-      )}
+      <View style={styles.reminders}>
+        <RemindersCard compact />
+      </View>
       <Composer />
       <View style={styles.filters}>
         {FILTERS.map(([id, label]) => (

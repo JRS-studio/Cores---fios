@@ -346,4 +346,31 @@ await test('comentários: quem entrou comenta, só aparece para todas depois de 
   assert.equal((await rows(owner, 'select * from comments')).length, 0);
 });
 
+await test('cancelamento: a cliente cancela, o horário fica livre e só o servidor lista o aviso para a profissional', async () => {
+  // A profissional ativa os avisos no celular dela; a cliente não consegue se passar pela profissional.
+  await as(owner, `insert into push_subscriptions (endpoint, p256dh, auth, phone) values ('https://push.example/pro', 'k', 'a', 'profissional')`);
+  assert.ok(await fails(ana, `insert into push_subscriptions (endpoint, p256dh, auth, phone) values ('https://push.example/falsa', 'k', 'a', 'profissional')`));
+  await as(owner, ...appt('cx1', '5511987654321', '2026-12-01 10:00', '2026-12-01 11:00', 'confirmado'));
+  await as(owner, ...appt('cx2', '5511987654321', '2026-12-01 14:00', '2026-12-01 15:00', 'confirmado'));
+  // A cliente cancela um horário já confirmado: o banco anota e o espaço fica livre.
+  await as(ana, `update appointments set status = 'cancelado' where id = 'cx1'`);
+  const [c1] = await rows(owner, `select status, client_cancelled_at from appointments where id = 'cx1'`);
+  assert.equal(c1.status, 'cancelado');
+  assert.ok(c1.client_cancelled_at, 'cancelamento da cliente anotado');
+  const busy = await rows('anon', `select * from busy_slots('2026-12-01')`);
+  assert.equal(busy.length, 1, 'só o horário das 14h continua ocupado');
+  // Quando a própria profissional cancela, não há aviso.
+  await as(owner, `update appointments set status = 'cancelado' where id = 'cx2'`);
+  assert.equal((await rows(owner, `select client_cancelled_at from appointments where id = 'cx2'`))[0].client_cancelled_at, null);
+  // Só o servidor lista e marca os avisos.
+  assert.ok(await fails(ana, 'select * from due_cancel_notices()'));
+  assert.ok(await fails(owner, 'select * from due_cancel_notices()'));
+  const due = await rows('service', 'select appointment_id, endpoint from due_cancel_notices()');
+  const ids = due.map((r) => r.appointment_id);
+  assert.ok(ids.includes('cx1') && !ids.includes('cx2'), 'só o cancelamento da cliente gera aviso');
+  assert.ok(due.every((r) => r.endpoint === 'https://push.example/pro'), 'aviso vai só para o celular da profissional');
+  await as('service', `select mark_cancel_notified($1)`, [ids]);
+  assert.equal((await rows('service', 'select * from due_cancel_notices()')).length, 0);
+});
+
 console.log(`\n${passed} testes passaram.`);

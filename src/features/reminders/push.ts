@@ -6,7 +6,7 @@ export async function getReminderState(): Promise<ReminderState> {
   return 'unsupported';
 }
 
-export async function enableReminders(): Promise<ReminderState> {
+export async function enableReminders(_forOwner = false): Promise<ReminderState> {
   return 'unsupported';
 }
 

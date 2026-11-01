@@ -598,6 +598,68 @@ const site = http.createServer((req, res) =>
     await vis.close();
   });
 
+  await test('cliente cancela horário confirmado: libera a agenda, avisa a profissional e abre o WhatsApp dela', async () => {
+    const home = `http://localhost:${site.address().port}/`;
+    db.settings = [{ id: 1, data: { whatsapp: '11999990000' } }];
+    const cli = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const C = cli.locator('#root');
+    await cli.goto(home, { waitUntil: 'networkidle' });
+    await cli.waitForTimeout(1500);
+    await C.getByLabel('Conta', { exact: true }).click();
+    await cli.waitForTimeout(400);
+    await C.getByText('Cadastro rápido', { exact: true }).click();
+    await cli.waitForTimeout(400);
+    await C.getByLabel('Nome', { exact: true }).fill('Lia Souza');
+    await C.getByLabel('WhatsApp', { exact: true }).fill('11933332222');
+    await C.getByText('Confirmar e entrar').click();
+    await cli.waitForTimeout(1200);
+    await C.getByText(/Concordo com o uso/).click();
+    await C.getByText('Concluir cadastro').click();
+    await cli.waitForTimeout(1200);
+    await C.getByText('Agendar horário').last().click();
+    await cli.waitForTimeout(800);
+    await C.getByText('Pedicure', { exact: true }).last().click();
+    await C.getByRole('button', { name: /^(seg|ter|qua|qui|sex) \d+$/ }).nth(3).click();
+    await cli.waitForTimeout(500);
+    await C.getByText('11:00', { exact: true }).last().click();
+    // O WhatsApp abre ao agendar: fecha a aba aberta.
+    const booking = cli.context().waitForEvent('page', { timeout: 5000 }).catch(() => null);
+    await C.getByText('Confirmar agendamento').click();
+    (await booking)?.close();
+    await cli.waitForTimeout(1200);
+    const appt = db.appointments.at(-1);
+    assert.equal(appt.client_phone, '5511933332222');
+    // A profissional aceita o horário.
+    appt.status = 'confirmado';
+    appt.data = { ...appt.data, status: 'confirmado' };
+    await cli.goto(home, { waitUntil: 'networkidle' });
+    await cli.waitForTimeout(1500);
+    // Abre o horário pelo cartão "próximo horário" da tela inicial.
+    await C.getByText(/às 11:00 · Pedicure/).first().click();
+    await cli.waitForTimeout(800);
+    await C.getByText('Cancelar horário', { exact: true }).first().click();
+    await C.getByText(/recebe o aviso; o WhatsApp dela abre com a mensagem pronta/).waitFor();
+    // Sem internet para o WhatsApp aqui: responde a página do wa.me com algo simples.
+    await cli.context().route('https://wa.me/**', (r) => r.fulfill({ contentType: 'text/html', body: 'WhatsApp' }));
+    const whats = cli.context().waitForEvent('page');
+    await C.getByRole('button', { name: 'Cancelar horário' }).click();
+    const wa = await whats;
+    await wa.waitForLoadState().catch(() => {});
+    const url = decodeURIComponent(wa.url());
+    assert.match(url, /wa\.me\/5511999990000/);
+    assert.match(url, /Cancelei pelo app meu horário de Pedicure/);
+    await wa.close();
+    await C.getByText(/Horário cancelado\. O horário ficou livre e Jhenifer foi avisada\./).waitFor();
+    await cli.screenshot({ path: path.join(shots, '19-cancelado.png') });
+    const row = db.appointments.find((a) => a.id === appt.id);
+    assert.equal(row.status, 'cancelado');
+    // O horário volta a ficar livre para outras pessoas.
+    const day = row.starts_at.slice(0, 10);
+    assert.equal(db.appointments.filter((a) => a.starts_at.startsWith(day) && a.status !== 'cancelado' && a.starts_at.endsWith('11:00')).length, 0);
+    db.settings = [];
+    await cli.close();
+  });
+
   await test('profissional ativa a biometria; o app abre travado e só entra com rosto/digital', async () => {
     // Leitor de biometria simulado do Chrome (como o Face ID ou a digital do celular).
     const cdp = await p.context().newCDPSession(p);

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Chips, Field, ScreenHeader, SectionTitle } from '@/components/ui';
 import { clearAll, STORAGE_KEYS } from '@/data/storage';
+import { RemindersCard } from '@/features/reminders/RemindersCard';
 import { BiometricToggle } from '@/features/session/BiometricLock';
 import { ClientLink } from '@/features/session/ClientLink';
 import { useSession } from '@/features/session/SessionContext';
@@ -98,6 +99,7 @@ export default function AjustesScreen() {
               <Button label="Sair" icon="log-out-outline" variant="secondary" onPress={signOut} />
             )}
             <BiometricToggle />
+            {role === 'profissional' && <RemindersCard />}
           </View>
         )}
 

@@ -1,5 +1,6 @@
 // Função "lembretes" do Supabase (Edge Function). Chamada a cada 5 minutos (ver supabase/lembretes.sql):
-// envia uma notificação ao celular da cliente quando falta 1 hora (ou menos) para o horário dela.
+// envia uma notificação ao celular da cliente quando falta 1 hora (ou menos) para o horário dela
+// e avisa a profissional quando uma cliente cancela pelo app.
 // Na primeira execução cria as chaves de envio (VAPID) e guarda na tabela push_config.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
@@ -62,5 +63,31 @@ Deno.serve(async () => {
   const ids = [...new Set(((due ?? []) as Due[]).map((d) => d.appointment_id))];
   if (ids.length) await db.rpc('mark_reminded', { ids });
 
-  return Response.json({ horarios: ids.length, enviados: sent, removidos: removed });
+  // Avisos de cancelamento para a profissional (a cliente cancelou pelo app).
+  type Cancel = { appointment_id: string; data: { clientName?: string; serviceName?: string; date?: string; time?: string }; endpoint: string; p256dh: string; auth: string };
+  const { data: cancels } = await db.rpc('due_cancel_notices');
+  let avisos = 0;
+  for (const row of (cancels ?? []) as Cancel[]) {
+    const [, m, d] = (row.data.date ?? '').split('-');
+    const payload = JSON.stringify({
+      title: 'Horário cancelado',
+      body: `${row.data.clientName ?? 'Uma cliente'} cancelou ${row.data.serviceName ?? 'o horário'}${d ? ` de ${d}/${m}` : ''}${row.data.time ? ` às ${row.data.time}` : ''}. O horário já está livre na agenda.`,
+      url: `${SITE_URL.replace(/\/$/, '')}/agendamento/${row.appointment_id}`,
+      tag: `cancelamento-${row.appointment_id}`,
+    });
+    try {
+      await webpush.sendNotification({ endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } }, payload, { TTL: 86400 });
+      avisos += 1;
+    } catch (e) {
+      const status = (e as { statusCode?: number }).statusCode;
+      if (status === 404 || status === 410) {
+        await db.from('push_subscriptions').delete().eq('endpoint', row.endpoint);
+        removed += 1;
+      }
+    }
+  }
+  const cancelIds = [...new Set(((cancels ?? []) as Cancel[]).map((c) => c.appointment_id))];
+  if (cancelIds.length) await db.rpc('mark_cancel_notified', { ids: cancelIds });
+
+  return Response.json({ horarios: ids.length, enviados: sent, removidos: removed, cancelamentos: cancelIds.length, avisos });
 });

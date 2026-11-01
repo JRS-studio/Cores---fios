@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Chips, Field, ScreenHeader } from '@/components/ui';
 import { useAppointments, PAYMENT_LABEL, type PaymentMethod } from '@/features/agenda/AppointmentsContext';
 import { endTime, StatusChip } from '@/features/agenda/components';
-import { newBookingWhatsApp } from '@/features/agenda/whatsapp';
+import { cancelWhatsApp, newBookingWhatsApp } from '@/features/agenda/whatsapp';
 import { cashbackFor, roundCents, useCashback, type CashbackEntry } from '@/features/cashback/CashbackContext';
 import { useClients } from '@/features/clients/ClientsContext';
 import { useFinance } from '@/features/finance/FinanceContext';
@@ -337,7 +337,9 @@ export default function AgendamentoScreen() {
         <View style={styles.confirm}>
           <Text style={styles.confirmText}>
             {confirm === 'cancelar'
-              ? `Cancelar o horário de ${firstName}? O horário fica livre na agenda.`
+              ? canManage
+                ? `Cancelar o horário de ${firstName}? O horário fica livre na agenda.`
+                : `Cancelar seu horário de ${when}? O horário fica livre na agenda e ${settings.professionalName} recebe o aviso${settings.whatsapp ? '; o WhatsApp dela abre com a mensagem pronta' : ''}.`
               : 'Excluir este agendamento de vez?'}
           </Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -348,8 +350,13 @@ export default function AgendamentoScreen() {
               onPress={() => {
                 if (confirm === 'cancelar') {
                   updateStatus(a.id, 'cancelado');
-                  say('Horário cancelado.');
                   setConfirm(null);
+                  if (canManage) say('Horário cancelado.');
+                  else {
+                    // A profissional recebe a notificação no celular; o WhatsApp abre com a mensagem pronta.
+                    say(`Horário cancelado. O horário ficou livre e ${settings.professionalName} foi avisada.`);
+                    if (settings.whatsapp) openExternal(cancelWhatsApp(settings.whatsapp, a, settings.professionalName));
+                  }
                 } else {
                   removeAppointment(a.id);
                   router.back();

@@ -54,7 +54,8 @@ export async function getReminderState(): Promise<ReminderState> {
 }
 
 // Precisa ser chamada a partir de um toque (o navegador só pede permissão assim).
-export async function enableReminders(): Promise<ReminderState> {
+// forOwner: celular da profissional, que recebe os avisos de cancelamento (e não lembretes de um número).
+export async function enableReminders(forOwner = false): Promise<ReminderState> {
   if (!supabase || !supported()) return getReminderState();
   try {
     if ((await permission()) !== 'granted') await Notification.requestPermission();
@@ -70,7 +71,10 @@ export async function enableReminders(): Promise<ReminderState> {
     const json = sub.toJSON();
     const { error } = await supabase
       .from('push_subscriptions')
-      .upsert({ endpoint: sub.endpoint, p256dh: json.keys?.p256dh, auth: json.keys?.auth }, { onConflict: 'endpoint', ignoreDuplicates: true });
+      .upsert(
+        { endpoint: sub.endpoint, p256dh: json.keys?.p256dh, auth: json.keys?.auth, ...(forOwner ? { phone: 'profissional' } : {}) },
+        { onConflict: 'endpoint', ignoreDuplicates: true },
+      );
     if (error) return 'error';
     return 'on';
   } catch {

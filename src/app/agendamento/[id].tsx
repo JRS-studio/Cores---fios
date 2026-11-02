@@ -169,7 +169,8 @@ export default function AgendamentoScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.service}>{a.serviceName}</Text>
             <Text style={styles.muted}>
-              {a.time} às {endTime(a)} · {a.duration} min
+              {a.time} às {endTime(a)}
+              {canManage ? ` · ${a.duration} min` : ''}
             </Text>
           </View>
           <StatusChip status={a.status} />

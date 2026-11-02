@@ -310,14 +310,21 @@ export default function NovoAgendamentoScreen() {
             <ServiceOption
               active={serviceId === CUSTOM}
               name={custom.serviceName}
-              detail={`${custom.duration} min`}
+              detail={clientMode ? undefined : `${custom.duration} min`}
               price={custom.price}
               onPress={() => chooseService(CUSTOM)}
               highlight
             />
           )}
           {services.map((s) => (
-            <ServiceOption key={s.id} active={serviceId === s.id} name={s.name} detail={`${s.duration} min`} price={s.price} onPress={() => chooseService(s.id)} />
+            <ServiceOption
+              key={s.id}
+              active={serviceId === s.id}
+              name={s.name}
+              detail={clientMode ? undefined : `${s.duration} min`}
+              price={s.price}
+              onPress={() => chooseService(s.id)}
+            />
           ))}
           {tried && errors.service && <Text style={styles.error}>{errors.service}</Text>}
 
@@ -384,7 +391,9 @@ export default function NovoAgendamentoScreen() {
         />
 
         <View style={styles.gutter}>
-          <SectionTitle hint={serviceName ? `Duração: ${duration} min` : 'Escolha o serviço para ver os horários'}>Horário</SectionTitle>
+          <SectionTitle hint={serviceName ? (clientMode ? undefined : `Duração: ${duration} min`) : 'Escolha o serviço para ver os horários'}>
+            Horário
+          </SectionTitle>
           {slots.length === 0 ? (
             <Text style={styles.muted}>
               {monthClosed
@@ -452,7 +461,7 @@ function ServiceOption({
 }: {
   active: boolean;
   name: string;
-  detail: string;
+  detail?: string;
   price: number;
   onPress: () => void;
   highlight?: boolean;
@@ -467,7 +476,7 @@ function ServiceOption({
       <View style={[styles.radio, active && styles.radioOn]}>{active && <View style={styles.radioDot} />}</View>
       <View style={{ flex: 1 }}>
         <Text style={styles.serviceName}>{name}</Text>
-        <Text style={styles.muted}>{detail}</Text>
+        {detail ? <Text style={styles.muted}>{detail}</Text> : null}
       </View>
       <Text style={styles.servicePrice}>{brl(price)}</Text>
     </Pressable>

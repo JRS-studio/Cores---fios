@@ -198,7 +198,7 @@ export default function AjustesScreen() {
             {tried && errors.workDays && <Text style={styles.error}>{errors.workDays}</Text>}
             <Text style={styles.label}>Intervalo entre horários</Text>
             <Chips
-              options={[0, 15, 30, 60].map((m) => ({ id: String(m), label: `${m} min` }))}
+              options={[0, 15, 30, 40, 60].map((m) => ({ id: String(m), label: `${m} min` }))}
               selected={[String(form.slotStep)]}
               onToggle={(id) => set('slotStep', Number(id))}
             />

@@ -11,7 +11,19 @@ const assert = require('assert/strict');
 const { chromium } = require('playwright');
 
 const API_PORT = 54329;
-const db = { clients: [], appointments: [], transactions: [], feedbacks: [], settings: [], posts: [], likes: [], push_subscriptions: [], cashback: [], comments: [], cancel_requests: [] };
+const db = {
+  clients: [],
+  appointments: [],
+  transactions: [],
+  feedbacks: [],
+  settings: [],
+  posts: [],
+  likes: [],
+  push_subscriptions: [],
+  cashback: [],
+  comments: [],
+  cancel_requests: [],
+};
 // Chave pública de envio (VAPID) válida, para o navegador aceitar a inscrição.
 const VAPID = require('crypto').createECDH('prime256v1');
 VAPID.generateKeys();
@@ -33,14 +45,28 @@ function authResponse(user) {
     expires_in: 3600,
     expires_at: exp,
     refresh_token: 'refresh',
-    user: { id: user.id, aud: 'authenticated', role: 'authenticated', phone: user.phone ?? '', email: user.email ?? '', app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() },
+    user: {
+      id: user.id,
+      aud: 'authenticated',
+      role: 'authenticated',
+      phone: user.phone ?? '',
+      email: user.email ?? '',
+      app_metadata: {},
+      user_metadata: {},
+      created_at: new Date().toISOString(),
+    },
   };
 }
 
 const api = http.createServer((req, res) => {
   const url = new URL(req.url, `http://localhost:${API_PORT}`);
   const send = (status, body) => {
-    res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': '*' });
+    res.writeHead(status, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': '*',
+      'Access-Control-Allow-Methods': '*',
+    });
     res.end(body === undefined ? '' : JSON.stringify(body));
   };
   if (req.method === 'OPTIONS') return send(204);
@@ -86,17 +112,28 @@ const api = http.createServer((req, res) => {
       return send(200, mine ? { phone: mine[0] } : null);
     }
     if (p === '/rest/v1/rpc/busy_slots') {
-      return send(200, db.appointments.filter((a) => a.starts_at.startsWith(body.day) && a.status !== 'cancelado').map(({ starts_at, ends_at }) => ({ starts_at, ends_at })));
+      return send(
+        200,
+        db.appointments
+          .filter((a) => a.starts_at.startsWith(body.day) && a.status !== 'cancelado')
+          .map(({ starts_at, ends_at }) => ({ starts_at, ends_at })),
+      );
     }
     const table = p.replace('/rest/v1/', '');
     if (!(table in db)) return send(404, {});
     const myPhone = [...claims].find(([, uid]) => uid === session?.user.id)?.[0];
     // Imita as regras de acesso do schema.sql no que o teste usa.
     const visible = (row) =>
-      session?.owner || ['settings', 'posts', 'likes'].includes(table) ||
+      session?.owner ||
+      ['settings', 'posts', 'likes'].includes(table) ||
       (['feedbacks', 'comments'].includes(table) && (row.approved || row.author_id === session?.user.id)) ||
-      (table === 'clients' && row.phone === myPhone) || (['appointments', 'cashback', 'cancel_requests'].includes(table) && row.client_phone === myPhone);
-    if (req.method === 'GET') return send(200, db[table].filter(visible).map((r) => ({ data: r.data })));
+      (table === 'clients' && row.phone === myPhone) ||
+      (['appointments', 'cashback', 'cancel_requests'].includes(table) && row.client_phone === myPhone);
+    if (req.method === 'GET')
+      return send(
+        200,
+        db[table].filter(visible).map((r) => ({ data: r.data })),
+      );
     if (req.method === 'POST') {
       for (const row of [].concat(body)) {
         if (['transactions', 'posts', 'cashback'].includes(table) && !session?.owner) return send(403, { code: '42501', message: 'rls' });
@@ -116,8 +153,14 @@ const api = http.createServer((req, res) => {
     }
     if (req.method === 'DELETE') {
       // ?id=in.("a","b"): curtida só a dona apaga; o resto, só a profissional.
-      const ids = (url.searchParams.get('id') ?? '').replace(/^in\.\(|\)$/g, '').split(',').map((v) => v.replace(/"/g, ''));
-      const allowed = (r) => (['likes', 'comments'].includes(table) && r.user_id === session?.user.id) || (table === 'comments' && r.author_id === session?.user.id) || session?.owner;
+      const ids = (url.searchParams.get('id') ?? '')
+        .replace(/^in\.\(|\)$/g, '')
+        .split(',')
+        .map((v) => v.replace(/"/g, ''));
+      const allowed = (r) =>
+        (['likes', 'comments'].includes(table) && r.user_id === session?.user.id) ||
+        (table === 'comments' && r.author_id === session?.user.id) ||
+        session?.owner;
       db[table] = db[table].filter((r) => !(ids.includes(r.id) && allowed(r)));
       return send(204);
     }
@@ -125,24 +168,59 @@ const api = http.createServer((req, res) => {
   });
 });
 
-const PAGE = fs.readFileSync(path.resolve(__dirname, '../../dist-teste/remoto.html'));
+// SITE_DIR=<pasta>: testa a versão publicada de verdade (em vários arquivos, embaralhada), gerada com
+//   EXPO_PUBLIC_SUPABASE_URL=http://localhost:54329 EXPO_PUBLIC_SUPABASE_ANON_KEY=teste python3 tools/web/build-pages.py --saida <pasta>
+const SITE_DIR = process.env.SITE_DIR ? path.resolve(process.env.SITE_DIR) : null;
+const SITE_PATH = SITE_DIR ? '/Cores---fios/' : '/';
+const PAGE = SITE_DIR ? null : fs.readFileSync(path.resolve(__dirname, '../../dist-teste/remoto.html'));
 const SW = fs.readFileSync(path.resolve(__dirname, '../../public/sw.js'));
-const site = http.createServer((req, res) =>
-  req.url.endsWith('/sw.js')
+const TYPES = {
+  '.js': 'text/javascript',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.ttf': 'font/ttf',
+  '.html': 'text/html; charset=utf-8',
+  '.ico': 'image/x-icon',
+};
+const site = http.createServer((req, res) => {
+  if (SITE_DIR) {
+    const rel = decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\/Cores---fios\/?/, '');
+    let file = path.join(SITE_DIR, rel);
+    if (!file.startsWith(SITE_DIR) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(SITE_DIR, 'index.html');
+    return res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream' }).end(fs.readFileSync(file));
+  }
+  return req.url.endsWith('/sw.js')
     ? res.writeHead(200, { 'Content-Type': 'text/javascript' }).end(SW)
-    : res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(PAGE),
-);
+    : res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(PAGE);
+});
 
 (async () => {
   await new Promise((r) => api.listen(API_PORT, r));
   await new Promise((r) => site.listen(0, r));
   const browser = await chromium.launch();
+  if (SITE_DIR) {
+    // A versão publicada confere se há atualização no site de verdade: aqui responde a versão local.
+    const newPage = browser.newPage.bind(browser);
+    browser.newPage = async (opts) => {
+      const pg = await newPage(opts);
+      await pg.route('https://jefersonroodrigo-cmyk.github.io/**', (r) =>
+        r.fulfill({ contentType: 'application/json', body: fs.readFileSync(path.join(SITE_DIR, 'version.json')) }),
+      );
+      return pg;
+    };
+  }
   const p = await browser.newPage({ viewport: { width: 390, height: 844 } });
   // Como se a cliente aceitasse as notificações quando o navegador pergunta.
   await p.context().grantPermissions(['notifications']);
   const errors = [];
   p.on('pageerror', (e) => errors.push(e.message));
-  p.on('console', (m) => m.type() === 'error' && !/realtime|websocket|ERR_CONNECTION|status of 40[034]|Push API in incognito/i.test(m.text()) && errors.push(m.text()));
+  p.on(
+    'console',
+    (m) =>
+      m.type() === 'error' &&
+      !/realtime|websocket|ERR_CONNECTION|status of 40[034]|Push API in incognito/i.test(m.text()) &&
+      errors.push(m.text()),
+  );
   const R = p.locator('#root');
   const shots = path.resolve(__dirname, '../../dist-teste/prints-remoto');
   fs.mkdirSync(shots, { recursive: true });
@@ -151,13 +229,28 @@ const site = http.createServer((req, res) =>
   let passed = 0;
 
   // Escolhe o dia na tela de agendar pelo formato Semana / Novembro / Dezembro: o botão do mês e o dia no calendário.
-  const MESES_PT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const MESES_PT = [
+    'janeiro',
+    'fevereiro',
+    'março',
+    'abril',
+    'maio',
+    'junho',
+    'julho',
+    'agosto',
+    'setembro',
+    'outubro',
+    'novembro',
+    'dezembro',
+  ];
   const capitalize = (m) => m[0].toUpperCase() + m.slice(1);
   async function pickDate(L, d) {
     const mes = MESES_PT[d.getMonth()];
     await L.getByRole('tab', { name: capitalize(mes), exact: true }).click();
     await L.page().waitForTimeout(300);
-    await L.getByRole('button', { name: new RegExp(`^${d.getDate()} de ${mes}(,|$)`) }).first().click();
+    await L.getByRole('button', { name: new RegExp(`^${d.getDate()} de ${mes}(,|$)`) })
+      .first()
+      .click();
     return d;
   }
   // O n-ésimo dia útil (seg a sex) a partir de amanhã (n = 0 é o primeiro).
@@ -175,7 +268,7 @@ const site = http.createServer((req, res) =>
     console.log('ok  ', name);
   };
 
-  await p.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
+  await p.goto(`http://localhost:${site.address().port}${SITE_PATH}`, { waitUntil: 'networkidle' });
   await wait(1500);
 
   await test('visitante só vê: perfil do studio (sem o nome da profissional), botões Entrar e Cadastrar, sem ações', async () => {
@@ -186,7 +279,8 @@ const site = http.createServer((req, res) =>
     await R.getByRole('button', { name: 'Cadastrar' }).first().waitFor();
     await R.getByText('Você está só olhando.', { exact: false }).waitFor();
     // Nada de agendar, avaliar, publicar ou ver horários sem entrar.
-    for (const label of ['Avaliar', 'Horários', 'Agendar']) assert.equal(await R.getByRole('button', { name: label, exact: true }).count(), 0, label);
+    for (const label of ['Avaliar', 'Horários', 'Agendar'])
+      assert.equal(await R.getByRole('button', { name: label, exact: true }).count(), 0, label);
     assert.equal(await R.getByText('Como ficaram suas unhas?', { exact: false }).count(), 0);
     await R.getByLabel(/Instagram do studio/).waitFor();
     assert.equal(await R.getByText('horários hoje').count(), 0);
@@ -207,7 +301,9 @@ const site = http.createServer((req, res) =>
     assert.equal(await R.getByLabel('Código de verificação').count(), 0);
     await R.getByText('Confirmar e entrar').click();
     await wait(1200);
-    await R.getByText(/verificado/).first().waitFor();
+    await R.getByText(/verificado/)
+      .first()
+      .waitFor();
     await R.getByText(/Concordo com o uso/).click();
     await R.getByText('Concluir cadastro').click();
     await wait(1200);
@@ -219,7 +315,7 @@ const site = http.createServer((req, res) =>
 
   await test('outro celular não consegue entrar com o mesmo número', async () => {
     const other = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    await other.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
+    await other.goto(`http://localhost:${site.address().port}${SITE_PATH}`, { waitUntil: 'networkidle' });
     await other.waitForTimeout(1500);
     await other.locator('#root').getByLabel('Conta', { exact: true }).click();
     await other.waitForTimeout(400);
@@ -227,7 +323,10 @@ const site = http.createServer((req, res) =>
     await other.waitForTimeout(400);
     await other.locator('#root').getByLabel('WhatsApp', { exact: true }).fill('11955550000');
     await other.locator('#root').getByText('Confirmar e entrar').click();
-    await other.locator('#root').getByText(/já está conectado em outro celular/).waitFor();
+    await other
+      .locator('#root')
+      .getByText(/já está conectado em outro celular/)
+      .waitFor();
     await other.screenshot({ path: path.join(shots, '02b-outro-celular.png') });
     await other.close();
   });
@@ -258,9 +357,12 @@ const site = http.createServer((req, res) =>
     await R.getByText('Lembrete 1 hora antes').filter({ visible: true }).first().waitFor();
     await R.getByRole('button', { name: 'Ativar lembretes' }).filter({ visible: true }).first().click();
     // Sem acesso ao serviço de push do Google neste ambiente, a inscrição pode falhar: o app avisa sem travar.
-    await R.getByText(/Lembretes ativados|Não foi possível ativar agora/).filter({ visible: true }).first().waitFor({ timeout: 15000 });
+    await R.getByText(/Lembretes ativados|Não foi possível ativar agora/)
+      .filter({ visible: true })
+      .first()
+      .waitFor({ timeout: 15000 });
     const scope = await p.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.scope);
-    assert.match(scope ?? '', /^http:\/\/localhost:\d+\/$/, 'service worker registrado no endereço do site');
+    assert.match(scope ?? '', new RegExp(`^http://localhost:\\d+${SITE_PATH}$`), 'service worker registrado no endereço do site');
     if (await R.getByText('Lembretes ativados').count()) assert.equal(db.push_subscriptions.length, 1);
     await shot('02c-lembretes');
   });
@@ -314,7 +416,7 @@ const site = http.createServer((req, res) =>
 
   await test('visitante vê a publicação mas não curte, não comenta nem compartilha; cliente curte e descurte', async () => {
     const vis = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    await vis.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
+    await vis.goto(`http://localhost:${site.address().port}${SITE_PATH}`, { waitUntil: 'networkidle' });
     await vis.waitForTimeout(1500);
     const VV = vis.locator('#root');
     await VV.getByText('Pé e mão por R$ 60 nesta semana!').waitFor();
@@ -326,7 +428,7 @@ const site = http.createServer((req, res) =>
     // Cliente logada curte.
     const other = await browser.newPage({ viewport: { width: 390, height: 844 } });
     const O = other.locator('#root');
-    await other.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
+    await other.goto(`http://localhost:${site.address().port}${SITE_PATH}`, { waitUntil: 'networkidle' });
     await other.waitForTimeout(1500);
     await O.getByLabel('Conta', { exact: true }).click();
     await other.waitForTimeout(400);
@@ -339,7 +441,7 @@ const site = http.createServer((req, res) =>
     await O.getByText(/Concordo com o uso/).click();
     await O.getByText('Concluir cadastro').click();
     await other.waitForTimeout(1200);
-    await other.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
+    await other.goto(`http://localhost:${site.address().port}${SITE_PATH}`, { waitUntil: 'networkidle' });
     await other.waitForTimeout(1500);
     await O.getByText('Pé e mão por R$ 60 nesta semana!').waitFor();
     await O.getByLabel('Curtir').first().click();
@@ -357,7 +459,7 @@ const site = http.createServer((req, res) =>
   await test('cliente escolhe o próprio tema; o padrão do studio não muda', async () => {
     const other = await browser.newPage({ viewport: { width: 390, height: 844 } });
     const O = other.locator('#root');
-    await other.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
+    await other.goto(`http://localhost:${site.address().port}${SITE_PATH}`, { waitUntil: 'networkidle' });
     await other.waitForTimeout(1500);
     // Quem só visita não troca o tema (modo visualização); a cliente entra primeiro.
     assert.equal(await O.getByLabel('Tema do app').count(), 0);
@@ -372,16 +474,18 @@ const site = http.createServer((req, res) =>
     await O.getByText(/Concordo com o uso/).click();
     await O.getByText('Concluir cadastro').click();
     await other.waitForTimeout(1200);
-    await other.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
+    await other.goto(`http://localhost:${site.address().port}${SITE_PATH}`, { waitUntil: 'networkidle' });
     await other.waitForTimeout(1500);
     await O.getByLabel('Tema do app').click();
     await other.waitForTimeout(500);
     await O.getByText('A escolha vale só para você', { exact: false }).waitFor();
     await Promise.all([other.waitForEvent('load'), O.getByLabel(/^Tema Tecnologia:/).click()]);
     await other.waitForTimeout(1500);
-    await other.goto(`http://localhost:${site.address().port}/`, { waitUntil: 'networkidle' });
+    await other.goto(`http://localhost:${site.address().port}${SITE_PATH}`, { waitUntil: 'networkidle' });
     await other.waitForTimeout(1500);
-    const bg = await O.getByRole('button', { name: 'Agendar' }).first().evaluate((el) => getComputedStyle(el).backgroundColor);
+    const bg = await O.getByRole('button', { name: 'Agendar' })
+      .first()
+      .evaluate((el) => getComputedStyle(el).backgroundColor);
     assert.equal(bg, 'rgb(15, 23, 42)');
     assert.equal(db.settings.length, 0, 'a escolha da cliente não vai para os ajustes do studio');
     await other.screenshot({ path: path.join(shots, '07-tema-cliente.png') });
@@ -389,7 +493,7 @@ const site = http.createServer((req, res) =>
   });
 
   await test('cashback: Premium ganha 1% ao concluir, vê o saldo, usa ao agendar e a profissional vê o saldo', async () => {
-    const home = `http://localhost:${site.address().port}/`;
+    const home = `http://localhost:${site.address().port}${SITE_PATH}`;
     const PHONE = '5511955550000';
     // Paula vira Premium.
     const paula = db.clients.find((c) => c.phone === PHONE);
@@ -420,7 +524,19 @@ const site = http.createServer((req, res) =>
     assert.equal(credit.data.amount, 0.7);
 
     // Um crédito anterior de R$ 10 (lançado pela profissional): saldo R$ 10,70.
-    db.cashback.push({ id: 'cb-antigo', client_phone: PHONE, data: { id: 'cb-antigo', createdAt: new Date(Date.now() - 86400000).toISOString(), clientPhone: '11955550000', clientName: 'Paula Lima', amount: 10, kind: 'credito', description: 'Mão e pé' } });
+    db.cashback.push({
+      id: 'cb-antigo',
+      client_phone: PHONE,
+      data: {
+        id: 'cb-antigo',
+        createdAt: new Date(Date.now() - 86400000).toISOString(),
+        clientPhone: '11955550000',
+        clientName: 'Paula Lima',
+        amount: 10,
+        kind: 'credito',
+        description: 'Mão e pé',
+      },
+    });
 
     // Paula entra no celular dela, vê o saldo e usa ao agendar.
     const cli = await browser.newPage({ viewport: { width: 390, height: 844 } });
@@ -472,15 +588,25 @@ const site = http.createServer((req, res) =>
     await cli.waitForTimeout(1500);
     await C.getByLabel('Conta', { exact: true }).last().click();
     await cli.waitForTimeout(800);
-    await C.getByText(/R\$\s?10,70 separado para horário marcado/).filter({ visible: true }).first().waitFor();
+    await C.getByText(/R\$\s?10,70 separado para horário marcado/)
+      .filter({ visible: true })
+      .first()
+      .waitFor();
     // A cliente não consegue lançar cashback para si.
     const before = db.cashback.length;
-    const status = await cli.evaluate(async ([url]) => {
-      const key = Object.keys(localStorage).find((k) => k.includes('auth-token'));
-      const token = JSON.parse(localStorage.getItem(key)).access_token;
-      const r = await fetch(`${url}/rest/v1/cashback`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, apikey: 'teste', 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 'golpe', client_phone: '5511955550000', data: { amount: 999 } }) });
-      return r.status;
-    }, [`http://localhost:${API_PORT}`]);
+    const status = await cli.evaluate(
+      async ([url]) => {
+        const key = Object.keys(localStorage).find((k) => k.includes('auth-token'));
+        const token = JSON.parse(localStorage.getItem(key)).access_token;
+        const r = await fetch(`${url}/rest/v1/cashback`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, apikey: 'teste', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: 'golpe', client_phone: '5511955550000', data: { amount: 999 } }),
+        });
+        return r.status;
+      },
+      [`http://localhost:${API_PORT}`],
+    );
     assert.equal(status, 403);
     assert.equal(db.cashback.length, before);
     await cli.close();
@@ -510,11 +636,12 @@ const site = http.createServer((req, res) =>
   });
 
   await test('aniversário: Premium ganha o desconto sozinho no agendamento e o atendimento gera cashback', async () => {
-    const home = `http://localhost:${site.address().port}/`;
+    const home = `http://localhost:${site.address().port}${SITE_PATH}`;
     const PHONE = '5511955550000';
     // Próximo dia útil; o aniversário da Paula fica no mês desse dia.
     const d = new Date();
-    do d.setDate(d.getDate() + 1); while (d.getDay() === 0 || d.getDay() === 6);
+    do d.setDate(d.getDate() + 1);
+    while (d.getDay() === 0 || d.getDay() === 6);
     const pad = (n) => String(n).padStart(2, '0');
     const paula = db.clients.find((c) => c.phone === PHONE);
     paula.data = { ...paula.data, birthDate: `10/${pad(d.getMonth() + 1)}/1990` };
@@ -553,7 +680,7 @@ const site = http.createServer((req, res) =>
   });
 
   await test('avaliação da cliente só aparece no feed depois que a profissional aprova', async () => {
-    const home = `http://localhost:${site.address().port}/`;
+    const home = `http://localhost:${site.address().port}${SITE_PATH}`;
     const cli = await browser.newPage({ viewport: { width: 390, height: 844 } });
     const C = cli.locator('#root');
     await cli.goto(home, { waitUntil: 'networkidle' });
@@ -608,7 +735,7 @@ const site = http.createServer((req, res) =>
   });
 
   await test('comentário na publicação só aparece depois que a profissional aprova', async () => {
-    const home = `http://localhost:${site.address().port}/`;
+    const home = `http://localhost:${site.address().port}${SITE_PATH}`;
     // Quem comenta precisa ter entrado: a Carla faz o cadastro rápido.
     const vis = await browser.newPage({ viewport: { width: 390, height: 844 } });
     const V = vis.locator('#root');
@@ -634,8 +761,12 @@ const site = http.createServer((req, res) =>
     await V.getByLabel('Comentário').fill('Que promoção boa! Tem horário sábado?');
     await V.getByRole('button', { name: 'Comentar' }).click();
     await vis.waitForTimeout(1200);
-    await V.getByText(/aparece para todas depois que Jhenifer aprovar/).first().waitFor();
-    await V.getByText(/Aguardando aprovação/).first().waitFor();
+    await V.getByText(/aparece para todas depois que Jhenifer aprovar/)
+      .first()
+      .waitFor();
+    await V.getByText(/Aguardando aprovação/)
+      .first()
+      .waitFor();
     await vis.screenshot({ path: path.join(shots, '14-comentario-enviado.png') });
     const row = db.comments[0];
     assert.equal(row.approved, false);
@@ -660,7 +791,9 @@ const site = http.createServer((req, res) =>
     // A profissional responde: a resposta aparece na hora, já aprovada, embaixo do comentário.
     await R.getByLabel('Voltar').last().click();
     await wait(800);
-    await R.getByRole('button', { name: /^Comentários \(1\)/ }).first().click();
+    await R.getByRole('button', { name: /^Comentários \(1\)/ })
+      .first()
+      .click();
     await wait(800);
     await R.getByRole('button', { name: 'Responder Carla' }).click();
     await R.getByLabel('Sua resposta para Carla').fill('Tem sim, Carla! Sábado às 10h está livre.');
@@ -682,7 +815,7 @@ const site = http.createServer((req, res) =>
   });
 
   await test('pedido de horário e pedido de cancelamento aparecem nos Avisos da profissional; só ela cancela e libera o horário', async () => {
-    const home = `http://localhost:${site.address().port}/`;
+    const home = `http://localhost:${site.address().port}${SITE_PATH}`;
     db.settings = [{ id: 1, data: { whatsapp: '11999990000' } }];
     const cli = await browser.newPage({ viewport: { width: 390, height: 844 } });
     const C = cli.locator('#root');
@@ -703,7 +836,20 @@ const site = http.createServer((req, res) =>
     await cli.waitForTimeout(800);
     await C.getByText('Pedicure', { exact: true }).last().click();
     // A cliente vê o mês atual e o seguinte (e só eles); tocar no mês pula para os dias dele.
-    const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+    const MESES = [
+      'janeiro',
+      'fevereiro',
+      'março',
+      'abril',
+      'maio',
+      'junho',
+      'julho',
+      'agosto',
+      'setembro',
+      'outubro',
+      'novembro',
+      'dezembro',
+    ];
     const now = new Date();
     const [esteMes, proximo, depois] = [0, 1, 2].map((k) => MESES[(now.getMonth() + k) % 12]);
     await C.getByRole('tab', { name: capitalize(esteMes), exact: true }).waitFor();
@@ -721,7 +867,10 @@ const site = http.createServer((req, res) =>
     await cli.waitForTimeout(500);
     await C.getByText('11:00', { exact: true }).last().click();
     // O WhatsApp abre ao agendar: fecha a aba aberta.
-    const booking = cli.context().waitForEvent('page', { timeout: 5000 }).catch(() => null);
+    const booking = cli
+      .context()
+      .waitForEvent('page', { timeout: 5000 })
+      .catch(() => null);
     await C.getByText('Confirmar agendamento').click();
     (await booking)?.close();
     await cli.waitForTimeout(1200);
@@ -740,7 +889,9 @@ const site = http.createServer((req, res) =>
     await cli.goto(home, { waitUntil: 'networkidle' });
     await cli.waitForTimeout(1500);
     // Abre o horário pelo cartão "próximo horário" da tela inicial.
-    await C.getByText(/às 11:00 · Pedicure/).first().click();
+    await C.getByText(/às 11:00 · Pedicure/)
+      .first()
+      .click();
     await cli.waitForTimeout(800);
     assert.equal(await C.getByText('Cancelar horário', { exact: true }).count(), 0, 'a cliente não cancela sozinha');
     // Sem internet para o WhatsApp aqui: responde a página do wa.me com algo simples.
@@ -793,7 +944,7 @@ const site = http.createServer((req, res) =>
   });
 
   await test('profissional agenda para cliente que pediu fora do app (nova, com nome e WhatsApp)', async () => {
-    const home = `http://localhost:${site.address().port}/`;
+    const home = `http://localhost:${site.address().port}${SITE_PATH}`;
     await p.goto(home, { waitUntil: 'networkidle' });
     await wait(1500);
     await R.getByText('Agendar', { exact: true }).first().click();
@@ -811,12 +962,15 @@ const site = http.createServer((req, res) =>
     const appt = db.appointments.find((a) => a.client_phone === '5511977776666');
     assert.ok(appt, 'horário gravado no servidor');
     assert.equal(appt.status, 'confirmado');
-    assert.ok(db.clients.some((c) => c.phone === '5511977776666'), 'cadastro rápido criado');
+    assert.ok(
+      db.clients.some((c) => c.phone === '5511977776666'),
+      'cadastro rápido criado',
+    );
     await R.getByText('Horário agendado!').first().waitFor();
   });
 
   await test('profissional: cliente nova/avulsa e troca de dia em qualquer ordem, sem a tela travar', async () => {
-    const home = `http://localhost:${site.address().port}/`;
+    const home = `http://localhost:${site.address().port}${SITE_PATH}`;
     const before = errors.length;
     await p.goto(home, { waitUntil: 'networkidle' });
     await wait(1500);
@@ -848,7 +1002,10 @@ const site = http.createServer((req, res) =>
     await R.getByText('15:00', { exact: true }).last().click();
     await R.getByText('Confirmar agendamento').click();
     await wait(1500);
-    assert.ok(db.appointments.some((a) => a.client_phone === '5511988887777'), 'horário gravado');
+    assert.ok(
+      db.appointments.some((a) => a.client_phone === '5511988887777'),
+      'horário gravado',
+    );
   });
 
   await test('profissional com ajustes como os reais e um registro vazio no banco: nova/avulsa trocando de dia não trava', async () => {
@@ -864,21 +1021,48 @@ const site = http.createServer((req, res) =>
       d.setDate(d.getDate() + offset);
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     };
-    const blocks = [[2, 375, 660], [3, 435, 720], [4, 480, 720], [5, 375, 435]].flatMap(([day, from, to]) =>
-      quarter(from, to).map((start, i) => ({ id: `b${day}-${i}`, date: iso(day), start, end: quarter(from + 15 * (i + 1), from + 15 * (i + 2))[0] ?? '23:59' })),
+    const blocks = [
+      [2, 375, 660],
+      [3, 435, 720],
+      [4, 480, 720],
+      [5, 375, 435],
+    ].flatMap(([day, from, to]) =>
+      quarter(from, to).map((start, i) => ({
+        id: `b${day}-${i}`,
+        date: iso(day),
+        start,
+        end: quarter(from + 15 * (i + 1), from + 15 * (i + 2))[0] ?? '23:59',
+      })),
     );
-    db.settings = [{ id: 1, data: {
-      openTime: '06:00', closeTime: '20:00', slotStep: 15, workDays: [1, 2, 3, 4, 5, 6], breaks: [], blocks,
-      clientSlots: Object.fromEntries([1, 2, 3, 4, 5, 6].map((w) => [String(w), [...quarter(360, 480), ...quarter(720, 1200)]])),
-      services: [
-        { id: 'pedicure', name: 'Pedicure', price: 30, active: true, duration: 60 },
-        { id: 'pr', name: 'Progressiva (apartir de:)', price: 130, active: true, duration: 240 },
-        { id: 's', name: 'Sombrancelha', price: 25, active: true, duration: 10 },
-      ],
-    } }];
+    db.settings = [
+      {
+        id: 1,
+        data: {
+          openTime: '06:00',
+          closeTime: '20:00',
+          slotStep: 15,
+          workDays: [1, 2, 3, 4, 5, 6],
+          breaks: [],
+          blocks,
+          clientSlots: Object.fromEntries([1, 2, 3, 4, 5, 6].map((w) => [String(w), [...quarter(360, 480), ...quarter(720, 1200)]])),
+          services: [
+            { id: 'pedicure', name: 'Pedicure', price: 30, active: true, duration: 60 },
+            { id: 'pr', name: 'Progressiva (apartir de:)', price: 130, active: true, duration: 240 },
+            { id: 's', name: 'Sombrancelha', price: 25, active: true, duration: 10 },
+          ],
+        },
+      },
+    ];
     // Registro antigo e vazio que existe no banco real (de testes): o app não pode quebrar por causa dele.
-    db.appointments.push({ id: 'teste-vazio', client_phone: '5511900000001', status: 'cancelado', starts_at: '2030-01-02 10:00', ends_at: '2030-01-02 11:00', data: {} });
-    const home = `http://localhost:${site.address().port}/`;
+    db.appointments.push({
+      id: 'teste-vazio',
+      client_phone: '5511900000001',
+      status: 'cancelado',
+      starts_at: '2030-01-02 10:00',
+      ends_at: '2030-01-02 11:00',
+      data: {},
+    });
+    const home = `http://localhost:${site.address().port}${SITE_PATH}`;
     const before = errors.length;
     await p.goto(home, { waitUntil: 'networkidle' });
     await wait(2000);
@@ -901,7 +1085,7 @@ const site = http.createServer((req, res) =>
   });
 
   await test('profissional agenda cliente avulsa sem WhatsApp (só o nome)', async () => {
-    const home = `http://localhost:${site.address().port}/`;
+    const home = `http://localhost:${site.address().port}${SITE_PATH}`;
     const clientsBefore = db.clients.length;
     await p.goto(home, { waitUntil: 'networkidle' });
     await wait(1500);
@@ -931,20 +1115,49 @@ const site = http.createServer((req, res) =>
   });
 
   await test('intervalo de 0 min: horários colados, o próximo começa quando o anterior termina', async () => {
-    const home = `http://localhost:${site.address().port}/`;
+    const home = `http://localhost:${site.address().port}${SITE_PATH}`;
     const d = new Date();
-    do d.setDate(d.getDate() + 1); while (d.getDay() === 0 || d.getDay() === 6);
+    do d.setDate(d.getDate() + 1);
+    while (d.getDay() === 0 || d.getDay() === 6);
     const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    db.settings = [{ id: 1, data: {
-      openTime: '06:00', closeTime: '10:00', slotStep: 0, workDays: [1, 2, 3, 4, 5, 6], breaks: [], blocks: [], clientSlots: {},
-      services: [
-        { id: 'pedicure', name: 'Pedicure', price: 30, active: true, duration: 60 },
-        { id: 'manicure', name: 'Manicure tradicional', price: 30, active: true, duration: 40 },
-      ],
-    } }];
+    db.settings = [
+      {
+        id: 1,
+        data: {
+          openTime: '06:00',
+          closeTime: '10:00',
+          slotStep: 0,
+          workDays: [1, 2, 3, 4, 5, 6],
+          breaks: [],
+          blocks: [],
+          clientSlots: {},
+          services: [
+            { id: 'pedicure', name: 'Pedicure', price: 30, active: true, duration: 60 },
+            { id: 'manicure', name: 'Manicure tradicional', price: 30, active: true, duration: 40 },
+          ],
+        },
+      },
+    ];
     // Já existe uma manicure das 6:00 às 6:40 nesse dia.
-    db.appointments.push({ id: 'colado-1', client_phone: '', status: 'confirmado', starts_at: `${day} 06:00`, ends_at: `${day} 06:40`,
-      data: { id: 'colado-1', createdAt: new Date().toISOString(), clientName: 'Primeira', clientPhone: '', serviceName: 'Manicure tradicional', price: 30, duration: 40, date: day, time: '06:00', status: 'confirmado' } });
+    db.appointments.push({
+      id: 'colado-1',
+      client_phone: '',
+      status: 'confirmado',
+      starts_at: `${day} 06:00`,
+      ends_at: `${day} 06:40`,
+      data: {
+        id: 'colado-1',
+        createdAt: new Date().toISOString(),
+        clientName: 'Primeira',
+        clientPhone: '',
+        serviceName: 'Manicure tradicional',
+        price: 30,
+        duration: 40,
+        date: day,
+        time: '06:00',
+        status: 'confirmado',
+      },
+    });
     await p.goto(home, { waitUntil: 'networkidle' });
     await wait(2000);
     // Ajustes mostra a opção 0 min marcada e a explicação.
@@ -974,15 +1187,45 @@ const site = http.createServer((req, res) =>
   });
 
   await test('agenda organizada em Semana e nos meses pelo nome (ex.: Novembro, Dezembro)', async () => {
-    const home = `http://localhost:${site.address().port}/`;
-    const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+    const home = `http://localhost:${site.address().port}${SITE_PATH}`;
+    const MESES = [
+      'janeiro',
+      'fevereiro',
+      'março',
+      'abril',
+      'maio',
+      'junho',
+      'julho',
+      'agosto',
+      'setembro',
+      'outubro',
+      'novembro',
+      'dezembro',
+    ];
     const now = new Date();
     const [esteMes, proximo] = [0, 1].map((k) => MESES[(now.getMonth() + k) % 12]);
     // Um horário no dia 15 do próximo mês, para aparecer no calendário.
     const y = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear();
     const day15 = `${y}-${String(((now.getMonth() + 1) % 12) + 1).padStart(2, '0')}-15`;
-    db.appointments.push({ id: 'mes-15', client_phone: '', status: 'confirmado', starts_at: `${day15} 10:00`, ends_at: `${day15} 11:00`,
-      data: { id: 'mes-15', createdAt: new Date().toISOString(), clientName: 'Cliente do dia 15', clientPhone: '', serviceName: 'Pedicure', price: 30, duration: 60, date: day15, time: '10:00', status: 'confirmado' } });
+    db.appointments.push({
+      id: 'mes-15',
+      client_phone: '',
+      status: 'confirmado',
+      starts_at: `${day15} 10:00`,
+      ends_at: `${day15} 11:00`,
+      data: {
+        id: 'mes-15',
+        createdAt: new Date().toISOString(),
+        clientName: 'Cliente do dia 15',
+        clientPhone: '',
+        serviceName: 'Pedicure',
+        price: 30,
+        duration: 60,
+        date: day15,
+        time: '10:00',
+        status: 'confirmado',
+      },
+    });
     await p.goto(home, { waitUntil: 'networkidle' });
     await wait(1500);
     await R.getByRole('button', { name: 'Agenda' }).last().click();
@@ -1039,7 +1282,9 @@ const site = http.createServer((req, res) =>
     assert.deepEqual(db.settings[0].data.releasedMonths, []);
     db.settings = [];
     await wait(500);
-    await R.getByText(new RegExp(`15 de ${proximo}$`)).first().waitFor();
+    await R.getByText(new RegExp(`15 de ${proximo}$`))
+      .first()
+      .waitFor();
     await R.getByText('Cliente do dia 15', { exact: false }).first().waitFor();
     await shot('28-agenda-proximo-mes');
     db.appointments = db.appointments.filter((a) => a.id !== 'mes-15');
@@ -1050,9 +1295,16 @@ const site = http.createServer((req, res) =>
     const cdp = await p.context().newCDPSession(p);
     await cdp.send('WebAuthn.enable');
     const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
-      options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+      options: {
+        protocol: 'ctap2',
+        transport: 'internal',
+        hasResidentKey: true,
+        hasUserVerification: true,
+        isUserVerified: true,
+        automaticPresenceSimulation: true,
+      },
     });
-    const home = `http://localhost:${site.address().port}/`;
+    const home = `http://localhost:${site.address().port}${SITE_PATH}`;
     await p.goto(home, { waitUntil: 'networkidle' });
     await wait(1500);
     await R.getByLabel('Ajustes').first().click();
@@ -1091,7 +1343,10 @@ const site = http.createServer((req, res) =>
     assert.equal(await p.evaluate(() => localStorage.getItem('cores:biometria:v1')), null);
     // Sair desconecta só este aparelho: a profissional continua logada nos outros celulares.
     assert.ok(logouts.length >= 2, 'houve saídas no teste');
-    assert.ok(logouts.every((scope) => scope === 'local'), `todas as saídas só deste aparelho: ${logouts.join(', ')}`);
+    assert.ok(
+      logouts.every((scope) => scope === 'local'),
+      `todas as saídas só deste aparelho: ${logouts.join(', ')}`,
+    );
   });
 
   await browser.close();

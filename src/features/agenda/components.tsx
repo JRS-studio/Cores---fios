@@ -20,6 +20,7 @@ export function DateStrip({
   showMonths = false,
   counts = {},
   workDays,
+  blockedDays = [],
 }: {
   selected: string;
   onSelect: (date: string) => void;
@@ -31,6 +32,8 @@ export function DateStrip({
   showMonths?: boolean;
   counts?: Record<string, number>;
   workDays: number[];
+  // Dias inteiros bloqueados pela profissional (folga avulsa, feriado…): aparecem fechados.
+  blockedDays?: string[];
 }) {
   const ref = useRef<ComponentRef<typeof ScrollView>>(null);
   const start = addDays(today(), -daysBefore);
@@ -56,7 +59,8 @@ export function DateStrip({
     >
       {days.map((d) => {
         const active = d === selected;
-        const closed = !workDays.includes(weekdayOf(d));
+        const blocked = blockedDays.includes(d);
+        const closed = !workDays.includes(weekdayOf(d)) || blocked;
         const date = fromISODate(d);
         return (
           <Pressable
@@ -65,14 +69,18 @@ export function DateStrip({
             style={[styles.day, active && styles.dayActive, closed && !active && styles.dayClosed]}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
-            accessibilityLabel={`${WEEKDAYS_SHORT[date.getDay()]} ${date.getDate()}${closed ? ', fechado' : ''}`}
+            accessibilityLabel={`${WEEKDAYS_SHORT[date.getDay()]} ${date.getDate()}${blocked ? ', bloqueado' : closed ? ', fechado' : ''}`}
           >
             <Text style={[styles.dayName, active && styles.dayTextActive]}>{d === today() ? 'hoje' : WEEKDAYS_SHORT[date.getDay()]}</Text>
             <Text style={[styles.dayNumber, active && styles.dayTextActive]}>{date.getDate()}</Text>
             <View style={styles.dots}>
-              {Array.from({ length: Math.min(counts[d] ?? 0, 3) }, (_, i) => (
-                <View key={i} style={[styles.dot, active && { backgroundColor: colors.roseGoldLight }]} />
-              ))}
+              {blocked ? (
+                <Ionicons name="lock-closed" size={10} color={active ? colors.roseGoldLight : colors.muted} />
+              ) : (
+                Array.from({ length: Math.min(counts[d] ?? 0, 3) }, (_, i) => (
+                  <View key={i} style={[styles.dot, active && { backgroundColor: colors.roseGoldLight }]} />
+                ))
+              )}
             </View>
           </Pressable>
         );

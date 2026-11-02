@@ -11,7 +11,7 @@ import { DayGrid } from '@/features/agenda/DayGrid';
 import { DatePicker } from '@/features/agenda/DatePicker';
 import { useSession } from '@/features/session/SessionContext';
 import { useClients } from '@/features/clients/ClientsContext';
-import { isDayBlocked, useSettings } from '@/features/settings/SettingsContext';
+import { blockedDates, isDayBlocked, useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
 import { formatDayMonth, formatLongDate, MONTHS, monthKey, shiftMonth, today, weekdayOf } from '@/utils/date';
 import { brl } from '@/utils/format';
@@ -112,6 +112,7 @@ export default function AgendaScreen() {
         months={[thisMonth, nextMonth]}
         workDays={settings.workDays}
         counts={counts}
+        blockedDays={blockedDates(settings)}
         minDate={todayIso}
         lockedMonths={canManage && !nextReleased ? [nextMonth] : []}
       />

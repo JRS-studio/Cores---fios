@@ -178,4 +178,7 @@ export function unavailableOn(settings: Settings, date: string): Unavailable[] {
 
 export const isDayBlocked = (settings: Settings, date: string) => settings.blocks.some((b) => b.date === date && b.allDay);
 
+// Dias inteiros bloqueados (folga avulsa, feriado…): aparecem fechados no calendário.
+export const blockedDates = (settings: Settings): string[] => settings.blocks.filter((b) => b.allDay).map((b) => b.date);
+
 export const instagramUrl = (handle: string) => `https://www.instagram.com/${handle.replace(/^@/, '').trim()}/`;

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, fonts, radius } from '@/theme';
@@ -10,6 +11,7 @@ export function MonthCalendar({
   onSelect,
   counts = {},
   workDays,
+  blockedDays = [],
   minDate,
   maxDate,
   lockOutside = false,
@@ -19,6 +21,8 @@ export function MonthCalendar({
   onSelect: (date: string) => void;
   counts?: Record<string, number>;
   workDays: number[];
+  // Dias inteiros bloqueados pela profissional (folga avulsa, feriado…): aparecem fechados.
+  blockedDays?: string[];
   // Dias antes desta data aparecem apagados (já passaram).
   minDate?: string;
   // Até este dia (depois dele, apagado).
@@ -50,7 +54,8 @@ export function MonthCalendar({
             const active = d === selected;
             const past = (!!minDate && d < minDate) || (!!maxDate && d > maxDate);
             const locked = lockOutside && past;
-            const closed = !workDays.includes(weekdayOf(d));
+            const blocked = blockedDays.includes(d);
+            const closed = !workDays.includes(weekdayOf(d)) || blocked;
             const n = counts[d] ?? 0;
             return (
               <Pressable
@@ -60,13 +65,19 @@ export function MonthCalendar({
                 style={[styles.cell, styles.day, active && styles.dayActive, (past || closed) && !active && styles.dayMuted]}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
-                accessibilityLabel={`${Number(d.slice(8))} de ${name}${n ? `, ${n} ${n === 1 ? 'horário' : 'horários'}` : ''}${closed ? ', fechado' : ''}`}
+                accessibilityLabel={`${Number(d.slice(8))} de ${name}${n ? `, ${n} ${n === 1 ? 'horário' : 'horários'}` : ''}${
+                  blocked ? ', bloqueado' : closed ? ', fechado' : ''
+                }`}
               >
                 <Text style={[styles.number, d === todayIso && styles.today, active && styles.textActive]}>{Number(d.slice(8))}</Text>
                 <View style={styles.dots}>
-                  {Array.from({ length: Math.min(n, 3) }, (_, k) => (
-                    <View key={k} style={[styles.dot, active && { backgroundColor: colors.roseGoldLight }]} />
-                  ))}
+                  {blocked ? (
+                    <Ionicons name="lock-closed" size={9} color={active ? colors.roseGoldLight : colors.muted} />
+                  ) : (
+                    Array.from({ length: Math.min(n, 3) }, (_, k) => (
+                      <View key={k} style={[styles.dot, active && { backgroundColor: colors.roseGoldLight }]} />
+                    ))
+                  )}
                 </View>
               </Pressable>
             );

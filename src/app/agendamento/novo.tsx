@@ -14,7 +14,7 @@ import { newBookingWhatsApp } from '@/features/agenda/whatsapp';
 import { roundCents, useCashback } from '@/features/cashback/CashbackContext';
 import { useClients } from '@/features/clients/ClientsContext';
 import { useSession } from '@/features/session/SessionContext';
-import { isReleasedTime, monthOpenForClients, releasedSlots, serviceIn, useSettings } from '@/features/settings/SettingsContext';
+import { blockedDates, isDayBlocked, isReleasedTime, monthOpenForClients, releasedSlots, serviceIn, useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
 import { newId } from '@/utils/id';
 import { addDays, formatLongDate, lastBookableDate, MONTHS, monthKey, shiftMonth, today } from '@/utils/date';
@@ -377,6 +377,7 @@ export default function NovoAgendamentoScreen() {
           months={bookingMonths}
           lockedMonths={clientMode ? bookingMonths.filter((m) => !monthOpenForClients(settings, `${m}-01`)) : []}
           workDays={settings.workDays}
+          blockedDays={blockedDates(settings)}
           minDate={today()}
           maxDate={lastDate}
           lockOutside
@@ -388,9 +389,11 @@ export default function NovoAgendamentoScreen() {
             <Text style={styles.muted}>
               {monthClosed
                 ? `A agenda de ${MONTHS[Number(date.slice(5, 7)) - 1]} ainda não foi liberada por ${settings.professionalName}. Escolha um dia deste mês ou volte mais tarde.`
-                : settings.workDays.includes(new Date(date + 'T12:00').getDay())
-                  ? 'Sem horários livres neste dia.'
-                  : 'Studio fechado neste dia.'}
+                : isDayBlocked(settings, date)
+                  ? 'Studio fechado neste dia.'
+                  : settings.workDays.includes(new Date(date + 'T12:00').getDay())
+                    ? 'Sem horários livres neste dia.'
+                    : 'Studio fechado neste dia.'}
             </Text>
           ) : (
             <View style={styles.slots}>

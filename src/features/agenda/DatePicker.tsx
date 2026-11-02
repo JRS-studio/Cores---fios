@@ -20,6 +20,7 @@ export function DatePicker({
   months,
   workDays,
   counts = {},
+  blockedDays = [],
   minDate,
   maxDate,
   lockOutside = false,
@@ -31,6 +32,8 @@ export function DatePicker({
   months: string[];
   workDays: number[];
   counts?: Record<string, number>;
+  // Dias inteiros bloqueados pela profissional (folga avulsa, feriado…): aparecem fechados.
+  blockedDays?: string[];
   minDate?: string;
   maxDate?: string;
   // Ao agendar: dias que já passaram ou depois do limite não podem ser escolhidos.
@@ -91,6 +94,7 @@ export function DatePicker({
           until={stripEnd}
           counts={counts}
           workDays={workDays}
+          blockedDays={blockedDays}
         />
       ) : (
         <View style={styles.gutter}>
@@ -100,6 +104,7 @@ export function DatePicker({
             onSelect={onSelect}
             counts={counts}
             workDays={workDays}
+            blockedDays={blockedDays}
             minDate={minDate}
             maxDate={maxDate}
             lockOutside={lockOutside}

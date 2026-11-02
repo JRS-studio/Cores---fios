@@ -8,7 +8,7 @@ import { isActive, useAppointments } from '@/features/agenda/AppointmentsContext
 import { DateStrip } from '@/features/agenda/components';
 import { keepRecent } from '@/features/agenda/DayGrid';
 import { useSession } from '@/features/session/SessionContext';
-import { useSettings } from '@/features/settings/SettingsContext';
+import { blockedDates, useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts } from '@/theme';
 import { formatLongDate, today, toMinutes } from '@/utils/date';
 import { newId } from '@/utils/id';
@@ -68,7 +68,15 @@ function BloqueioContent() {
           <ScreenHeader title="Bloquear horário" subtitle="As clientes não conseguem marcar nesse período" />
           <SectionTitle>Dia</SectionTitle>
         </View>
-        <DateStrip selected={date} onSelect={setDate} daysBefore={0} daysAfter={90} counts={{}} workDays={settings.workDays} />
+        <DateStrip
+          selected={date}
+          onSelect={setDate}
+          daysBefore={0}
+          daysAfter={90}
+          counts={{}}
+          workDays={settings.workDays}
+          blockedDays={blockedDates(settings)}
+        />
         <View style={styles.gutter}>
           <Text style={styles.dateText}>{formatLongDate(date)}</Text>
 

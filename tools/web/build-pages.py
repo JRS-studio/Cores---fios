@@ -24,7 +24,7 @@ OUT = ROOT / "dist-pages"
 # publique com:  SITE_BASE= SITE_URL=https://coresefios.github.io python3 tools/web/build-pages.py
 # SITE_BASE vazio ("") = site na raiz; senão é o subcaminho (ex.: "/Cores---fios"), sempre começando com "/".
 BASE = os.environ.get("SITE_BASE", "/Cores---fios").rstrip("/")
-SITE = os.environ.get("SITE_URL", f"https://jefersonroodrigo-cmyk.github.io{BASE}").rstrip("/")
+SITE = os.environ.get("SITE_URL", f"https://jrs-studio.github.io{BASE}").rstrip("/")
 # Versão desta publicação (data e hora): muda a cada vez que o site é gerado.
 VERSION = time.strftime("%Y%m%d%H%M%S")
 

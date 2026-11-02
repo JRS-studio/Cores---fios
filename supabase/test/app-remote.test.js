@@ -1160,13 +1160,6 @@ const site = http.createServer((req, res) => {
     });
     await p.goto(home, { waitUntil: 'networkidle' });
     await wait(2000);
-    // Ajustes mostra a opção 0 min marcada e a explicação.
-    await R.getByLabel('Ajustes').first().click();
-    await wait(800);
-    await R.getByText('0 min', { exact: true }).waitFor();
-    await R.getByText(/Horários colados/).waitFor();
-    await p.goto(home, { waitUntil: 'networkidle' });
-    await wait(1500);
     await R.getByText('Agendar', { exact: true }).first().click();
     await wait(800);
     await R.getByText('Nova / avulsa').click();

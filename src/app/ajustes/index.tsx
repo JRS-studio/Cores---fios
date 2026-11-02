@@ -10,7 +10,7 @@ import { RemindersCard } from '@/features/reminders/RemindersCard';
 import { BiometricToggle } from '@/features/session/BiometricLock';
 import { ClientLink } from '@/features/session/ClientLink';
 import { useSession } from '@/features/session/SessionContext';
-import { useSettings } from '@/features/settings/SettingsContext';
+import { SLOT_STEPS, useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
 import { WEEKDAYS_SHORT } from '@/utils/date';
 import { formatPhone, isValidPhone, onlyDigits } from '@/utils/format';
@@ -30,7 +30,13 @@ export default function AjustesScreen() {
   const insets = useSafeAreaInsets();
   const { settings, saveSettings } = useSettings();
   const { remote, role, phone, canManage, signOut } = useSession();
-  const [form, setForm] = useState({ ...settings, monthlyGoal: String(settings.monthlyGoal), whatsapp: formatPhone(settings.whatsapp), instagram: settings.instagram });
+  const [form, setForm] = useState({
+    ...settings,
+    slotStep: SLOT_STEPS.includes(settings.slotStep) ? settings.slotStep : 30,
+    monthlyGoal: String(settings.monthlyGoal),
+    whatsapp: formatPhone(settings.whatsapp),
+    instagram: settings.instagram,
+  });
   const [tried, setTried] = useState(false);
   const [saved, setSaved] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -196,17 +202,13 @@ export default function AjustesScreen() {
               }}
             />
             {tried && errors.workDays && <Text style={styles.error}>{errors.workDays}</Text>}
-            <Text style={styles.label}>Intervalo entre horários</Text>
+            <Text style={styles.label}>Intervalo de agenda</Text>
             <Chips
-              options={[0, 15, 30, 40, 60].map((m) => ({ id: String(m), label: `${m} min` }))}
+              options={SLOT_STEPS.map((m) => ({ id: String(m), label: `${m} min` }))}
               selected={[String(form.slotStep)]}
               onToggle={(id) => set('slotStep', Number(id))}
             />
-            <Text style={styles.hint}>
-              {form.slotStep === 0
-                ? 'Horários colados: o próximo atendimento começa assim que o anterior termina, sem espaço entre eles.'
-                : `Os horários aparecem de ${form.slotStep} em ${form.slotStep} minutos.`}
-            </Text>
+            <Text style={styles.hint}>Os horários aparecem de {form.slotStep} em {form.slotStep} minutos.</Text>
 
             <Button
               label={saved ? 'Ajustes salvos' : 'Salvar ajustes'}

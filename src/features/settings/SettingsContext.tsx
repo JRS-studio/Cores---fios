@@ -131,6 +131,9 @@ export function usePremiumBenefits() {
 export const serviceIn = (settings: Settings, id?: string) => settings.services.find((s) => s.id === id);
 
 // Horários liberados para a cliente naquele dia (null = todos os livres).
+// Intervalos oferecidos na agenda (minutos entre um horário e outro). A profissional escolhe nos Ajustes.
+export const SLOT_STEPS = [15, 30, 40, 60];
+
 // Passo da grade de horários das telas de ajuste e da agenda do dia (com 0 min, a grade usa 15 min).
 export const gridStep = (settings: Settings) => (settings.slotStep > 0 ? settings.slotStep : 15);
 

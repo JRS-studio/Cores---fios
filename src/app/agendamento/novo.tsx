@@ -58,6 +58,8 @@ export default function NovoAgendamentoScreen() {
   const [useCashbackBalance, setUseCashbackBalance] = useState(!!editing?.cashbackUse);
   // Com saldo e sem ter marcado, o app pergunta antes de confirmar.
   const [askCashback, setAskCashback] = useState(false);
+  // Valores mostrados na pergunta, guardados ao abrir (ao salvar, o saldo muda e a janela ainda está sumindo).
+  const [ask, setAsk] = useState({ available: 0, use: 0, price: 0 });
   const [tried, setTried] = useState(false);
 
   const isWalkIn = !clientMode && walkIn;
@@ -121,6 +123,7 @@ export default function NovoAgendamentoScreen() {
     setTried(true);
     if (!valid || !time) return;
     if (available > 0 && priceValue > 0 && !useCashbackBalance) {
+      setAsk({ available, use: cashbackFor(true), price: priceValue });
       setAskCashback(true);
       return;
     }
@@ -420,13 +423,13 @@ export default function NovoAgendamentoScreen() {
                 <Ionicons name="wallet-outline" size={26} color={colors.wine} />
               </View>
               <Text style={styles.askTitle}>
-                {clientMode ? `Você tem ${brl(available)} de cashback` : `${client?.name.split(' ')[0]} tem ${brl(available)} de cashback`}
+                {clientMode ? `Você tem ${brl(ask.available)} de cashback` : `${client?.name.split(' ')[0]} tem ${brl(ask.available)} de cashback`}
               </Text>
               <Text style={styles.askText}>
                 {clientMode ? 'Quer usar neste agendamento?' : 'Usar neste agendamento?'} Com o cashback, fica{' '}
-                {brl(roundCents(priceValue - cashbackFor(true)))} em vez de {brl(priceValue)}.
+                {brl(roundCents(ask.price - ask.use))} em vez de {brl(ask.price)}.
               </Text>
-              <Button label={`Usar ${brl(cashbackFor(true))} de cashback`} icon="checkmark-circle-outline" onPress={() => save(true)} />
+              <Button label={`Usar ${brl(ask.use)} de cashback`} icon="checkmark-circle-outline" onPress={() => save(true)} />
               <Button label="Agora não, guardar o saldo" variant="secondary" onPress={() => save(false)} />
             </View>
           </View>

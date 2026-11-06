@@ -27,7 +27,7 @@ export function PremiumHomeCard() {
 
   const perks = [
     cashbackPercent > 0 ? `${formatPercent(cashbackPercent)} de cashback em todo atendimento` : null,
-    birthdayDiscount > 0 ? `${birthdayDiscount}% de desconto no mês do aniversário` : null,
+    birthdayDiscount > 0 ? `${birthdayDiscount}% de desconto na semana do aniversário` : null,
   ].filter(Boolean);
 
   return (

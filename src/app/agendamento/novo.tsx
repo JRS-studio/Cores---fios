@@ -17,9 +17,10 @@ import { useSession } from '@/features/session/SessionContext';
 import { blockedDates, isDayBlocked, isReleasedTime, monthOpenForClients, releasedSlots, serviceIn, useSettings } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius } from '@/theme';
 import { newId } from '@/utils/id';
-import { addDays, formatLongDate, lastBookableDate, MONTHS, monthKey, shiftMonth, today } from '@/utils/date';
+import { addDays, formatDayMonth, formatLongDate, lastBookableDate, MONTHS, monthKey, shiftMonth, today } from '@/utils/date';
 import { brl, formatPhone, initials, isValidPhone, onlyDigits, parseDate } from '@/utils/format';
 import { openExternal } from '@/utils/openExternal';
+import { birthdayWeekContaining } from '@/data/loyalty';
 
 // Horário antigo com um serviço fora da lista (mantém nome, duração e valor que já tinha).
 const CUSTOM = 'personalizado';
@@ -86,9 +87,10 @@ export default function NovoAgendamentoScreen() {
   const { availableOf } = useCashback();
   const available = !isWalkIn && client ? availableOf(client.phone, editing?.id) : 0;
   const birthday = client?.plan === 'premium' && client.birthDate ? parseDate(client.birthDate) : null;
-  const birthdayMonth = !!birthday && birthday.getMonth() === new Date(date + 'T12:00').getMonth();
-  // Cliente Premium no mês do aniversário: o desconto (o mesmo para todas, em Ajustes) entra sozinho.
-  const birthdayDiscount = birthdayMonth ? LOYALTY.birthdayDiscount : 0;
+  // Cliente Premium na semana do aniversário (segunda a domingo, pela data do horário): o desconto
+  // (o mesmo para todas, em Ajustes) entra sozinho.
+  const birthdayWeek = birthday ? birthdayWeekContaining(birthday, date) : null;
+  const birthdayDiscount = birthdayWeek ? LOYALTY.birthdayDiscount : 0;
   const fullPrice = Number(price.replace(',', '.')) || 0;
   const priceValue = birthdayDiscount > 0 ? roundCents(fullPrice * (1 - birthdayDiscount / 100)) : fullPrice;
   const cashbackFor = (use: boolean) => (use && available > 0 ? roundCents(Math.min(available, priceValue)) : 0);
@@ -341,7 +343,8 @@ export default function NovoAgendamentoScreen() {
             <View style={styles.birthday}>
               <Ionicons name="gift-outline" size={18} color={colors.wine} />
               <Text style={styles.birthdayText}>
-                Mês de aniversário: {birthdayDiscount}% de desconto aplicado. De {brl(fullPrice)} por {brl(priceValue)}.
+                Semana do aniversário ({formatDayMonth(birthdayWeek!.start)} a {formatDayMonth(birthdayWeek!.end)}): {birthdayDiscount}% de
+                desconto aplicado. De {brl(fullPrice)} por {brl(priceValue)}.
               </Text>
             </View>
           )}

@@ -76,7 +76,7 @@ function PremiumContent() {
           error={tried ? errors.cashbackPercent : null}
         />
 
-        <SectionTitle hint="Vale para todas as clientes Premium que informaram a data de nascimento, em qualquer serviço marcado no mês do aniversário. Entra sozinho no agendamento e o atendimento também gera cashback. Use 0 para desligar.">
+        <SectionTitle hint="Vale para todas as clientes Premium que informaram a data de nascimento, em qualquer serviço marcado na semana do aniversário (de segunda a domingo). Entra sozinho no agendamento e o atendimento também gera cashback. Use 0 para desligar.">
           Desconto de aniversário
         </SectionTitle>
         <Field

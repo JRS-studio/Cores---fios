@@ -292,6 +292,9 @@ await test('lembretes: cliente ativa no próprio número; outra não vê; visita
 await test('lembretes: só o servidor lista os horários da próxima hora e marca como enviados', async () => {
   assert.ok(await fails(ana, `select * from due_reminders()`));
   assert.ok(await fails(ana, `select mark_reminded(array['x'])`));
+  // Os outros testes usam datas fixas; tira o que cair nas próximas horas para o teste valer em qualquer dia.
+  await as(owner, `delete from appointments where starts_at < (now() at time zone 'America/Sao_Paulo') + interval '5 hours'
+    and ends_at > (now() at time zone 'America/Sao_Paulo') - interval '1 hour'`);
   await as(owner, `insert into appointments (id, client_phone, status, starts_at, ends_at, data) values
     ('lemb1', '5511987654321', 'confirmado', (now() at time zone 'America/Sao_Paulo') + interval '40 minutes', (now() at time zone 'America/Sao_Paulo') + interval '100 minutes', '{"serviceName":"Gel"}'),
     ('lemb2', '5511987654321', 'confirmado', (now() at time zone 'America/Sao_Paulo') + interval '3 hours', (now() at time zone 'America/Sao_Paulo') + interval '4 hours', '{}')`);

@@ -244,7 +244,7 @@ export default function CadastroScreen() {
                   placeholder="DD/MM/AAAA"
                   keyboardType="number-pad"
                   error={showError('birthDate')}
-                  helper={`Você ganha ${LOYALTY.birthdayDiscount}% de desconto no mês do aniversário.`}
+                  helper={`Você ganha ${LOYALTY.birthdayDiscount}% de desconto na semana do aniversário.`}
                 />
                 <Field
                   label="Endereço"
@@ -425,7 +425,7 @@ export default function CadastroScreen() {
               <Text style={styles.upsellText}>
                 {LOYALTY.cashbackPercent > 0
                   ? `Ganhe ${formatPercent(LOYALTY.cashbackPercent)} de cashback em todo atendimento para usar nos próximos.`
-                  : `${LOYALTY.birthdayDiscount}% de desconto no mês do aniversário e preferências salvas.`}
+                  : `${LOYALTY.birthdayDiscount}% de desconto na semana do aniversário e preferências salvas.`}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.wine} />

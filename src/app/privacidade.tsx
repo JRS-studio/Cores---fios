@@ -35,7 +35,7 @@ export default function PrivacidadeScreen() {
       title: 'Para que usamos',
       body: [
         'Agendar, confirmar e lembrar seus horários pelo WhatsApp.',
-        'Programa de fidelidade: selos, prêmios e desconto no mês do aniversário.',
+        'Programa de fidelidade: selos, prêmios e desconto na semana do aniversário.',
         'Sua segurança no atendimento, consultando alergias e cuidados antes de começar.',
         'Organização financeira do studio e exibição das avaliações e publicações no feed do app.',
       ],

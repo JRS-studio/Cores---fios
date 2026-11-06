@@ -65,8 +65,8 @@ const page = fs.readFileSync(path.join(DIST, 'cores-e-fios-teste.html'));
     await R.getByText('Horário', { exact: true }).waitFor(); await shot('04-novo-agendamento'); await back();
   });
   await step('Financeiro', async () => { await tab('Financeiro'); await R.getByText('Previsto a receber').waitFor(); await R.getByText('A receber dos horários marcados').waitFor(); await shot('05-financeiro');
-    await R.getByText('Semana', { exact: true }).click(); await p.waitForTimeout(300); await shot('05b-financeiro-semana');
-    await R.getByText('Mês', { exact: true }).click(); });
+    await R.getByRole('tab', { name: 'Semana', exact: true }).last().click(); await p.waitForTimeout(300); await shot('05b-financeiro-semana');
+    await R.getByRole('tab', { name: 'Mês', exact: true }).last().click(); });
   await step('Cadastro rápido com código do WhatsApp', async () => {
     await tab('Clientes');
     await R.getByText('Cadastro rápido', { exact: true }).click(); await p.waitForTimeout(500);
@@ -104,7 +104,7 @@ const page = fs.readFileSync(path.join(DIST, 'cores-e-fios-teste.html'));
     await R.getByLabel('Cashback (%)').fill('2');
     await R.getByText('2% de cashback em todo atendimento pago', { exact: false }).waitFor();
     await R.getByLabel('Desconto no aniversário (%)').fill('20');
-    await R.getByText('20% de desconto no mês do aniversário').waitFor();
+    await R.getByText('20% de desconto na semana do aniversário').waitFor();
     await R.getByText('Salvar benefícios').click(); await R.getByText('Benefícios salvos').waitFor(); await shot('12-premium'); await back(); await back();
   });
   await step('Avaliação aparece no feed', async () => {

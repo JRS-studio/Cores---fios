@@ -638,13 +638,13 @@ const site = http.createServer((req, res) => {
   await test('aniversário: Premium ganha o desconto sozinho no agendamento e o atendimento gera cashback', async () => {
     const home = `http://localhost:${site.address().port}${SITE_PATH}`;
     const PHONE = '5511955550000';
-    // Próximo dia útil; o aniversário da Paula fica no mês desse dia.
+    // Próximo dia útil; o aniversário da Paula cai nesse dia (o desconto vale só na semana dele).
     const d = new Date();
     do d.setDate(d.getDate() + 1);
     while (d.getDay() === 0 || d.getDay() === 6);
     const pad = (n) => String(n).padStart(2, '0');
     const paula = db.clients.find((c) => c.phone === PHONE);
-    paula.data = { ...paula.data, birthDate: `10/${pad(d.getMonth() + 1)}/1990` };
+    paula.data = { ...paula.data, birthDate: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/1990` };
 
     await p.goto(home, { waitUntil: 'networkidle' });
     await wait(1500);
@@ -655,9 +655,9 @@ const site = http.createServer((req, res) => {
     await R.getByText('Agendar horário').first().click();
     await wait(800);
     await R.getByText('Esmaltação em gel', { exact: true }).last().click();
-    await R.getByText(/15% de desconto aplicado\. De R\$\s?70(,00)? por R\$\s?59,50/).waitFor();
     await pickDate(R, d);
     await wait(500);
+    await R.getByText(/15% de\s+desconto aplicado\. De R\$\s?70(,00)? por R\$\s?59,50/).waitFor();
     await R.getByText('16:00', { exact: true }).last().click();
     await shot('13-aniversario');
     await R.getByText('Confirmar agendamento').click();

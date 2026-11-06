@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, ScreenHeader } from '@/components/ui';
 import { polishById, shapeById } from '@/data/catalog';
-import { formatPercent } from '@/data/loyalty';
+import { birthdayWeekContaining, formatPercent } from '@/data/loyalty';
 import { CashbackCard } from '@/features/cashback/CashbackCard';
 import { useAppointments } from '@/features/agenda/AppointmentsContext';
 import { StatusChip } from '@/features/agenda/components';
@@ -19,7 +19,7 @@ import { CODE_BY_WHATSAPP } from '@/features/verification/whatsappCode';
 import { CONTACT_CHANNELS, LENGTHS } from '@/features/clients/types';
 import { useLoyalty } from '@/features/settings/SettingsContext';
 import { colors, fonts, radius, shadow } from '@/theme';
-import { formatDayMonth } from '@/utils/date';
+import { formatDayMonth, today } from '@/utils/date';
 import { brl, formatPhone, formatShortDate, initials, parseDate } from '@/utils/format';
 
 const welcome = (cashbackPercent: number): Record<string, string> => ({
@@ -59,7 +59,7 @@ export default function ClienteScreen() {
     .filter((a) => a.clientId === client.id)
     .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
   const birthday = client.birthDate ? parseDate(client.birthDate) : null;
-  const birthdayMonth = !!birthday && birthday.getMonth() === new Date().getMonth();
+  const birthdayWeek = birthday ? birthdayWeekContaining(birthday, today()) : null;
 
   return (
     <ScrollView
@@ -103,7 +103,7 @@ export default function ClienteScreen() {
           <Text style={styles.upgradeTitle}>Ganhe vantagens com o Premium</Text>
           <Text style={styles.upgradeText}>
             {LOYALTY.cashbackPercent > 0 ? `${formatPercent(LOYALTY.cashbackPercent)} de cashback em todo atendimento pago, ` : ''}
-            {LOYALTY.birthdayDiscount}% no mês do aniversário e preferências salvas. Os dados atuais são aproveitados.
+            {LOYALTY.birthdayDiscount}% na semana do aniversário e preferências salvas. Os dados atuais são aproveitados.
           </Text>
           <Button
             label="Virar Premium"
@@ -114,11 +114,12 @@ export default function ClienteScreen() {
         </View>
       )}
 
-      {premium && birthdayMonth && (
+      {premium && birthdayWeek && LOYALTY.birthdayDiscount > 0 && (
         <View style={styles.birthday}>
           <Ionicons name="gift-outline" size={22} color={colors.wine} />
           <Text style={styles.birthdayText}>
-            Mês de aniversário! {LOYALTY.birthdayDiscount}% de desconto em qualquer serviço até o fim do mês.
+            Semana de aniversário! {LOYALTY.birthdayDiscount}% de desconto em qualquer serviço até{' '}
+            {formatDayMonth(birthdayWeek.end)}.
           </Text>
         </View>
       )}

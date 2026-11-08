@@ -169,8 +169,8 @@ export default function AgendamentoScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.service}>{a.serviceName}</Text>
             <Text style={styles.muted}>
-              {a.time} às {endTime(a)}
-              {canManage ? ` · ${a.duration} min` : ''}
+              {/* A cliente vê só o horário de início; o fim e a duração são da agenda da profissional. */}
+              {canManage ? `${a.time} às ${endTime(a)} · ${a.duration} min` : `Às ${a.time}`}
             </Text>
           </View>
           <StatusChip status={a.status} />

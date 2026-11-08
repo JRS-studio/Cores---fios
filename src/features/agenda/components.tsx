@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, radius, shadow } from '@/theme';
 import { addDays, fromISODate, MONTHS, monthKey, toMinutes, toTime, today, WEEKDAYS_SHORT, weekdayOf } from '@/utils/date';
 import { brl } from '@/utils/format';
+import { useSession } from '@/features/session/SessionContext';
 import { STATUS_LABEL, type Appointment, type AppointmentStatus } from './AppointmentsContext';
 
 const DAY_WIDTH = 58;
@@ -149,11 +150,13 @@ export const endTime = (a: Pick<Appointment, 'time' | 'duration'>) => toTime(toM
 
 export function AppointmentCard({ appointment: a, onPress, alert }: { appointment: Appointment; onPress: () => void; alert?: boolean }) {
   const inactive = a.status === 'cancelado' || a.status === 'faltou';
+  // A cliente vê só o horário de início.
+  const { canManage } = useSession();
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, inactive && { opacity: 0.6 }, pressed && { opacity: 0.85 }]}>
       <View style={styles.timeCol}>
         <Text style={styles.time}>{a.time}</Text>
-        <Text style={styles.timeEnd}>{endTime(a)}</Text>
+        {canManage && <Text style={styles.timeEnd}>{endTime(a)}</Text>}
       </View>
       <View style={styles.cardBody}>
         <View style={styles.cardRow}>

@@ -350,6 +350,9 @@ const site = http.createServer((req, res) => {
     assert.equal(appt.status, 'agendado');
     assert.match(appt.starts_at, / 10:00$/);
     assert.match(appt.ends_at, / 11:00$/);
+    // A cliente vê só o horário de início, nunca o fim do atendimento.
+    await R.getByText('Às 10:00', { exact: true }).filter({ visible: true }).first().waitFor();
+    assert.equal(await R.getByText(/10:00 às 11:00/).filter({ visible: true }).count(), 0);
     await shot('03-agendado');
   });
 

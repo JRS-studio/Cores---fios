@@ -424,7 +424,8 @@ export default function NovoAgendamentoScreen() {
 
           {valid && time && (
             <Text style={styles.summary}>
-              {serviceName} em {formatLongDate(date)}, das {time} às {endTime({ time, duration })} · {brl(priceValue)}
+              {serviceName} em {formatLongDate(date)}, {clientMode ? `às ${time}` : `das ${time} às ${endTime({ time, duration })}`} ·{' '}
+              {brl(priceValue)}
               {cashbackUse > 0 ? ` · cashback −${brl(cashbackUse)} · a pagar ${brl(roundCents(priceValue - cashbackUse))}` : ''}
             </Text>
           )}

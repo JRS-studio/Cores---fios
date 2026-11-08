@@ -30,6 +30,10 @@ const page = fs.readFileSync(path.join(DIST, 'cores-e-fios-teste.html'));
     try { await fn(); console.log(`ok   ${name}`); } catch (e) { await p.screenshot({ path: path.join(PRINTS, 'falha-' + name.slice(0, 20).replace(/\W+/g, '-') + '.png') }).catch(() => {}); errors.push(`${name}: ${e.message.split('\n')[0]}`); console.log(`FALHA ${name}`); }
   };
 
+  // O studio fecha aos domingos e os dados de exemplo não têm horários nesse dia: no domingo, o teste
+  // roda como se fosse a segunda-feira seguinte (o relógio do navegador continua andando).
+  const now = new Date();
+  if (now.getDay() === 0) await p.clock.install({ time: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0) });
   await p.goto(url, { waitUntil: 'networkidle' });
   await p.waitForTimeout(1500);
 

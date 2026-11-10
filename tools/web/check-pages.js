@@ -28,6 +28,10 @@ const server = http.createServer((req, res) => {
   const browser = await chromium.launch({ proxy: proxy && { ...proxy, bypass: 'localhost' } });
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, ignoreHTTPSErrors: true });
   const page = await ctx.newPage();
+  // O app confere se há versão nova no site publicado: aqui responde a versão local (o site real pode estar fora do alcance).
+  await ctx.route(/https:\/\/[^/]+\.github\.io\/.*version\.json/, (r) =>
+    r.fulfill({ contentType: 'application/json', body: fs.readFileSync(path.join(DIST, 'version.json')) }),
+  );
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   // No GitHub Pages, o link direto chega como 404 (o 404.html é o app); qualquer outro 404 é erro.

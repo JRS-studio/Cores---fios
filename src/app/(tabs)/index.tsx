@@ -22,6 +22,7 @@ import { openExternal } from '@/utils/openExternal';
 import { RemindersCard } from '@/features/reminders/RemindersCard';
 import { useNoticeCount } from '@/features/agenda/notices';
 import { PremiumHomeCard } from '@/features/cashback/PremiumHomeCard';
+import { GameHomeCard, GamePinnedPost, GamePromoNotice } from '@/features/game/GamePromo';
 import { InstallCard } from '@/features/install/InstallCard';
 
 type Shortcut = { icon: keyof typeof Ionicons.glyphMap; label: string; a11y?: string; href: Href };
@@ -101,6 +102,7 @@ export default function HomeScreen() {
         </Pressable>
       )}
       <InstallCard />
+      <GameHomeCard />
       {canManage ? <TodayCard /> : phone ? <NextAppointment /> : null}
       <PremiumHomeCard />
       <View style={styles.reminders}>
@@ -120,6 +122,8 @@ export default function HomeScreen() {
           </Pressable>
         ))}
       </View>
+      {filter !== 'avaliacoes' && <GamePinnedPost />}
+      <GamePromoNotice />
     </>
   );
 

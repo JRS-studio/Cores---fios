@@ -44,6 +44,14 @@ const api = http.createServer((req, res) => {
         { notice_id: 8, kind: 'cancelamento', appointment_id: 'n2', data: { clientName: 'Bia', serviceName: 'Manicure', date: '2026-11-06', time: '15:00' }, endpoint: pro, ...sub() },
       ]);
     }
+    if (u.pathname === '/rest/v1/rpc/due_game_announcements') {
+      const c = `https://localhost:${pushPort}/push/clientes`;
+      return send(200, [
+        { campaign_id: 'g1', data: { title: 'Esmalte Express', prize: 'Gel grátis' }, ends_on: '2026-11-15', endpoint: c, ...sub() },
+        { campaign_id: 'g1', data: { title: 'Esmalte Express', prize: 'Gel grátis' }, ends_on: '2026-11-15', endpoint: c, ...sub() },
+      ]);
+    }
+    if (u.pathname === '/rest/v1/rpc/mark_game_announced') { state.gamesMarked = JSON.parse(raw).ids; return send(200, null); }
     if (u.pathname === '/rest/v1/rpc/mark_owner_notified') { state.noticesMarked = JSON.parse(raw).ids; return send(200, null); }
     if (u.pathname === '/rest/v1/rpc/mark_cancel_notified') { state.cancelMarked = JSON.parse(raw).ids; return send(200, null); }
     if (u.pathname === '/rest/v1/rpc/mark_reminded') { state.marked = JSON.parse(raw).ids; return send(200, null); }
@@ -68,7 +76,9 @@ api.listen(0, async () => {
   deno.kill(); api.close(); pushServer.close();
   if (!out) { console.error(log); process.exit(1); }
   console.log('resposta:', out);
-  assert.deepEqual(out, { horarios: 1, enviados: 1, removidos: 1, cancelamentos: 1, pedidos: 2, avisos: 3 });
+  assert.deepEqual(out, { horarios: 1, enviados: 1, removidos: 1, cancelamentos: 1, pedidos: 2, avisos: 3, jogos: 1, promocoes: 2 });
+  assert.deepEqual(state.gamesMarked, ['g1']);
+  assert.equal(state.pushes.filter((p) => p.path === '/push/clientes').length, 2);
   assert.ok(state.config?.public_key && state.config?.private_key, 'chaves VAPID criadas e guardadas');
   assert.deepEqual(state.marked, ['a1']);
   assert.deepEqual(state.deleted, [`eq.https://localhost:${pushPort}/push/gone`]);
@@ -80,5 +90,5 @@ api.listen(0, async () => {
   assert.equal(state.pushes.filter((p) => p.path === '/push/pedidos').length, 2);
   const pro = state.pushes.find((p) => p.path === '/push/pro');
   assert.equal(pro.enc, 'aes128gcm'); assert.equal(pro.ttl, '86400'); assert.ok(pro.len > 100);
-  console.log('ok: chaves criadas, notificação criptografada enviada, inscrição removida (410), lembrete marcado, avisos de pedido de horário e de cancelamento enviados à profissional');
+  console.log('ok: chaves criadas, notificação criptografada enviada, inscrição removida (410), lembrete marcado, avisos de pedido de horário e de cancelamento enviados à profissional, promoção do jogo enviada às clientes uma vez');
 });

@@ -120,3 +120,9 @@ O mês atual fica sempre aberto para as clientes. O seguinte aparece para elas, 
 
 1. **SQL Editor**: cole [`atualizacao-liberar-mes.sql`](atualizacao-liberar-mes.sql) e clique em **Run**.
 
+## Jogo valendo prêmio
+
+Tabelas `game_campaigns` (jogos da profissional) e `game_scores` (maior pontuação de cada cliente). Só a profissional cria e publica; a cliente só pontua para si, com o jogo publicado e dentro das datas, e o ranking público (`game_ranking`) não mostra telefones. A função `lembretes` avisa as clientes com avisos ligados uma vez por jogo, quando ele abre.
+
+1. **SQL Editor**: cole [`atualizacao-jogo.sql`](atualizacao-jogo.sql) e clique em **Run** (só cria coisas novas; pode rodar mais de uma vez).
+2. Publique de novo a função `lembretes`.

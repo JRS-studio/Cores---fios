@@ -132,5 +132,31 @@ Deno.serve(async () => {
   const noticeIds = [...new Set(((notices ?? []) as Notice[]).map((n) => n.notice_id))];
   if (noticeIds.length) await db.rpc('mark_owner_notified', { ids: noticeIds });
 
-  return Response.json({ horarios: ids.length, enviados: sent, removidos: removed, cancelamentos: cancelIds.length, pedidos: noticeIds.length, avisos });
+  // Promoção do jogo valendo prêmio: avisa as clientes com lembretes ativos quando o jogo publicado começa.
+  type Game = { campaign_id: string; data: { title?: string; prize?: string }; ends_on: string; endpoint: string; p256dh: string; auth: string };
+  const { data: games } = await db.rpc('due_game_announcements', { tz: TZ });
+  let promocoes = 0;
+  for (const row of (games ?? []) as Game[]) {
+    const [, m, d] = (row.ends_on ?? '').split('-');
+    const payload = JSON.stringify({
+      title: `${row.data.title ?? 'Esmalte Express'}: jogue e ganhe! 💅`,
+      body: `Prêmio: ${row.data.prize ?? 'surpresa do studio'}. Jogue até ${d}/${m} no app do ${studio} e fique em 1º no ranking.`,
+      url: `${SITE_URL.replace(/\/$/, '')}/jogo`,
+      tag: `jogo-${row.campaign_id}`,
+    });
+    try {
+      await webpush.sendNotification({ endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } }, payload, { TTL: 86400 });
+      promocoes += 1;
+    } catch (e) {
+      const status = (e as { statusCode?: number }).statusCode;
+      if (status === 404 || status === 410) {
+        await db.from('push_subscriptions').delete().eq('endpoint', row.endpoint);
+        removed += 1;
+      }
+    }
+  }
+  const gameIds = [...new Set(((games ?? []) as Game[]).map((g) => g.campaign_id))];
+  if (gameIds.length) await db.rpc('mark_game_announced', { ids: gameIds });
+
+  return Response.json({ horarios: ids.length, enviados: sent, removidos: removed, cancelamentos: cancelIds.length, pedidos: noticeIds.length, avisos, jogos: gameIds.length, promocoes });
 });

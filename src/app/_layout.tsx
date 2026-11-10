@@ -23,6 +23,7 @@ import { CommentsProvider } from '@/features/feed/CommentsContext';
 import { LikesProvider } from '@/features/feed/LikesContext';
 import { PostsProvider } from '@/features/feed/PostsContext';
 import { FinanceProvider } from '@/features/finance/FinanceContext';
+import { GameProvider } from '@/features/game/GameContext';
 // Escuta o aviso de instalação do navegador desde o início (botão "Instalar app").
 import '@/features/install/install';
 import { BiometricLock } from '@/features/session/BiometricLock';
@@ -62,12 +63,14 @@ export default function RootLayout() {
                       <PostsProvider>
                         <CommentsProvider>
                           <LikesProvider>
+                            <GameProvider>
                             <StatusBar style="dark" />
                             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }} />
                             <SyncBanner />
                             <ThemeSync />
                             <BiometricLock />
                             <AutoUpdate />
+                            </GameProvider>
                           </LikesProvider>
                         </CommentsProvider>
                       </PostsProvider>

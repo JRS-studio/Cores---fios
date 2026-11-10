@@ -116,6 +116,7 @@ export default function AjustesScreen() {
                 ['cut-outline', 'Serviços, preços e tempo', '/ajustes/servicos'],
                 ['time-outline', 'Horários liberados e pausas', '/ajustes/horarios'],
                 ['wallet-outline', 'Cashback e benefícios do Premium', '/ajustes/premium'],
+                ['game-controller-outline', 'Jogo valendo prêmio', '/ajustes/jogo'],
               ] as const
             ).map(([icon, label, href], i) => (
               <Pressable key={href} style={[styles.menuRow, i > 0 && styles.menuDivider]} onPress={() => router.push(href)} accessibilityRole="button">

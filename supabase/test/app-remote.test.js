@@ -23,6 +23,8 @@ const db = {
   cashback: [],
   comments: [],
   cancel_requests: [],
+  game_campaigns: [],
+  game_scores: [],
 };
 // Chave pública de envio (VAPID) válida, para o navegador aceitar a inscrição.
 const VAPID = require('crypto').createECDH('prime256v1');
@@ -95,6 +97,13 @@ const api = http.createServer((req, res) => {
     }
     if (p === '/auth/v1/user') return send(200, session?.user ?? {});
     if (p === '/rest/v1/rpc/is_owner') return send(200, !!session?.owner);
+    if (p === '/rest/v1/rpc/game_ranking') {
+      const mine = [...claims].find(([, uid]) => uid === session?.user.id)?.[0];
+      const c = db.game_campaigns.find((x) => x.id === body.p_campaign && (session?.owner || x.status !== 'rascunho'));
+      const ranked = c ? db.game_scores.filter((r) => r.campaign_id === c.id).sort((a, b) => b.best - a.best || a.updated_at.localeCompare(b.updated_at))
+        .map((r, i) => ({ pos: i + 1, name: r.data.name || 'Cliente', best: r.best, mine: !!mine && r.phone === mine })) : [];
+      return send(200, ranked.filter((r) => r.pos <= 5 || r.mine));
+    }
     if (p === '/rest/v1/rpc/vapid_public_key') return send(200, VAPID_PUBLIC);
     if (p === '/rest/v1/rpc/claim_phone') {
       const owner = claims.get(body.p_phone);
@@ -122,10 +131,33 @@ const api = http.createServer((req, res) => {
     const table = p.replace('/rest/v1/', '');
     if (!(table in db)) return send(404, {});
     const myPhone = [...claims].find(([, uid]) => uid === session?.user.id)?.[0];
+    // Jogo: imita game_is_open, a regra de pontuar e o ranking sem telefone do schema.sql.
+    const pad = (n) => String(n).padStart(2, '0');
+    const now = new Date();
+    const todayIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const gameOpen = (id) => db.game_campaigns.some((c) => c.id === id && c.status === 'publicado' && c.starts_on <= todayIso && todayIso <= c.ends_on);
+    if (table === 'game_scores') {
+      if (req.method === 'GET') {
+        const idEq = url.searchParams.get('id')?.replace(/^eq\./, '');
+        const camp = url.searchParams.get('campaign_id')?.replace(/^eq\./, '');
+        const rowsVisible = db.game_scores.filter((r) => (session?.owner || r.phone === myPhone) && (!idEq || r.id === idEq) && (!camp || r.campaign_id === camp));
+        return send(200, rowsVisible.sort((a, b) => b.best - a.best).map((r) => ({ id: r.id, phone: r.phone, best: r.best, data: r.data, updated_at: r.updated_at })));
+      }
+      if (req.method === 'POST') {
+        for (const row of [].concat(body)) {
+          if (!session || !myPhone || !gameOpen(row.campaign_id) || row.best > 100000) return send(403, { code: '42501', message: 'rls' });
+          const prev = db.game_scores.find((r) => r.id === row.id);
+          if (prev && prev.phone !== myPhone) return send(403, { code: '42501', message: 'rls' });
+          db.game_scores = db.game_scores.filter((r) => r.id !== row.id).concat({ ...row, phone: myPhone, user_id: session.user.id, updated_at: new Date().toISOString() });
+        }
+        return send(201, []);
+      }
+    }
     // Imita as regras de acesso do schema.sql no que o teste usa.
     const visible = (row) =>
       session?.owner ||
       ['settings', 'posts', 'likes'].includes(table) ||
+      (table === 'game_campaigns' && row.status !== 'rascunho') ||
       (['feedbacks', 'comments'].includes(table) && (row.approved || row.author_id === session?.user.id)) ||
       (table === 'clients' && row.phone === myPhone) ||
       (['appointments', 'cashback', 'cancel_requests'].includes(table) && row.client_phone === myPhone);
@@ -136,7 +168,7 @@ const api = http.createServer((req, res) => {
       );
     if (req.method === 'POST') {
       for (const row of [].concat(body)) {
-        if (['transactions', 'posts', 'cashback'].includes(table) && !session?.owner) return send(403, { code: '42501', message: 'rls' });
+        if (['transactions', 'posts', 'cashback', 'game_campaigns'].includes(table) && !session?.owner) return send(403, { code: '42501', message: 'rls' });
         if (table === 'feedbacks' || table === 'comments') {
           if (!session) return send(403, { code: '42501', message: 'rls' });
           // Só a profissional publica ou aprova; a cliente envia esperando aprovação.
@@ -189,6 +221,11 @@ const site = http.createServer((req, res) => {
     if (!file.startsWith(SITE_DIR) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(SITE_DIR, 'index.html');
     return res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream' }).end(fs.readFileSync(file));
   }
+  const gameFile = /\/jogo\/(esmalte-express\.html|mao\.jpg)(\?|$)/.exec(req.url);
+  if (gameFile)
+    return res
+      .writeHead(200, { 'Content-Type': gameFile[1].endsWith('.jpg') ? 'image/jpeg' : 'text/html; charset=utf-8' })
+      .end(fs.readFileSync(path.resolve(__dirname, '../../public/jogo', gameFile[1])));
   return req.url.endsWith('/sw.js')
     ? res.writeHead(200, { 'Content-Type': 'text/javascript' }).end(SW)
     : res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(PAGE);
@@ -203,9 +240,9 @@ const site = http.createServer((req, res) => {
     const newPage = browser.newPage.bind(browser);
     browser.newPage = async (opts) => {
       const pg = await newPage(opts);
-      await pg.route('https://jefersonroodrigo-cmyk.github.io/**', (r) =>
-        r.fulfill({ contentType: 'application/json', body: fs.readFileSync(path.join(SITE_DIR, 'version.json')) }),
-      );
+      for (const host of ['https://jefersonroodrigo-cmyk.github.io/**', 'https://jrs-studio.github.io/**']) {
+        await pg.route(host, (r) => r.fulfill({ contentType: 'application/json', body: fs.readFileSync(path.join(SITE_DIR, 'version.json')) }));
+      }
       return pg;
     };
   }
@@ -415,6 +452,99 @@ const site = http.createServer((req, res) => {
     assert.equal(db.posts[0].data.kind, 'promocao');
     await R.getByText('Pé e mão por R$ 60 nesta semana!').first().waitFor();
     await shot('05-publicado');
+  });
+
+  await test('jogo: profissional testa sem pontuar, publica; cliente recebe o aviso, joga e entra no ranking; profissional encerra', async () => {
+    const home = `http://localhost:${site.address().port}${SITE_PATH}`;
+    const fromGame = (frame, score) =>
+      frame.evaluate((sc) => window.parent.postMessage({ source: 'esmalte-express', type: 'result', mode: 'x', score: sc, hands: 3, accuracy: 90 }, '*'), score);
+    // Profissional: o jogo começa só no login dela.
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(1500);
+    await R.getByText('Crie um jogo valendo prêmio para as clientes').click();
+    await wait(800);
+    await R.getByLabel('Prêmio da 1ª colocada').fill('Esmaltação em gel');
+    await R.getByText('Testar o jogo').click();
+    await wait(1500);
+    const gameFrame = async (page) => {
+      const handle = await page.locator('iframe[title="Esmalte Express"]').elementHandle();
+      return handle.contentFrame();
+    };
+    let f = await gameFrame(p);
+    await f.getByText('Modo teste · não vale para o ranking').waitFor();
+    await fromGame(f, 999);
+    await wait(800);
+    assert.equal(db.game_scores.length, 0, 'teste da profissional não vai para o ranking');
+    await shot('20-jogo-teste');
+    await R.getByLabel('Voltar').last().click();
+    await wait(800);
+    assert.equal(db.game_campaigns.length, 0, 'testar não publica nem cria nada para as clientes');
+    await R.getByText('Publicar para as clientes').click();
+    await R.getByText(/Publicar para as clientes\? O anúncio fica fixado/).waitFor();
+    await R.getByText('Publicar', { exact: true }).last().click();
+    await wait(1200);
+    assert.equal(db.game_campaigns.length, 1);
+    assert.equal(db.game_campaigns[0].status, 'publicado');
+    assert.equal(db.game_campaigns[0].data.prize, 'Esmaltação em gel');
+    await R.getByText('Publicado! As clientes já podem ver o jogo.').waitFor();
+
+    // Cliente: aviso da promoção, anúncio fixado, botão na tela inicial, partida valendo e ranking.
+    const cli = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const C = cli.locator('#root');
+    await cli.goto(home, { waitUntil: 'networkidle' });
+    await cli.waitForTimeout(1500);
+    await cli.getByText('Promoção nova no studio').waitFor();
+    await cli.getByText('Depois').click();
+    await C.getByLabel('Conta', { exact: true }).click();
+    await cli.waitForTimeout(400);
+    await C.getByText('Cadastro rápido', { exact: true }).click();
+    await cli.waitForTimeout(400);
+    await C.getByLabel('Nome', { exact: true }).fill('Lúcia Prado');
+    await C.getByLabel('WhatsApp', { exact: true }).fill('11966665555');
+    await C.getByText('Confirmar e entrar').click();
+    await cli.waitForTimeout(1200);
+    await C.getByText(/Concordo com o uso/).click();
+    await C.getByText('Concluir cadastro').click();
+    await cli.waitForTimeout(1200);
+    await cli.goto(home, { waitUntil: 'networkidle' });
+    await cli.waitForTimeout(1500);
+    await C.getByText('Fixado pelo studio').waitFor();
+    await cli.screenshot({ path: path.join(shots, '21-jogo-cliente-feed.png') });
+    await C.getByLabel(/^Jogar Esmalte Express/).click();
+    await cli.waitForTimeout(1000);
+    await C.getByText('Jogar agora · 60s').click();
+    await cli.waitForTimeout(1500);
+    f = await gameFrame(cli);
+    await f.getByText('Valendo para o ranking').waitFor();
+    await fromGame(f, 420);
+    await f.waitForFunction(() => document.getElementById('status').textContent === 'Salvo! Você está em 1º lugar.', null, { timeout: 10000 });
+    assert.equal(db.game_scores.length, 1);
+    assert.equal(db.game_scores[0].best, 420);
+    assert.equal(db.game_scores[0].data.name, 'Lúcia P.');
+    assert.equal(db.game_scores[0].phone, '5511966665555');
+    // Uma partida pior não derruba o recorde.
+    await fromGame(f, 100);
+    await cli.waitForTimeout(1200);
+    assert.equal(db.game_scores[0].best, 420);
+    assert.equal(db.game_scores[0].data.plays, 2);
+    await C.getByLabel('Voltar').last().click();
+    await cli.waitForTimeout(1200);
+    await C.getByText('Lúcia P. (você)').waitFor();
+    await cli.screenshot({ path: path.join(shots, '22-jogo-ranking.png') });
+    await cli.close();
+
+    // Profissional vê o ranking com o WhatsApp e encerra (o anúncio sai do feed).
+    await p.goto(home, { waitUntil: 'networkidle' });
+    await wait(1500);
+    await R.getByText(/^Jogo no ar até/).click();
+    await wait(1200);
+    await R.getByText('Lúcia P.').first().waitFor();
+    await R.getByText('(11) 96666-5555').waitFor();
+    await R.getByText('Encerrar o jogo').click();
+    await R.getByText('Encerrar', { exact: true }).last().click();
+    await wait(1200);
+    assert.equal(db.game_campaigns[0].status, 'encerrado');
+    await shot('23-jogo-encerrado');
   });
 
   await test('visitante vê a publicação mas não curte, não comenta nem compartilha; cliente curte e descurte', async () => {

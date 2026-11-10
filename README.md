@@ -59,6 +59,10 @@ A tela inicial funciona como o perfil de uma rede social:
 - **Tema do app** (`src/theme/themes.ts`): Romântico, Rosé Gold, Nude, Básico e Tecnologia. Cada pessoa escolhe o seu (botão da paleta no topo da tela inicial), salvo no próprio aparelho. O tema da profissional vira o padrão do studio para quem ainda não escolheu. O app recarrega uma vez ao trocar.
 - Sem servidor, a opção de apagar todos os dados do aparelho.
 
+## Jogo valendo prêmio (Esmalte Express)
+
+Em **Ajustes › Jogo valendo prêmio** a profissional escreve o prêmio, as datas de início e fim, salva como rascunho, **testa o jogo** (a pontuação dela nunca vai para o ranking) e toca em **Publicar para as clientes**. Com o jogo aberto, as clientes veem um aviso da promoção ao abrir o app, um botão na tela inicial e um anúncio fixado no topo do feed; quem tem os avisos no celular ligados recebe uma notificação no dia em que o jogo começa. Cada cliente logada joga quantas vezes quiser e vale a maior pontuação; o ranking mostra o Top 5 (com nome curto, sem telefone). A profissional vê o ranking completo com o WhatsApp da 1ª colocada e pode encerrar o jogo a qualquer momento. O jogo fica em `public/jogo/esmalte-express.html` (abre dentro do app na versão web).
+
 ## Avaliações
 
 Na página inicial, **Avaliar** (ou "Como ficaram suas unhas?") abre o formulário: foto do resultado (câmera ou galeria), nota de 1 a 5 estrelas, serviço realizado, comentário e a escolha entre publicar **com o nome** ou como **anônima**. A avaliação aparece no feed da página inicial. A lista completa mostra a média, a distribuição das notas e filtros (com foto, 5 estrelas); a profissional pode remover uma avaliação.

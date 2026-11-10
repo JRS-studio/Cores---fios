@@ -48,4 +48,6 @@ export const STORAGE_KEYS = {
   cashback: 'cores:cashback:v1',
   comments: 'cores:comments:v1',
   cancelRequests: 'cores:pedidos-cancelamento:v1',
+  games: 'cores:jogos:v1',
+  gameScores: 'cores:jogo-pontos:v1',
 };

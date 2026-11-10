@@ -440,4 +440,61 @@ await test('mês seguinte: fechado até a profissional liberar; a cliente nunca 
   await as(owner, ...appt('pm3', '5521999998888', `${fora} 14:00`, `${fora} 15:00`, 'confirmado'));
 });
 
+const camp = (id, status, start, end) => [
+  `insert into game_campaigns (id, status, starts_on, ends_on, data) values ($1, $2, $3, $4, '{"prize":"Gel"}')`, [id, status, start, end]];
+const todayBR = `(now() at time zone 'America/Sao_Paulo')::date`;
+const score = (id, campaign, best) => [
+  `insert into game_scores (id, campaign_id, best, data) values ($1, $2, $3, '{"name":"Ana S."}')
+   on conflict (id) do update set best = excluded.best, data = excluded.data`, [id, campaign, best]];
+await test('jogo: rascunho só a profissional vê; cliente e visitante não veem nem criam', async () => {
+  await as(owner, `insert into game_campaigns (id, status, starts_on, ends_on, data) values ('j1', 'rascunho', ${todayBR}, ${todayBR} + 7, '{}')`);
+  assert.equal((await rows(owner, 'select id from game_campaigns')).length, 1);
+  assert.equal((await rows(ana, 'select id from game_campaigns')).length, 0);
+  assert.equal((await rows('anon', 'select id from game_campaigns')).length, 0);
+  assert.ok(await fails(ana, ...camp('j2', 'publicado', '2026-01-01', '2026-12-31')));
+});
+await test('jogo: em rascunho ninguém pontua (o teste da profissional não vai para o ranking)', async () => {
+  assert.ok(await fails(ana, ...score('j1:5511987654321', 'j1', 100)));
+  // A profissional não tem número de cliente: nem com o jogo publicado ela entra no ranking como jogadora.
+  await as(owner, `update game_campaigns set status = 'publicado' where id = 'j1'`);
+  assert.ok(await fails({ sub: OWNER }, `insert into game_scores (id, campaign_id, best, data) values ('j1:x', 'j1', 999, '{}')`));
+});
+await test('jogo: publicado, a cliente vê, pontua e melhora só a própria pontuação', async () => {
+  const c = (await rows(ana, 'select status, published_at, announced_at from game_campaigns'))[0];
+  assert.equal(c.status, 'publicado');
+  assert.ok(c.published_at);
+  assert.equal(c.announced_at, null);
+  await as(ana, ...score('j1:5511987654321', 'j1', 120));
+  await as(ana, ...score('j1:5511987654321', 'j1', 300));
+  await as(bia, ...score('j1:5521999998888', 'j1', 200));
+  // Bia não consegue mexer na pontuação da Ana nem gravar no número dela.
+  await as(bia, `update game_scores set best = 1 where id = 'j1:5511987654321'`);
+  assert.ok(await fails(bia, `insert into game_scores (id, campaign_id, phone, best, data) values ('j1:fake', 'j1', '5511987654321', 5000, '{}')`));
+  assert.ok(await fails(ana, ...score('j1:5511987654321', 'j1', 999999)));
+  assert.equal((await rows(owner, `select best from game_scores where id = 'j1:5511987654321'`))[0].best, 300);
+  assert.equal((await rows(bia, 'select * from game_scores')).length, 1);
+});
+await test('jogo: ranking mostra nome e pontos, sem telefone, e marca a própria linha', async () => {
+  const r = await rows(bia, `select * from game_ranking('j1')`);
+  assert.deepEqual(r.map((x) => [x.pos, x.best, x.mine]), [[1, 300, false], [2, 200, true]]);
+  assert.ok(!Object.keys(r[0]).includes('phone'));
+  assert.equal((await rows('anon', `select * from game_ranking('j1')`)).length, 2);
+});
+await test('jogo: fora das datas ou encerrado, ninguém pontua', async () => {
+  await as(owner, `update game_campaigns set starts_on = ${todayBR} + 1, ends_on = ${todayBR} + 3 where id = 'j1'`);
+  assert.ok(await fails(ana, ...score('j1:5511987654321', 'j1', 400)));
+  await as(owner, `update game_campaigns set starts_on = ${todayBR}, ends_on = ${todayBR} + 3, status = 'encerrado' where id = 'j1'`);
+  assert.ok(await fails(ana, ...score('j1:5511987654321', 'j1', 400)));
+  assert.equal((await rows('anon', `select * from game_ranking('j1')`)).length, 2);
+});
+await test('jogo: notificação da promoção vai só para celulares de clientes, uma vez', async () => {
+  await as(owner, `update game_campaigns set status = 'publicado' where id = 'j1'`);
+  assert.ok(await fails(ana, `select * from due_game_announcements()`));
+  const due = await rows('service', `select campaign_id, endpoint from due_game_announcements()`);
+  assert.ok(due.length >= 1);
+  assert.ok(due.every((d) => d.campaign_id === 'j1'));
+  await as('service', `select mark_game_announced(array['j1'])`);
+  assert.equal((await rows('service', `select * from due_game_announcements()`)).length, 0);
+});
+
 console.log(`\n${passed} testes passaram.`);
